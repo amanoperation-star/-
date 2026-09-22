@@ -1,0 +1,6 @@
+{
+  "name": "منظومة متابعة وتتبع المشاكل والطلبات المؤسسية",
+  "description": "منصة متقدمة لإدارة وتتبع التذاكر والمشاكل التقنية، قياس SLA، متابعة رضا العملاء CSAT، والتكامل السحابي.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,347 @@
+import { Issue, AppUser, CategoryRule, AuditLog, SoundSettings } from '../types';
+import { calculateDueDate } from './sla';
+import { getDefaultPermissionsForRole } from './permissions';
+
+export const INITIAL_USERS: AppUser[] = [
+  {
+    id: 'usr-1',
+    name: 'أحمد العتيبي',
+    username: 'admin',
+    email: 'admin@company.com',
+    role: 'Admin',
+    department: 'الإدارة العليا / IT Operations',
+    avatar: 'أ',
+    permissions: getDefaultPermissionsForRole('Admin'),
+  },
+  {
+    id: 'usr-2',
+    name: 'محمد علي',
+    username: 'agent1',
+    email: 'agent1@company.com',
+    role: 'Agent',
+    department: 'فريق الدعم البرمجي',
+    avatar: 'م',
+    permissions: getDefaultPermissionsForRole('Agent'),
+  },
+  {
+    id: 'usr-3',
+    name: 'سارة خالد',
+    username: 'agent2',
+    email: 'sara@company.com',
+    role: 'Supervisor',
+    department: 'خدمة العملاء واللوجستيات',
+    avatar: 'س',
+    permissions: getDefaultPermissionsForRole('Supervisor'),
+  },
+  {
+    id: 'usr-4',
+    name: 'عمر اليافعي',
+    username: 'agent3',
+    email: 'omar@company.com',
+    role: 'Agent',
+    department: 'البنية التحتية والشبكات',
+    avatar: 'ع',
+    permissions: getDefaultPermissionsForRole('Agent'),
+  },
+];
+
+export const INITIAL_CATEGORIES: CategoryRule[] = [
+  {
+    id: 'cat-1',
+    name: 'تقني / Technical',
+    assignedTeam: 'فريق الدعم البرمجي',
+    defaultOwner: 'محمد علي',
+    description: 'معالجة الأخطاء البرمجية، تكامل واجهات API، والمشاكل التقنية في الأنظمة.',
+    color: 'indigo',
+    active: true,
+    routingStrategy: 'direct',
+    keywords: ['خطأ', 'API', 'Bug', 'كود', 'برمجة', 'قاعدة بيانات'],
+    escalationEmail: 'tech-escalation@company.com',
+    businessHoursOnly: false,
+    slaHours: { Critical: 3, High: 8, Medium: 24, Low: 48 },
+  },
+  {
+    id: 'cat-2',
+    name: 'بنية تحتية وشبكات / Infrastructure',
+    assignedTeam: 'فريق الشبكات والسيرفرات',
+    defaultOwner: 'عمر اليافعي',
+    description: 'متابعة السيرفرات السحابية، أمان الشبكات، التخزين ومراكز البيانات.',
+    color: 'cyan',
+    active: true,
+    routingStrategy: 'least_busy',
+    keywords: ['سيرفر', 'شبكة', 'Cloud', 'استضافة', 'بطء', 'VPN', 'انقطاع'],
+    escalationEmail: 'devops-lead@company.com',
+    businessHoursOnly: false,
+    slaHours: { Critical: 2, High: 6, Medium: 12, Low: 36 },
+  },
+  {
+    id: 'cat-3',
+    name: 'مالي واشتراكات / Financial',
+    assignedTeam: 'الإدارة المالية',
+    defaultOwner: 'أحمد العتيبي',
+    description: 'عمليات الدفع، الفواتير الضريبية، الاشتراكات والتحويلات البنكية.',
+    color: 'amber',
+    active: true,
+    routingStrategy: 'direct',
+    keywords: ['فاتورة', 'دفع', 'سداد', 'اشتراك', 'ضريبة', 'تحويل', 'استرجاع'],
+    escalationEmail: 'finance-alerts@company.com',
+    businessHoursOnly: true,
+    slaHours: { Critical: 4, High: 12, Medium: 24, Low: 48 },
+  },
+  {
+    id: 'cat-4',
+    name: 'خدمة عملاء / Customer Service',
+    assignedTeam: 'فريق تجربة العميل',
+    defaultOwner: 'سارة خالد',
+    description: 'الاستفسارات العامة، متابعة شكاوى العملاء، وتحديث بيانات الحسابات.',
+    color: 'emerald',
+    active: true,
+    routingStrategy: 'round_robin',
+    keywords: ['استفسار', 'شكوى', 'عميل', 'حساب', 'تحديث', 'دعم'],
+    escalationEmail: 'cs-manager@company.com',
+    businessHoursOnly: true,
+    slaHours: { Critical: 4, High: 10, Medium: 20, Low: 48 },
+  },
+];
+
+export const INITIAL_TAGS: string[] = [
+  'VIP Client',
+  'Hardware',
+  'Software Bug',
+  'Database',
+  'Payment Gateway',
+  'Cloud Server',
+  'Security & Auth',
+  'UI/UX Issue',
+];
+
+export const INITIAL_CANNED_RESPONSES: string[] = [
+  'تمت المعالجة الفنية وإعادة الخدمة للعمل بكفاءة 100%.',
+  'تم إصلاح الخلل البرمجي وإجراء اختبار شامل للوظيفة مع العميل.',
+  'المشكلة ناتجة عن خطأ في مدخلات المستخدم، تم تصحيح البيانات والتواصل معه.',
+  'تم تحويل الطلب للفريق الهندسي المختص وتحديث الصلاحيات بنجاح.',
+  'تم التحقق من استقرار السيرفر وعودة استجابة الـ API للمعدل الطبيعي.',
+];
+
+export const INITIAL_SOUND_SETTINGS: SoundSettings = {
+  muted: false,
+  alarmUrl: 'https://assets.mixkit.co/active_storage/sfx/995/995-preview.mp3',
+  alarmStyle: 'pulse-red',
+  volume: 0.8,
+};
+
+const now = new Date();
+const fourHoursAgo = new Date(now.getTime() - 4 * 60 * 60 * 1000).toISOString();
+const twoDaysAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString();
+const thirtyMinsAgo = new Date(now.getTime() - 30 * 60 * 1000).toISOString();
+const oneDayAgo = new Date(now.getTime() - 25 * 60 * 60 * 1000).toISOString();
+
+export const INITIAL_ISSUES: Issue[] = [
+  {
+    id: 'INC-1001',
+    client: 'شركة الأمل الدولية للتقنية',
+    clientEmail: 'contact@alamal-tech.com',
+    clientPhone: '+966 50 123 4567',
+    tag: 'VIP Client',
+    type: 'تقني / Technical',
+    desc: 'توقف مفاجئ في بوابة الدفع الإلكتروني عند محاولة المستخدمين سداد الفواتير الشهرية وظهور خطأ 502 Bad Gateway.',
+    assigned: 'فريق الدعم البرمجي',
+    owner: 'محمد علي',
+    priority: 'Critical',
+    status: 'In Progress',
+    createdAt: fourHoursAgo,
+    dueDate: calculateDueDate(fourHoursAgo, 'Critical', 3), // Already breached (4h > 3h)
+    workTime: 3840,
+    isWorkingNow: false,
+    activeWorker: null,
+    csat: 5,
+    comments: [
+      {
+        id: 'c-1',
+        user: 'محمد علي',
+        text: 'تم فحص سجلات Nginx وتبيّن وجود ضغط مفاجئ على microservice السداد. جاري إعادة تشغيل الحاوية وتوسيع الذاكرة.',
+        time: 'منذ ساعتين',
+      },
+    ],
+    timeline: [
+      {
+        id: 't-1',
+        time: 'منذ 4 ساعات',
+        actor: 'النظام',
+        title: 'إنشاء التذكرة',
+        details: 'تم استلام البلاغ برقم INC-1001 وتعيينه تلقائياً لمحمد علي بالأولوية الحرج.',
+        type: 'create',
+      },
+      {
+        id: 't-2',
+        time: 'منذ 3 ساعات',
+        actor: 'محمد علي',
+        title: 'تغيير الحالة إلى قيد العمل',
+        details: 'تم بدء التحقيق البرمجي في بوابة الدفع.',
+        type: 'status',
+      },
+      {
+        id: 't-3',
+        time: 'منذ ساعة',
+        actor: 'النظام الذكي (SLA Watcher)',
+        title: 'تجاوز اتفاقية مستوى الخدمة SLA ⚠️',
+        details: 'تجاوزت التذكرة حد 3 ساعات المسموح به للأولوية الحرجة دون إغلاق نهائي.',
+        type: 'sla',
+      },
+    ],
+  },
+  {
+    id: 'INC-1002',
+    client: 'مستشفى السلام التخصصي',
+    clientEmail: 'support@alsalam-med.org',
+    clientPhone: '+966 55 987 6543',
+    tag: 'Cloud Server',
+    type: 'بنية تحتية وشبكات / Infrastructure',
+    desc: 'بطء ملحوظ في استرجاع سجلات المرضى على قاعدة بيانات السحابة خلال فترة الذروة الصباحية.',
+    assigned: 'فريق الشبكات والسيرفرات',
+    owner: 'عمر اليافعي',
+    priority: 'High',
+    status: 'Open',
+    createdAt: thirtyMinsAgo,
+    dueDate: calculateDueDate(thirtyMinsAgo, 'High', 6),
+    workTime: 1200,
+    isWorkingNow: false,
+    activeWorker: null,
+    csat: 4,
+    comments: [
+      {
+        id: 'c-2',
+        user: 'عمر اليافعي',
+        text: 'تم ملاحظة CPU spike بنسبة 94% بسبب استعلام إحصائي غير مفهرس على جدول المواعيد.',
+        time: 'منذ 15 دقيقة',
+      },
+    ],
+    timeline: [
+      {
+        id: 't-4',
+        time: 'منذ 30 دقيقة',
+        actor: 'النظام',
+        title: 'إنشاء التذكرة',
+        details: 'تسجيل بلاغ بطء السيرفرات وإسنادها إلى عمر اليافعي.',
+        type: 'create',
+      },
+    ],
+  },
+  {
+    id: 'INC-1003',
+    client: 'مجموعة الميرا للحلول اللوجستية',
+    clientEmail: 'ops@almeera-logistics.sa',
+    tag: 'Payment Gateway',
+    type: 'مالي واشتراكات / Financial',
+    desc: 'طلب تعديل الدورة الفوترية وترقية باقة الاشتراك السنوية مع إضافة 15 مستخدماً إضافياً.',
+    assigned: 'الإدارة المالية',
+    owner: 'أحمد العتيبي',
+    priority: 'Medium',
+    status: 'Resolved',
+    createdAt: twoDaysAgo,
+    dueDate: calculateDueDate(twoDaysAgo, 'Medium', 24),
+    workTime: 5400,
+    resolutionReason: 'تم إصدار الفاتورة المحدثة وتفعيل التراخيص الإضافية للعميل مع اعتماد الخصم السنوي.',
+    resolvedAt: oneDayAgo,
+    csat: 5,
+    comments: [
+      {
+        id: 'c-3',
+        user: 'أحمد العتيبي',
+        text: 'تم تجهيز عرض السعر المعدل وإرساله للمدير المالي لاعتماده.',
+        time: 'أمس الساعة 11:00 ص',
+      },
+      {
+        id: 'c-4',
+        user: 'النظام',
+        text: '🔒 تم إغلاق وحل التذكرة بنجاح من قبل أحمد العتيبي.',
+        time: 'أمس الساعة 03:30 م',
+      },
+    ],
+    timeline: [
+      {
+        id: 't-5',
+        time: 'منذ يومين',
+        actor: 'النظام',
+        title: 'إنشاء التذكرة',
+        details: 'تم استلام طلب ترقية الحساب.',
+        type: 'create',
+      },
+      {
+        id: 't-6',
+        time: 'منذ يوم',
+        actor: 'أحمد العتيبي',
+        title: 'حل وإغلاق المشكلة',
+        details: 'تم إصدار الفاتورة المحدثة وتفعيل التراخيص بنجاح.',
+        type: 'resolve',
+      },
+    ],
+  },
+  {
+    id: 'INC-1004',
+    client: 'منصة تداول العقارات الذكية',
+    clientEmail: 'info@aqar-smart.com',
+    tag: 'Software Bug',
+    type: 'خدمة عملاء / Customer Service',
+    desc: 'عدم وصول رسائل التفعيل OTP لبعض المشتركين الجدد عبر مزود خدمة الرسائل القصيرة.',
+    assigned: 'فريق تجربة العميل',
+    owner: 'سارة خالد',
+    priority: 'High',
+    status: 'Pending',
+    createdAt: oneDayAgo,
+    dueDate: calculateDueDate(oneDayAgo, 'High', 10), // Overdue!
+    workTime: 2300,
+    csat: 3,
+    comments: [
+      {
+        id: 'c-5',
+        user: 'سارة خالد',
+        text: 'تم فتح تذكرة مع مزود بوابة الـ SMS وبانتظار رد المهندس المسؤول حول حظر بعض النطاقات.',
+        time: 'منذ 18 ساعة',
+      },
+    ],
+    timeline: [
+      {
+        id: 't-7',
+        time: 'منذ 25 ساعة',
+        actor: 'النظام',
+        title: 'إنشاء التذكرة',
+        details: 'تسجيل بلاغ رسائل الـ SMS.',
+        type: 'create',
+      },
+      {
+        id: 't-8',
+        time: 'منذ 20 ساعة',
+        actor: 'سارة خالد',
+        title: 'تعليق التذكرة (Pending)',
+        details: 'التذكرة معلقة بانتظار رد مزود بوابة الرسائل.',
+        type: 'status',
+      },
+      {
+        id: 't-9',
+        time: 'منذ 15 ساعة',
+        actor: 'SLA Guard',
+        title: 'تجاوز الـ SLA ⚠️',
+        details: 'تجاوزت التذكرة 10 ساعات في حالة المعلقة.',
+        type: 'sla',
+      },
+    ],
+  },
+];
+
+export const INITIAL_AUDIT_LOGS: AuditLog[] = [
+  {
+    id: 'a-1',
+    time: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+    user: 'أحمد العتيبي (مدير النظام)',
+    action: 'تهيئة النظام المتطور',
+    details: 'تم تشغيل النسخة المؤسسية المحسنة مع تصحيح عداد الوقت ومنظومة SLA الدقيقة.',
+  },
+  {
+    id: 'a-2',
+    time: 'منذ 3 ساعات',
+    user: 'محمد علي',
+    action: 'تحديث حالة تذكرة',
+    details: 'بدء العمل على تذكرة بوابة الدفع INC-1001 وتفعيل التتبع الزمني.',
+  },
+];

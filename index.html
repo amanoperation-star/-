@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>منظومة متابعة وتتبع المشاكل والطلبات المؤسسية</title>
+    <meta name="description" content="منصة متقدمة لإدارة وتتبع التذاكر والمشاكل التقنية، قياس SLA، متابعة رضا العملاء CSAT، والتكامل السحابي." />
+    <meta property="og:title" content="منظومة متابعة وتتبع المشاكل والطلبات المؤسسية" />
+    <meta property="og:description" content="منصة متقدمة لإدارة وتتبع التذاكر والمشاكل التقنية، قياس SLA، متابعة رضا العملاء CSAT، والتكامل السحابي." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script>
+      (function() {
+        try {
+          const theme = localStorage.getItem('ENTERPRISE_THEME') || 'light';
+          if (theme === 'dark') {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen selection:bg-indigo-500 selection:text-white antialiased font-['Cairo',sans-serif] transition-colors duration-150">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
