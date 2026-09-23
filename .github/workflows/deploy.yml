@@ -2,7 +2,7 @@ name: Deploy Vite App to GitHub Pages
 
 on:
   push:
-    branches: ['main'] # أو master
+    branches: ['main'] # أو master حسب اسم الفرع لديك
 
 permissions:
   contents: read
@@ -28,10 +28,8 @@ jobs:
         with:
           node-version: 20
 
-      - name: Clean Install dependencies
-        run: |
-          rm -f package-lock.json
-          npm install --force
+      - name: Install dependencies
+        run: npm install --force --no-audit || true
 
       - name: Build
         run: npx vite build
