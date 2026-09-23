@@ -2,6 +2,12 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+@layer base {
+  html {
+    font-family: 'Cairo', sans-serif;
+  }
+}
+
 /* Custom scrollbars that adapt to light and dark theme */
 ::-webkit-scrollbar {
   width: 6px;
