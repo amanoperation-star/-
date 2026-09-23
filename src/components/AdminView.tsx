@@ -21,12 +21,14 @@ import {
   CheckSquare,
   Square,
   SlidersHorizontal,
+  Sliders,
   X
 } from 'lucide-react';
-import { AppUser, CategoryRule, SoundSettings, SupabaseConfig, AuditLog, Issue, Priority } from '../types';
+import { AppUser, CategoryRule, SoundSettings, SupabaseConfig, AuditLog, Issue, Priority, GeneralSettings } from '../types';
 import { exportTicketsToCSV, exportTicketsToJSON } from '../utils/export';
 import { ALL_PERMISSIONS, getDefaultPermissionsForRole } from '../utils/permissions';
 import { CategoriesManagementView } from './CategoriesManagementView';
+import { GeneralSettingsTab } from './GeneralSettingsTab';
 
 interface AdminViewProps {
   users: AppUser[];
@@ -55,7 +57,9 @@ interface AdminViewProps {
   auditLogs: AuditLog[];
   onClearAuditLogs: () => void;
   issues: Issue[];
-  initialTab?: 'users' | 'tags' | 'audio' | 'reports' | 'categories' | 'canned' | 'supabase' | 'csat' | 'audit';
+  generalSettings?: GeneralSettings;
+  onUpdateGeneralSettings?: (settings: GeneralSettings) => void;
+  initialTab?: 'general' | 'users' | 'tags' | 'audio' | 'reports' | 'categories' | 'canned' | 'supabase' | 'csat' | 'audit';
 }
 
 export const AdminView: React.FC<AdminViewProps> = ({
@@ -85,10 +89,12 @@ export const AdminView: React.FC<AdminViewProps> = ({
   auditLogs,
   onClearAuditLogs,
   issues,
+  generalSettings,
+  onUpdateGeneralSettings,
   initialTab,
 }) => {
-  const [adminTab, setAdminTab] = useState<'users' | 'tags' | 'audio' | 'reports' | 'categories' | 'canned' | 'supabase' | 'csat' | 'audit'>(
-    initialTab || 'users'
+  const [adminTab, setAdminTab] = useState<'general' | 'users' | 'tags' | 'audio' | 'reports' | 'categories' | 'canned' | 'supabase' | 'csat' | 'audit'>(
+    initialTab || 'general'
   );
 
   React.useEffect(() => {
@@ -214,6 +220,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
       {/* Sub Tabs */}
       <div className="flex border-b border-slate-200 dark:border-slate-700/80 gap-2 overflow-x-auto text-xs font-bold pb-1">
         {[
+          { id: 'general', label: 'الإعدادات العامة والهوية ⚙️', icon: Sliders, color: 'text-indigo-600 dark:text-indigo-400' },
           { id: 'users', label: 'إدارة الحسابات', icon: Users, color: 'text-indigo-600 dark:text-indigo-400' },
           { id: 'tags', label: 'الوسوم (Tags)', icon: TagIcon, color: 'text-amber-600 dark:text-amber-400' },
           { id: 'audio', label: 'الصوت والإنذار 🔔', icon: Volume2, color: 'text-rose-600 dark:text-rose-400' },
@@ -242,6 +249,14 @@ export const AdminView: React.FC<AdminViewProps> = ({
           );
         })}
       </div>
+
+      {/* 0. GENERAL SETTINGS TAB */}
+      {adminTab === 'general' && generalSettings && onUpdateGeneralSettings && (
+        <GeneralSettingsTab
+          generalSettings={generalSettings}
+          onUpdateGeneralSettings={onUpdateGeneralSettings}
+        />
+      )}
 
       {/* 1. USERS TAB */}
       {adminTab === 'users' && (

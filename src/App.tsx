@@ -17,7 +17,8 @@ import {
   AuditLog, 
   NotificationItem, 
   IssueStatus,
-  Priority
+  Priority,
+  GeneralSettings
 } from './types';
 import { 
   INITIAL_ISSUES, 
@@ -26,7 +27,8 @@ import {
   INITIAL_TAGS, 
   INITIAL_CANNED_RESPONSES, 
   INITIAL_SOUND_SETTINGS,
-  INITIAL_AUDIT_LOGS 
+  INITIAL_AUDIT_LOGS,
+  INITIAL_GENERAL_SETTINGS
 } from './utils/mockData';
 import { isTicketSlaBreached, calculateDueDate } from './utils/sla';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
@@ -109,6 +111,15 @@ export default function App() {
     }
   });
 
+  const [generalSettings, setGeneralSettings] = useState<GeneralSettings>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY + '_GENERAL');
+      return saved ? JSON.parse(saved) : INITIAL_GENERAL_SETTINGS;
+    } catch {
+      return INITIAL_GENERAL_SETTINGS;
+    }
+  });
+
   const [notifications, setNotifications] = useState<NotificationItem[]>([
     {
       id: 'notif-sla-1',
@@ -146,7 +157,7 @@ export default function App() {
 
   // Tab & Navigation
   const [currentTab, setCurrentTab] = useState<'dashboard' | 'issues' | 'admin'>('dashboard');
-  const [adminSubTab, setAdminSubTab] = useState<'users' | 'tags' | 'audio' | 'reports' | 'categories' | 'canned' | 'supabase' | 'csat' | 'audit'>('categories');
+  const [adminSubTab, setAdminSubTab] = useState<'general' | 'users' | 'tags' | 'audio' | 'reports' | 'categories' | 'canned' | 'supabase' | 'csat' | 'audit'>('general');
   const [initialFilterStatus, setInitialFilterStatus] = useState<string>('ALL');
 
   // Modals state
@@ -206,10 +217,11 @@ export default function App() {
       localStorage.setItem(STORAGE_KEY + '_SOUND', JSON.stringify(soundSettings));
       localStorage.setItem(STORAGE_KEY + '_SUPABASE', JSON.stringify(supabaseConfig));
       localStorage.setItem(STORAGE_KEY + '_AUDIT', JSON.stringify(auditLogs));
+      localStorage.setItem(STORAGE_KEY + '_GENERAL', JSON.stringify(generalSettings));
     } catch (e) {
       console.warn('LocalStorage Quota Warning (Settings)', e);
     }
-  }, [users, categories, tags, cannedResponses, soundSettings, supabaseConfig, auditLogs]);
+  }, [users, categories, tags, cannedResponses, soundSettings, supabaseConfig, auditLogs, generalSettings]);
 
   // Initialize Supabase if config is valid
   useEffect(() => {
@@ -287,6 +299,24 @@ export default function App() {
       details,
     };
     setAuditLogs((prev) => [newLog, ...prev.slice(0, 99)]);
+  };
+
+  // Notification helper
+  const addNotification = (
+    title: string,
+    desc: string,
+    ticketId?: string,
+    type: 'danger' | 'warning' | 'info' = 'info'
+  ) => {
+    const newNotif: NotificationItem = {
+      id: `notif-${Date.now()}`,
+      title,
+      desc,
+      time: 'الآن',
+      type,
+      ticketId,
+    };
+    setNotifications((prev) => [newNotif, ...prev.slice(0, 49)]);
   };
 
   // Add or Update Ticket
@@ -1041,6 +1071,7 @@ export default function App() {
         }}
         theme={theme}
         onToggleTheme={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
+        generalSettings={generalSettings}
       />
 
       {/* Main Content Area */}
@@ -1114,21 +1145,41 @@ export default function App() {
             auditLogs={auditLogs}
             onClearAuditLogs={() => setAuditLogs([])}
             issues={issues}
+            generalSettings={generalSettings}
+            onUpdateGeneralSettings={setGeneralSettings}
           />
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 py-4 px-4 text-center text-xs text-slate-500 dark:text-slate-400 transition-colors duration-150">
-        <div className="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-2">
-          <span className="font-medium">منظومة إدارة وتتبع المشاكل والطلبات المؤسسية (Enterprise Issue Tracker Pro)</span>
-          <div className="flex items-center gap-3">
-            <span>حالة المهام: {breachedCount > 0 ? `⚠️ ${breachedCount} متأخرة عن SLA` : '🟢 كل التذاكر ملتزمة باتفاقية الخدمة'}</span>
-            <span>•</span>
-            <span className="text-slate-400 dark:text-slate-600">v8.4 Production</span>
+      {/* Footer with Dynamic Copyright & Custom Note */}
+      {generalSettings.showFooterCopyright !== false && (
+        <footer className="border-t border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 py-4 px-4 text-center text-xs text-slate-500 dark:text-slate-400 transition-colors duration-150">
+          <div className="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-2">
+            <div className="flex items-center gap-2 text-right">
+              <span className="font-bold text-slate-700 dark:text-slate-300">
+                {generalSettings.copyrightText || 'جميع الحقوق محفوظة'}
+              </span>
+              {generalSettings.companyName && (
+                <>
+                  <span className="text-slate-300 dark:text-slate-700">•</span>
+                  <span className="font-semibold text-slate-600 dark:text-slate-400">{generalSettings.companyName}</span>
+                </>
+              )}
+              {generalSettings.customFooterNote && (
+                <>
+                  <span className="text-slate-300 dark:text-slate-700 hidden sm:inline">•</span>
+                  <span className="text-slate-400 dark:text-slate-500 hidden sm:inline">{generalSettings.customFooterNote}</span>
+                </>
+              )}
+            </div>
+            <div className="flex items-center gap-3">
+              <span>حالة المهام: {breachedCount > 0 ? `⚠️ ${breachedCount} متأخرة عن SLA` : '🟢 كل التذاكر ملتزمة باتفاقية الخدمة'}</span>
+              <span>•</span>
+              <span className="text-slate-400 dark:text-slate-600">v8.4 Production</span>
+            </div>
           </div>
-        </div>
-      </footer>
+        </footer>
+      )}
 
       {/* Modals */}
       <IssueModal
@@ -1184,7 +1235,11 @@ export default function App() {
         issues={issues}
         onOpenTicketDetails={handleOpenTicketDetails}
         onOpenNewTicketForClient={(name, phone, email) => {
-          setEditingIssue(null);
+          setEditingIssue({
+            client: name,
+            clientPhone: phone,
+            clientEmail: email,
+          } as any);
           setShowIssueModal(true);
         }}
       />

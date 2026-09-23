@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { Issue } from '../types';
 import { formatSecondsToHMS } from '../utils/sla';
+import { PriorityBadge, StatusBadge } from './Badges';
 
 interface CustomerModalProps {
   isOpen: boolean;
@@ -388,29 +389,9 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                          ticket.priority === 'Critical'
-                            ? 'bg-rose-100 dark:bg-rose-950/70 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800'
-                            : ticket.priority === 'High'
-                            ? 'bg-amber-100 dark:bg-amber-950/70 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
-                            : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
-                        }`}
-                      >
-                        {ticket.priority}
-                      </span>
-                      <span
-                        className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
-                          ticket.status === 'Resolved' || ticket.status === 'Closed'
-                            ? 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
-                            : ticket.status === 'In Progress'
-                            ? 'bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800'
-                            : 'bg-amber-100 dark:bg-amber-950/70 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
-                        }`}
-                      >
-                        {ticket.status}
-                      </span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <PriorityBadge priority={ticket.priority} size="sm" />
+                      <StatusBadge status={ticket.status} size="sm" />
                     </div>
                   </div>
                 ))

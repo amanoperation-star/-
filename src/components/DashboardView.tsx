@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Issue, AppUser, CategoryRule } from '../types';
 import { isTicketSlaBreached, formatSecondsToHMS } from '../utils/sla';
+import { PriorityBadge } from './Badges';
 
 interface DashboardViewProps {
   issues: Issue[];
@@ -332,9 +333,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       >
                         {item.client}
                       </span>
-                      <span className="text-[10px] bg-rose-100 dark:bg-rose-900/60 text-rose-700 dark:text-rose-300 px-2 py-0.5 rounded-full font-bold">
-                        {item.priority}
-                      </span>
+                      <PriorityBadge priority={item.priority} size="sm" showEnglish={false} />
                     </div>
                     <p className="text-[11px] text-slate-600 dark:text-slate-400 truncate max-w-sm">{item.desc}</p>
                     <span className="text-[10px] text-amber-700 dark:text-amber-400 block font-semibold">المسؤول: {item.owner}</span>

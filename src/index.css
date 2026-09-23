@@ -1,33 +1,30 @@
 @import "tailwindcss";
 
-@layer base {
-  /* Custom scrollbars that adapt to light and dark theme */
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
+@custom-variant dark (&:where(.dark, .dark *));
 
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  ::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 9999px;
-  }
-
-  .dark ::-webkit-scrollbar-thumb {
-    background: #334155;
-  }
-
-  ::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
-  }
-
-  .dark ::-webkit-scrollbar-thumb:hover {
-    background: #475569;
-  }
+/* Custom scrollbars that adapt to light and dark theme */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
 }
 
-/* دعم الوضع الليلي المخصص (Dark Mode) */
-@custom-variant dark (&:where(.dark, .dark *));
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}

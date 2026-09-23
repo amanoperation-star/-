@@ -117,3 +117,18 @@ export interface SupabaseConfig {
   connected: boolean;
   lastSync?: string;
 }
+
+export interface GeneralSettings {
+  appName: string;
+  appBadge: string;
+  appSubtitle: string;
+  companyName: string;
+  copyrightText: string;
+  appLogoIcon: string; // e.g. 'Headset' | 'ShieldCheck' | 'Briefcase' | 'Cpu' | 'LifeBuoy' | 'Sparkles'
+  headerColorPreset: string; // 'indigo-emerald' | 'blue-cyan' | 'violet-fuchsia' | 'rose-orange' | 'amber-yellow' | 'emerald-teal'
+  showBadge: boolean;
+  showSubtitle: boolean;
+  showFooterCopyright: boolean;
+  customFooterNote: string;
+}
+

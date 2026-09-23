@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { Issue, AppUser } from '../types';
 import { formatSecondsToHMS, isTicketSlaBreached, getRemainingTimeFormatted } from '../utils/sla';
+import { PriorityBadge, StatusBadge } from './Badges';
 
 interface DetailsModalProps {
   isOpen: boolean;
@@ -274,14 +275,18 @@ export const DetailsModal: React.FC<DetailsModalProps> = ({
           </div>
 
           {/* Metadata Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 bg-slate-50 dark:bg-slate-800/80 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700/80">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 bg-slate-50 dark:bg-slate-800/80 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700/80 items-center">
             <div>
-              <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-semibold">الأولوية</span>
-              <span className="font-bold text-slate-900 dark:text-white text-xs">{issue.priority}</span>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-semibold mb-1">الأولوية</span>
+              <div>
+                <PriorityBadge priority={issue.priority} size="sm" />
+              </div>
             </div>
             <div>
-              <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-semibold">الحالة الحالية</span>
-              <span className="font-bold text-slate-900 dark:text-white text-xs">{issue.status}</span>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-semibold mb-1">الحالة الحالية</span>
+              <div>
+                <StatusBadge status={issue.status} size="sm" />
+              </div>
             </div>
             <div>
               <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-semibold">المسؤول المباشر</span>

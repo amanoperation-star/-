@@ -17,6 +17,7 @@ import {
 import { Issue, AppUser, Priority, IssueStatus } from '../types';
 import { isTicketSlaBreached, getRemainingTimeFormatted, formatSecondsToHMS } from '../utils/sla';
 import { exportTicketsToCSV } from '../utils/export';
+import { PriorityBadge, StatusBadge } from './Badges';
 
 interface IssuesViewProps {
   issues: Issue[];
@@ -110,33 +111,9 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
     }
   };
 
-  const getPriorityBadge = (p: Priority) => {
-    switch (p) {
-      case 'Critical':
-        return <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-700 dark:bg-rose-600/20 dark:text-rose-400 border border-rose-200 dark:border-rose-600/30">🔴 Critical</span>;
-      case 'High':
-        return <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30">🟠 High</span>;
-      case 'Medium':
-        return <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-yellow-100 text-yellow-800 dark:bg-yellow-500/20 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-500/30">🟡 Medium</span>;
-      case 'Low':
-        return <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30">🟢 Low</span>;
-    }
-  };
+  const getPriorityBadge = (p: Priority) => <PriorityBadge priority={p} />;
 
-  const getStatusBadge = (st: IssueStatus) => {
-    switch (st) {
-      case 'Open':
-        return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300 border border-rose-200 dark:border-rose-500/30">مفتوحة (Open)</span>;
-      case 'In Progress':
-        return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30">قيد العمل (In Progress)</span>;
-      case 'Pending':
-        return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300 border border-amber-200 dark:border-amber-500/30">معلقة (Pending)</span>;
-      case 'Resolved':
-        return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30">تم الحل (Resolved)</span>;
-      case 'Closed':
-        return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600">مغلقة (Closed)</span>;
-    }
-  };
+  const getStatusBadge = (st: IssueStatus) => <StatusBadge status={st} />;
 
   return (
     <div className="space-y-4">
@@ -297,10 +274,10 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
                 <th className="p-3.5">نوع المشكلة</th>
                 <th className="p-3.5 max-w-xs">وصف المشكلة</th>
                 <th className="p-3.5">المُسنَد إليه</th>
-                <th className="p-3.5">وقت العمل</th>
-                <th className="p-3.5">الأولوية</th>
-                <th className="p-3.5">الحالة</th>
-                <th className="p-3.5">اتفاقية SLA</th>
+                <th className="p-3.5 whitespace-nowrap">وقت العمل</th>
+                <th className="p-3.5 whitespace-nowrap">الأولوية</th>
+                <th className="p-3.5 whitespace-nowrap">الحالة</th>
+                <th className="p-3.5 whitespace-nowrap">اتفاقية SLA</th>
                 <th className="p-3.5 text-center">الإجراءات</th>
               </tr>
             </thead>
@@ -431,10 +408,10 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
                       </td>
 
                       {/* Priority */}
-                      <td className="p-3.5">{getPriorityBadge(item.priority)}</td>
+                      <td className="p-3.5 whitespace-nowrap">{getPriorityBadge(item.priority)}</td>
 
                       {/* Status */}
-                      <td className="p-3.5">{getStatusBadge(item.status)}</td>
+                      <td className="p-3.5 whitespace-nowrap">{getStatusBadge(item.status)}</td>
 
                       {/* SLA */}
                       <td className="p-3.5 font-mono">

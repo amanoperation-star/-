@@ -33,19 +33,20 @@ export const IssueModal: React.FC<IssueModalProps> = ({
   const [priority, setPriority] = useState<Priority>('Medium');
   const [status, setStatus] = useState<IssueStatus>('Open');
   const [attachment, setAttachment] = useState<{ name: string; url: string; size?: string } | undefined>(undefined);
+  const isEditMode = Boolean(initialData && initialData.id);
 
   useEffect(() => {
     if (initialData) {
-      setClient(initialData.client);
+      setClient(initialData.client || '');
       setClientEmail(initialData.clientEmail || '');
       setClientPhone(initialData.clientPhone || '');
       setTag(initialData.tag || tags[0] || 'VIP Client');
-      setType(initialData.type);
-      setDesc(initialData.desc);
-      setAssigned(initialData.assigned);
-      setOwner(initialData.owner);
-      setPriority(initialData.priority);
-      setStatus(initialData.status);
+      setType(initialData.type || categories[0]?.name || 'تقني / Technical');
+      setDesc(initialData.desc || '');
+      setAssigned(initialData.assigned || categories[0]?.assignedTeam || 'فريق الدعم البرمجي');
+      setOwner(initialData.owner || categories[0]?.defaultOwner || 'محمد علي');
+      setPriority(initialData.priority || 'Medium');
+      setStatus(initialData.status || 'Open');
       setAttachment(initialData.attachment);
     } else {
       setClient('');
@@ -132,7 +133,7 @@ export const IssueModal: React.FC<IssueModalProps> = ({
           <div>
             <h3 className="font-black text-base flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-              <span>{initialData ? `تعديل بيانات التذكرة: ${initialData.id}` : 'إضافة مشكلة أو بلاغ جديد'}</span>
+              <span>{isEditMode ? `تعديل بيانات التذكرة: ${initialData?.id}` : 'إضافة مشكلة أو بلاغ جديد'}</span>
             </h3>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
               التوجيه التلقائي وقواعد اتفاقية مستوى الخدمة SLA مفعلة
@@ -388,7 +389,7 @@ export const IssueModal: React.FC<IssueModalProps> = ({
               type="submit"
               className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold transition shadow-lg shadow-indigo-600/30"
             >
-              {initialData ? 'حفظ التعديلات' : 'تسجيل التذكرة'}
+              {isEditMode ? 'حفظ التعديلات' : 'تسجيل التذكرة وبدء العداد فوراً'}
             </button>
           </div>
         </form>

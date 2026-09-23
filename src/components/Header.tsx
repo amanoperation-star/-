@@ -21,9 +21,16 @@ import {
   RefreshCw,
   Settings,
   Power,
-  ExternalLink
+  ExternalLink,
+  Briefcase,
+  Cpu,
+  LifeBuoy,
+  Sparkles,
+  HelpCircle,
+  Layers,
+  Sliders
 } from 'lucide-react';
-import { AppUser, NotificationItem, SoundSettings } from '../types';
+import { AppUser, NotificationItem, SoundSettings, GeneralSettings } from '../types';
 
 interface HeaderProps {
   currentTab: 'dashboard' | 'issues' | 'admin';
@@ -44,6 +51,7 @@ interface HeaderProps {
   onOpenNewTicketModal: () => void;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
+  generalSettings?: GeneralSettings;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -65,6 +73,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenNewTicketModal,
   theme,
   onToggleTheme,
+  generalSettings,
 }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showCloudMenu, setShowCloudMenu] = useState(false);
@@ -115,27 +124,65 @@ export const Header: React.FC<HeaderProps> = ({
 
   const style = getCardStyle();
 
+  const getLogoIcon = () => {
+    const iconName = generalSettings?.appLogoIcon || 'Headset';
+    switch (iconName) {
+      case 'ShieldCheck': return <ShieldCheck className="w-5 h-5" />;
+      case 'Briefcase': return <Briefcase className="w-5 h-5" />;
+      case 'Cpu': return <Cpu className="w-5 h-5" />;
+      case 'LifeBuoy': return <LifeBuoy className="w-5 h-5" />;
+      case 'Sparkles': return <Sparkles className="w-5 h-5" />;
+      case 'Layers': return <Layers className="w-5 h-5" />;
+      case 'Headset':
+      default:
+        return <Headset className="w-5 h-5" />;
+    }
+  };
+
+  const getGradientClass = () => {
+    const preset = generalSettings?.headerColorPreset || 'indigo-emerald';
+    switch (preset) {
+      case 'blue-cyan':
+        return 'from-blue-600 via-sky-500 to-cyan-400 shadow-blue-500/30';
+      case 'violet-fuchsia':
+        return 'from-purple-600 via-violet-500 to-fuchsia-400 shadow-purple-500/30';
+      case 'rose-orange':
+        return 'from-rose-600 via-pink-500 to-amber-500 shadow-rose-500/30';
+      case 'emerald-teal':
+        return 'from-emerald-600 via-teal-500 to-cyan-500 shadow-emerald-500/30';
+      case 'amber-yellow':
+        return 'from-amber-600 via-amber-500 to-yellow-400 shadow-amber-500/30';
+      case 'indigo-emerald':
+      default:
+        return 'from-indigo-600 via-indigo-500 to-emerald-500 shadow-indigo-600/30';
+    }
+  };
+
   return (
     <header className="sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 text-slate-800 dark:text-white shadow-xs dark:shadow-xl transition-colors duration-150">
       {/* Main Bar */}
       <div className="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
         {/* Brand */}
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-emerald-500 flex items-center justify-center text-white shadow-lg shadow-indigo-600/30 shrink-0">
-            <Headset className="w-5 h-5" />
+        <div className="flex items-center gap-3 select-none">
+          <div className={`w-10 h-10 rounded-2xl bg-gradient-to-tr ${getGradientClass()} flex items-center justify-center text-white shadow-lg shrink-0`}>
+            {getLogoIcon()}
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-base sm:text-lg font-black leading-tight tracking-tight text-slate-900 dark:text-white">
-                منظومة تتبع وإدارة المشاكل
+                {generalSettings?.appName || 'منظومة تتبع وإدارة المشاكل'}
               </h1>
-              <span className="hidden md:inline-block bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                Enterprise Pro
-              </span>
+              {generalSettings?.showBadge !== false && (generalSettings?.appBadge || 'Enterprise Pro') && (
+                <span className="hidden md:inline-block bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  {generalSettings?.appBadge || 'Enterprise Pro'}
+                </span>
+              )}
             </div>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium hidden sm:block">
-              SLA Watcher • CSAT Metrics • Accurate Work Timer & Activity Trail
-            </p>
+            {generalSettings?.showSubtitle !== false && (
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium hidden sm:block">
+                {generalSettings?.appSubtitle || 'SLA Watcher • CSAT Metrics • Accurate Work Timer & Activity Trail'}
+              </p>
+            )}
           </div>
         </div>
 

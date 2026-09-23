@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { Issue, AppUser } from '../types';
 import { formatSecondsToHMS } from '../utils/sla';
+import { StatusBadge } from './Badges';
 
 interface MergeTicketsModalProps {
   isOpen: boolean;
@@ -193,9 +194,7 @@ export const MergeTicketsModal: React.FC<MergeTicketsModalProps> = ({
                           التذكرة الأساسية 🌟
                         </span>
                       )}
-                      <span className="text-[10px] px-2 py-0.5 rounded-md font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                        {issue.status}
-                      </span>
+                      <StatusBadge status={issue.status} size="sm" />
                     </div>
                   </div>
                 );

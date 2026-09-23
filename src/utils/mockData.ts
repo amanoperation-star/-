@@ -1,4 +1,4 @@
-import { Issue, AppUser, CategoryRule, AuditLog, SoundSettings } from '../types';
+import { Issue, AppUser, CategoryRule, AuditLog, SoundSettings, GeneralSettings } from '../types';
 import { calculateDueDate } from './sla';
 import { getDefaultPermissionsForRole } from './permissions';
 
@@ -345,3 +345,18 @@ export const INITIAL_AUDIT_LOGS: AuditLog[] = [
     details: 'بدء العمل على تذكرة بوابة الدفع INC-1001 وتفعيل التتبع الزمني.',
   },
 ];
+
+export const INITIAL_GENERAL_SETTINGS: GeneralSettings = {
+  appName: 'منظومة تتبع وإدارة المشاكل',
+  appBadge: 'Enterprise Pro',
+  appSubtitle: 'SLA Watcher • CSAT Metrics • Accurate Work Timer & Activity Trail',
+  companyName: 'منظومة الدعم والعمليات الذكية',
+  copyrightText: 'جميع الحقوق محفوظة © ' + new Date().getFullYear(),
+  appLogoIcon: 'Headset',
+  headerColorPreset: 'indigo-emerald',
+  showBadge: true,
+  showSubtitle: true,
+  showFooterCopyright: true,
+  customFooterNote: 'نظام إدارة البلاغات والتذاكر المؤسسي الموحد',
+};
+
