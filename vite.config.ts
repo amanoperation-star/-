@@ -8,5 +8,8 @@ export default defineConfig({
     react(),
     tailwindcss(), // <--- هذه الإضافة هي المسؤولة عن تجميع وتحويل تنسيقات Tailwind والألوان للموقع
   ],
+  server: {
+    hmr: false,
+  },
   base: './', // يجعل كافة مسارات الملفات المترجمة نسبية وتعمل على GitHub Pages بدون مشاكل
 })

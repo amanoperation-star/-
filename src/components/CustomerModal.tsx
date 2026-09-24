@@ -107,7 +107,9 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden my-auto flex flex-col max-h-[92vh] animate-scaleUp">
         
         {/* Header Profile Banner */}
-        <div className="p-5 sm:p-6 bg-gradient-to-r from-indigo-50 via-slate-50 to-blue-50 dark:from-slate-900 dark:via-indigo-950/60 dark:to-slate-900 border-b border-slate-200 dark:border-slate-800 flex flex-wrap justify-between items-start gap-4">
+        <div className="relative p-5 sm:p-6 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white border-b border-slate-700/60 flex flex-wrap justify-between items-start gap-4 overflow-hidden">
+          {/* Subtle Ambient Decorative Glow */}
+          <div className="absolute top-0 right-0 w-64 h-full bg-gradient-to-l from-indigo-500/20 via-purple-500/10 to-transparent pointer-events-none" />
           <div className="flex items-start gap-4">
             <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-black text-2xl shadow-lg shadow-indigo-600/30 shrink-0">
               {clientName.slice(0, 1).toUpperCase()}

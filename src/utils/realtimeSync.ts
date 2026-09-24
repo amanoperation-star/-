@@ -96,15 +96,13 @@ class RealtimeSyncManager {
         this.scheduleReconnect();
       };
 
-      this.ws.onerror = (err) => {
-        console.warn('[RealtimeSync] WebSocket encountered error:', err);
+      this.ws.onerror = () => {
         this.setStatus('disconnected');
         try {
           this.ws?.close();
         } catch {}
       };
-    } catch (err) {
-      console.error('[RealtimeSync] Connection initialization failed:', err);
+    } catch {
       this.setStatus('offline');
       this.scheduleReconnect();
     }

@@ -112,7 +112,9 @@ export const DetailsModal: React.FC<DetailsModalProps> = ({
         className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden my-auto flex flex-col max-h-[92vh]"
       >
         {/* Modal Top Bar */}
-        <div className="p-4 sm:p-5 bg-slate-50 dark:bg-gradient-to-r dark:from-slate-900 dark:via-indigo-950 dark:to-slate-900 border-b border-slate-200 dark:border-slate-800 flex flex-wrap justify-between items-center gap-3 text-slate-900 dark:text-white">
+        <div className="relative p-4 sm:p-5 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white border-b border-slate-700/60 flex flex-wrap justify-between items-center gap-3 overflow-hidden">
+          {/* Subtle Ambient Decorative Glow */}
+          <div className="absolute top-0 right-0 w-64 h-full bg-gradient-to-l from-indigo-500/20 via-purple-500/10 to-transparent pointer-events-none" />
           <div className="flex items-center gap-2.5">
             <span className="font-mono text-xs font-black bg-indigo-600 px-2.5 py-1 rounded-xl text-white shadow">
               {issue.id}

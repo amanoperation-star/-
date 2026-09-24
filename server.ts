@@ -70,6 +70,7 @@ loadDatabase();
 // Express app setup
 const app = express();
 app.use(express.json({ limit: '20mb' }));
+app.get('/favicon.ico', (_req, res) => res.status(204).end());
 
 // Active team members presence tracking
 interface ConnectedClient {
@@ -510,7 +511,7 @@ async function startServer() {
   if (!isProduction) {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { middlewareMode: true, hmr: false },
       appType: 'spa',
     });
     app.use(vite.middlewares);

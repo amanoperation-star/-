@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Paperclip, Clock, Check } from 'lucide-react';
+import { X, Paperclip, Clock, Check, PlusCircle, Sparkles, Send } from 'lucide-react';
 import { Issue, CategoryRule, Priority, IssueStatus, AppUser } from '../types';
 import { calculateDueDate, formatArabicDate } from '../utils/sla';
 
@@ -126,22 +126,41 @@ export const IssueModal: React.FC<IssueModalProps> = ({
   const projectedDue = calculateDueDate(new Date().toISOString(), priority, slaHours);
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/50 dark:bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden my-auto">
-        {/* Header */}
-        <div className="p-5 bg-slate-50 dark:bg-gradient-to-r dark:from-slate-900 dark:via-indigo-950 dark:to-slate-900 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center text-slate-900 dark:text-white">
-          <div>
-            <h3 className="font-black text-base flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-              <span>{isEditMode ? `تعديل بيانات التذكرة: ${initialData?.id}` : 'إضافة مشكلة أو بلاغ جديد'}</span>
-            </h3>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-              التوجيه التلقائي وقواعد اتفاقية مستوى الخدمة SLA مفعلة
-            </p>
+    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-fadeIn">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden my-auto transition-all">
+        {/* Modern Executive Header */}
+        <div className="relative px-6 py-5 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white border-b border-slate-700/60 flex items-center justify-between overflow-hidden">
+          {/* Subtle Ambient Decorative Lights */}
+          <div className="absolute top-0 right-0 w-64 h-full bg-gradient-to-l from-indigo-500/20 via-purple-500/10 to-transparent pointer-events-none" />
+          <div className="absolute -bottom-8 left-10 w-32 h-20 bg-emerald-500/15 rounded-full blur-2xl pointer-events-none" />
+
+          {/* Left / Title area in RTL */}
+          <div className="relative z-10 flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 flex items-center justify-center shrink-0 shadow-inner">
+              {isEditMode ? <Sparkles className="w-5 h-5 text-indigo-300" /> : <PlusCircle className="w-5 h-5 text-indigo-300" />}
+            </div>
+            <div>
+              <div className="flex items-center gap-2.5">
+                <h3 className="font-extrabold text-base text-white tracking-tight">
+                  {isEditMode ? `تعديل بيانات التذكرة: ${initialData?.id}` : 'إضافة مشكلة أو بلاغ جديد'}
+                </h3>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-xs">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span>{isEditMode ? 'تحديث فوري' : 'توجيه ذكي'}</span>
+                </span>
+              </div>
+              <p className="text-xs text-slate-300/90 mt-0.5">
+                التوجيه التلقائي لفريق الدعم وقواعد اتفاقية مستوى الخدمة SLA مفعلة
+              </p>
+            </div>
           </div>
+
+          {/* Modern Close Button */}
           <button
+            type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-xl bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition"
+            className="relative z-10 w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-slate-300 hover:text-white flex items-center justify-center transition-all duration-150 border border-white/10 shadow-sm"
+            title="إغلاق النافذة"
           >
             <X className="w-4 h-4" />
           </button>

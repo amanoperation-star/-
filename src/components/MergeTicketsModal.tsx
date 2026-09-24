@@ -111,7 +111,9 @@ export const MergeTicketsModal: React.FC<MergeTicketsModalProps> = ({
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden my-auto flex flex-col max-h-[92vh] animate-scaleUp">
         
         {/* Header */}
-        <div className="p-5 bg-gradient-to-r from-amber-50 via-slate-50 to-indigo-50 dark:from-slate-900 dark:via-indigo-950/60 dark:to-slate-900 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
+        <div className="relative p-5 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white border-b border-slate-700/60 flex justify-between items-center overflow-hidden">
+          {/* Subtle Ambient Decorative Glow */}
+          <div className="absolute top-0 right-0 w-64 h-full bg-gradient-to-l from-amber-500/20 via-indigo-500/10 to-transparent pointer-events-none" />
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-amber-600 text-white flex items-center justify-center shadow-lg shadow-amber-600/30">
               <GitMerge className="w-5 h-5" />
