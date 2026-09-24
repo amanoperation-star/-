@@ -13,10 +13,13 @@ import {
   Palette, 
   Building2, 
   FileText, 
-  Eye
+  Eye,
+  Tag,
+  Sparkles as SparklesIcon
 } from 'lucide-react';
-import { GeneralSettings } from '../types';
+import { GeneralSettings, BadgeStyleType, Priority, IssueStatus } from '../types';
 import { INITIAL_GENERAL_SETTINGS } from '../utils/mockData';
+import { PriorityBadge, StatusBadge } from './Badges';
 
 interface GeneralSettingsTabProps {
   generalSettings: GeneralSettings;
@@ -41,16 +44,60 @@ const COLOR_PRESETS = [
   { id: 'amber-yellow', label: 'ذهبي مع كهرماني', preview: 'from-amber-600 via-amber-500 to-yellow-400' },
 ];
 
+const BADGE_STYLES: {
+  id: BadgeStyleType;
+  title: string;
+  subtitle: string;
+  badgeLabel: string;
+  tagColor: string;
+  description: string;
+  features: string[];
+}[] = [
+  {
+    id: 'clean-arabic',
+    title: 'عربي أنيق فقط (Clean Arabic)',
+    subtitle: 'نص عربي صريح ومختصر مع نقطة أو أيقونة دقيقة بدون نصوص إنجليزية مزدحمة',
+    badgeLabel: 'الأكثر طلباً للوضوح ⚡',
+    tagColor: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800',
+    description: 'يقضي على الازدحام اللغوي والتكرار؛ يكتفي باللغة العربية بحجم متناسق ومؤشر بصري نابض وأنيق.',
+    features: ['مساحة مدمجة غير مزدحمة', 'نص عربي واضح بدون تشتيت', 'مؤشرات نابضة ومرئية فوراً'],
+  },
+  {
+    id: 'bilingual',
+    title: 'ثنائي اللغة الاحترافي (Bilingual Pro)',
+    subtitle: 'عربي أساسي مع مسمى إنجليزي فرعي مصغر ومنظم لفرق العمل المشتركة',
+    badgeLabel: 'عربي + English 🌐',
+    tagColor: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800',
+    description: 'تنسيق رسمي ثنائي اللغة متناسق وموزون، مع خط متقن ومحدد يمنع التداخل اللغوي.',
+    features: ['تسمية باللغتين العربية والإنجليزية', 'فاصل دقيق وتنسيق خطي موحد', 'ملائم للمؤسسات العالمية المشتركة'],
+  },
+  {
+    id: 'modern-pill',
+    title: 'كبسولة عصرية ناعمة (Modern Rounded Pill)',
+    subtitle: 'كبسولة دائرية كاملة (Rounded Full Pill) مستوحاة من أحدث واجهات SaaS',
+    badgeLabel: 'تصميم كبسولي حديث 💊',
+    tagColor: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/60 dark:text-purple-300 dark:border-purple-800',
+    description: 'استدارة كاملة بحواف ناعمة وخلفية ملونة هادئة مع حلقة Ring دقيقة، تمنح الواجهة مظهراً عصرياً جذاباً.',
+    features: ['استدارة كاملة Rounded Full Pill', 'ألوان باستيل ناعمة ومريحة للعين', 'حلقة حدودية خفيفة بنظام Ring'],
+  },
+];
+
 export const GeneralSettingsTab: React.FC<GeneralSettingsTabProps> = ({
   generalSettings,
   onUpdateGeneralSettings,
 }) => {
-  const [formData, setFormData] = useState<GeneralSettings>(generalSettings);
+  const [formData, setFormData] = useState<GeneralSettings>(() => ({
+    ...generalSettings,
+    badgeStyle: generalSettings.badgeStyle || 'clean-arabic',
+  }));
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   // Sync if prop updates externally
   React.useEffect(() => {
-    setFormData(generalSettings);
+    setFormData({
+      ...generalSettings,
+      badgeStyle: generalSettings.badgeStyle || 'clean-arabic',
+    });
   }, [generalSettings]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -375,6 +422,150 @@ export const GeneralSettingsTab: React.FC<GeneralSettingsTabProps> = ({
               <span className="text-[10px] text-slate-400">
                 التعديلات تُحفظ في الذاكرة التخزينية للمتصفح وتُطبّق فورياً
               </span>
+            </div>
+          </div>
+
+          {/* Section 4: Badge Style Switcher (مبدل نمط الشارات) */}
+          <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-5 md:col-span-2">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400">
+                  <Tag className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                    <span>مبدل نمط الشارات (Badge Style Switcher)</span>
+                    <span className="text-[10px] bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-bold px-2 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-800">
+                      3 أنماط مخصصة
+                    </span>
+                  </h4>
+                  <p className="text-[11px] text-slate-400">
+                    اختر الشكل البصري المفضل لشارات الحالات والأولويات في جميع أرجاء المنظومة (الجداول، اللوحة، النوافذ)
+                  </p>
+                </div>
+              </div>
+
+              <div className="text-[11px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
+                <span className="text-slate-400">النمط المعتمد:</span>
+                <span className="text-indigo-600 dark:text-indigo-400 font-black">
+                  {BADGE_STYLES.find(s => s.id === (formData.badgeStyle || 'clean-arabic'))?.title.split('(')[0].trim()}
+                </span>
+              </div>
+            </div>
+
+            {/* 3 Interactive Selectable Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {BADGE_STYLES.map((style) => {
+                const isSelected = (formData.badgeStyle || 'clean-arabic') === style.id;
+                return (
+                  <div
+                    key={style.id}
+                    onClick={() => setFormData({ ...formData, badgeStyle: style.id })}
+                    className={`cursor-pointer rounded-2xl p-4 border transition-all duration-200 flex flex-col justify-between relative text-right group ${
+                      isSelected
+                        ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/30 ring-2 ring-indigo-500 shadow-md scale-[1.01]'
+                        : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-slate-50/40 dark:bg-slate-950/40 hover:bg-white dark:hover:bg-slate-900/60'
+                    }`}
+                  >
+                    <div>
+                      {/* Card Header & Radio */}
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className={`w-5 h-5 rounded-full flex items-center justify-center border transition ${
+                              isSelected
+                                ? 'border-indigo-600 bg-indigo-600 text-white'
+                                : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800'
+                            }`}
+                          >
+                            {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                          </div>
+                          <h5 className="text-xs font-black text-slate-900 dark:text-white">
+                            {style.title}
+                          </h5>
+                        </div>
+
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${style.tagColor}`}>
+                          {style.badgeLabel}
+                        </span>
+                      </div>
+
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mb-3">
+                        {style.description}
+                      </p>
+
+                      {/* Features Bullet Points */}
+                      <div className="space-y-1 mb-4">
+                        {style.features.map((feat, idx) => (
+                          <div key={idx} className="flex items-center gap-1.5 text-[10px] text-slate-600 dark:text-slate-300">
+                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0"></span>
+                            <span>{feat}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Live Sample Badges Box Inside Card */}
+                    <div className="pt-3 border-t border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/80 p-2.5 rounded-xl space-y-2">
+                      <div className="text-[10px] font-bold text-slate-400 flex items-center justify-between">
+                        <span>معاينة نموذجية للشكل:</span>
+                        {isSelected && (
+                          <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                            <Check className="w-3 h-3" /> نشط ومفعل
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <PriorityBadge priority="Critical" style={style.id} size="sm" />
+                        <PriorityBadge priority="High" style={style.id} size="sm" />
+                        <StatusBadge status="In Progress" style={style.id} size="sm" />
+                        <StatusBadge status="Resolved" style={style.id} size="sm" />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Comprehensive Live Preview Showcase with Selected Style */}
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-slate-50 via-slate-50 to-indigo-50/20 dark:from-slate-950 dark:via-slate-950 dark:to-indigo-950/20 border border-slate-200 dark:border-slate-800 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-slate-700 dark:text-slate-300">
+                <div className="flex items-center gap-1.5">
+                  <SparklesIcon className="w-4 h-4 text-indigo-500" />
+                  <span>معاينة حية شاملة لكافة الأولويات والحالات بالنمط المختار:</span>
+                </div>
+                <span className="text-[11px] text-indigo-600 dark:text-indigo-400 font-bold">
+                  تُطبق فورياً على كامل المنظومة عند الضغط على حفظ
+                </span>
+              </div>
+
+              {/* Priority Badges Showcase */}
+              <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800/80 flex flex-wrap items-center gap-3">
+                <span className="text-[11px] font-black text-slate-500 dark:text-slate-400 min-w-[80px]">
+                  شارات الأولوية:
+                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <PriorityBadge priority="Critical" style={formData.badgeStyle || 'clean-arabic'} size="sm" />
+                  <PriorityBadge priority="High" style={formData.badgeStyle || 'clean-arabic'} size="sm" />
+                  <PriorityBadge priority="Medium" style={formData.badgeStyle || 'clean-arabic'} size="sm" />
+                  <PriorityBadge priority="Low" style={formData.badgeStyle || 'clean-arabic'} size="sm" />
+                </div>
+              </div>
+
+              {/* Status Badges Showcase */}
+              <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800/80 flex flex-wrap items-center gap-3">
+                <span className="text-[11px] font-black text-slate-500 dark:text-slate-400 min-w-[80px]">
+                  شارات الحالة:
+                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <StatusBadge status="Open" style={formData.badgeStyle || 'clean-arabic'} size="sm" />
+                  <StatusBadge status="In Progress" style={formData.badgeStyle || 'clean-arabic'} size="sm" />
+                  <StatusBadge status="Pending" style={formData.badgeStyle || 'clean-arabic'} size="sm" />
+                  <StatusBadge status="Resolved" style={formData.badgeStyle || 'clean-arabic'} size="sm" />
+                  <StatusBadge status="Closed" style={formData.badgeStyle || 'clean-arabic'} size="sm" />
+                </div>
+              </div>
             </div>
           </div>
         </div>

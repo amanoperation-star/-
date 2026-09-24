@@ -11,6 +11,7 @@ export const INITIAL_USERS: AppUser[] = [
     role: 'Admin',
     department: 'الإدارة العليا / IT Operations',
     avatar: 'أ',
+    password: 'admin',
     permissions: getDefaultPermissionsForRole('Admin'),
   },
   {
@@ -21,6 +22,7 @@ export const INITIAL_USERS: AppUser[] = [
     role: 'Agent',
     department: 'فريق الدعم البرمجي',
     avatar: 'م',
+    password: '123',
     permissions: getDefaultPermissionsForRole('Agent'),
   },
   {
@@ -31,6 +33,7 @@ export const INITIAL_USERS: AppUser[] = [
     role: 'Supervisor',
     department: 'خدمة العملاء واللوجستيات',
     avatar: 'س',
+    password: '123',
     permissions: getDefaultPermissionsForRole('Supervisor'),
   },
   {
@@ -41,6 +44,7 @@ export const INITIAL_USERS: AppUser[] = [
     role: 'Agent',
     department: 'البنية التحتية والشبكات',
     avatar: 'ع',
+    password: '123',
     permissions: getDefaultPermissionsForRole('Agent'),
   },
 ];
@@ -358,5 +362,6 @@ export const INITIAL_GENERAL_SETTINGS: GeneralSettings = {
   showSubtitle: true,
   showFooterCopyright: true,
   customFooterNote: 'نظام إدارة البلاغات والتذاكر المؤسسي الموحد',
+  badgeStyle: 'clean-arabic',
 };
 

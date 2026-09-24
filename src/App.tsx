@@ -18,8 +18,10 @@ import {
   NotificationItem, 
   IssueStatus,
   Priority,
-  GeneralSettings
+  GeneralSettings,
+  SystemBackupData
 } from './types';
+import { realtimeSync, ActiveUserPresence, SyncConnectionStatus } from './utils/realtimeSync';
 import { 
   INITIAL_ISSUES, 
   INITIAL_USERS, 
@@ -32,6 +34,8 @@ import {
 } from './utils/mockData';
 import { isTicketSlaBreached, calculateDueDate } from './utils/sla';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { LoginScreen } from './components/LoginScreen';
+import { BadgeStyleProvider } from './components/Badges';
 
 const STORAGE_KEY = 'ENTERPRISE_ISSUE_TRACKER_PRO_V8';
 
@@ -55,7 +59,27 @@ export default function App() {
     }
   });
 
-  const [currentUser, setCurrentUser] = useState<AppUser>(() => users[0] || INITIAL_USERS[0]);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    try {
+      const savedAuth = localStorage.getItem(STORAGE_KEY + '_IS_AUTHENTICATED');
+      return savedAuth === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const [currentUser, setCurrentUser] = useState<AppUser>(() => {
+    try {
+      const savedUserId = localStorage.getItem(STORAGE_KEY + '_CURRENT_USER_ID');
+      if (savedUserId) {
+        const savedUsers = localStorage.getItem(STORAGE_KEY + '_USERS');
+        const list: AppUser[] = savedUsers ? JSON.parse(savedUsers) : INITIAL_USERS;
+        const found = list.find((u) => u.id === savedUserId);
+        if (found) return found;
+      }
+    } catch {}
+    return INITIAL_USERS[0];
+  });
 
   const [categories, setCategories] = useState<CategoryRule[]>(() => {
     try {
@@ -157,7 +181,7 @@ export default function App() {
 
   // Tab & Navigation
   const [currentTab, setCurrentTab] = useState<'dashboard' | 'issues' | 'admin'>('dashboard');
-  const [adminSubTab, setAdminSubTab] = useState<'general' | 'users' | 'tags' | 'audio' | 'reports' | 'categories' | 'canned' | 'supabase' | 'csat' | 'audit'>('general');
+  const [adminSubTab, setAdminSubTab] = useState<'general' | 'backup' | 'users' | 'tags' | 'audio' | 'reports' | 'categories' | 'canned' | 'supabase' | 'csat' | 'audit'>('general');
   const [initialFilterStatus, setInitialFilterStatus] = useState<string>('ALL');
 
   // Modals state
@@ -177,6 +201,27 @@ export default function App() {
   // Merge Tickets Modal State
   const [showMergeModal, setShowMergeModal] = useState(false);
   const [mergeTicketIds, setMergeTicketIds] = useState<string[]>([]);
+
+  // Real-time synchronization state across regions
+  const [realtimeStatus, setRealtimeStatus] = useState<SyncConnectionStatus>('connecting');
+  const [onlineUsers, setOnlineUsers] = useState<ActiveUserPresence[]>([]);
+  const [totalConnections, setTotalConnections] = useState<number>(1);
+  const [liveToast, setLiveToast] = useState<{
+    id: string;
+    title: string;
+    desc: string;
+    ticketId: string;
+    author: string;
+    location?: string;
+  } | null>(null);
+
+  // Auto-dismiss live toast after 7 seconds
+  useEffect(() => {
+    if (liveToast) {
+      const timer = setTimeout(() => setLiveToast(null), 7000);
+      return () => clearTimeout(timer);
+    }
+  }, [liveToast]);
 
   // Sync theme with document element and storage
   useEffect(() => {
@@ -225,14 +270,16 @@ export default function App() {
 
   // Initialize Supabase if config is valid
   useEffect(() => {
+    const url = (supabaseConfig.url || '').trim();
+    const key = (supabaseConfig.key || '').trim();
     if (
-      supabaseConfig.url &&
-      supabaseConfig.key &&
-      supabaseConfig.url.startsWith('https://') &&
-      !supabaseConfig.url.includes('your-project')
+      url &&
+      key &&
+      url.startsWith('https://') &&
+      !url.includes('your-project')
     ) {
       try {
-        const client = createClient(supabaseConfig.url, supabaseConfig.key);
+        const client = createClient(url, key);
         supabaseRef.current = client;
         setSupabaseConfig((prev) => ({ ...prev, connected: true }));
       } catch {
@@ -319,6 +366,165 @@ export default function App() {
     setNotifications((prev) => [newNotif, ...prev.slice(0, 49)]);
   };
 
+  const currentUserRef = useRef(currentUser);
+  useEffect(() => {
+    currentUserRef.current = currentUser;
+    realtimeSync.updateCurrentUser(currentUser);
+  }, [currentUser]);
+
+  const soundSettingsRef = useRef(soundSettings);
+  useEffect(() => {
+    soundSettingsRef.current = soundSettings;
+  }, [soundSettings]);
+
+  const detailIssueRef = useRef(detailIssue);
+  useEffect(() => {
+    detailIssueRef.current = detailIssue;
+  }, [detailIssue]);
+
+  // Real-Time Multi-Region Sync WebSocket Initialization
+  useEffect(() => {
+    realtimeSync.init(
+      {
+        onTicketCreated: (newIssue: Issue, author: string, location?: string) => {
+          setIssues((prev) => {
+            if (prev.some((i) => i.id === newIssue.id)) return prev;
+            return [newIssue, ...prev];
+          });
+
+          // Trigger live visual alert and audio chime when created by any other team member!
+          if (author !== currentUserRef.current.name) {
+            setLiveToast({
+              id: `toast-${Date.now()}`,
+              title: `تذكرة جديدة واردة الآن [${newIssue.id}] 🚀`,
+              desc: `للعميل: ${newIssue.client || 'عميل'} • الأولوية: ${newIssue.priority}`,
+              ticketId: newIssue.id,
+              author,
+              location,
+            });
+
+            addNotification(
+              `تذكرة جديدة [${newIssue.id}] 📢`,
+              `تم تسجيل بلاغ جديد بواسطة ${author} (${location || 'فرع آخر'}) للعميل ${newIssue.client}`,
+              newIssue.id,
+              'info'
+            );
+
+            if (!soundSettingsRef.current.muted) {
+              try {
+                const soundUrl = soundSettingsRef.current.customNotificationUrl || soundSettingsRef.current.alarmUrl;
+                if (soundUrl) {
+                  const sound = new Audio(soundUrl);
+                  sound.volume = soundSettingsRef.current.volume || 0.8;
+                  sound.play().catch(() => {});
+                }
+              } catch {}
+            }
+          }
+        },
+
+        onTicketUpdated: (updatedIssue: Issue, actor: string, _changeType?: string, details?: string) => {
+          setIssues((prev) =>
+            prev.map((i) => (i.id === updatedIssue.id ? { ...i, ...updatedIssue } : i))
+          );
+
+          if (detailIssueRef.current && detailIssueRef.current.id === updatedIssue.id) {
+            setDetailIssue((prev) => (prev ? { ...prev, ...updatedIssue } : prev));
+          }
+
+          if (actor !== currentUserRef.current.name) {
+            addNotification(
+              `تحديث في التذكرة [${updatedIssue.id}] 🔄`,
+              `قام ${actor} بالتحديث: ${details || updatedIssue.status}`,
+              updatedIssue.id,
+              'info'
+            );
+          }
+        },
+
+        onTicketCommentAdded: (issueId: string, comment: any, actor: string) => {
+          setIssues((prev) =>
+            prev.map((i) => {
+              if (i.id === issueId) {
+                const exists = (i.comments || []).some((c: any) => c.id === comment.id);
+                if (exists) return i;
+                return {
+                  ...i,
+                  comments: [...(i.comments || []), comment],
+                };
+              }
+              return i;
+            })
+          );
+
+          if (detailIssueRef.current && detailIssueRef.current.id === issueId) {
+            setDetailIssue((prev) =>
+              prev ? { ...prev, comments: [...(prev.comments || []), comment] } : prev
+            );
+          }
+
+          if (actor !== currentUserRef.current.name) {
+            addNotification(
+              `رد جديد في [${issueId}] 💬`,
+              `أضاف ${actor}: ${comment.text ? comment.text.substring(0, 50) : 'ملاحظة'}`,
+              issueId,
+              'info'
+            );
+          }
+        },
+
+        onTicketDeleted: (issueId: string, actor: string) => {
+          setIssues((prev) => prev.filter((i) => i.id !== issueId));
+          if (detailIssueRef.current?.id === issueId) {
+            setShowDetailsModal(false);
+            setDetailIssue(null);
+          }
+          if (actor !== currentUserRef.current.name) {
+            addNotification('حذف تذكرة 🗑️', `قام ${actor} بحذف التذكرة ${issueId}`, undefined, 'warning');
+          }
+        },
+
+        onStateSynced: (serverState: any) => {
+          if (Array.isArray(serverState.issues) && serverState.issues.length > 0) {
+            setIssues((prev) => {
+              const map = new Map(prev.map((i) => [i.id, i]));
+              for (const serverIssue of serverState.issues) {
+                map.set(serverIssue.id, serverIssue);
+              }
+              return Array.from(map.values());
+            });
+          }
+        },
+
+        onPresenceUpdated: (usersList: ActiveUserPresence[], total: number) => {
+          setOnlineUsers(usersList);
+          setTotalConnections(total);
+        },
+
+        onStatusChanged: (status: SyncConnectionStatus) => {
+          setRealtimeStatus(status);
+        },
+      },
+      currentUser
+    );
+
+    // Initial seed if server starts empty
+    realtimeSync.seedInitialServerData({
+      issues,
+      categories,
+      users,
+      tags,
+      cannedResponses,
+      generalSettings,
+      soundSettings,
+      auditLogs,
+    });
+
+    return () => {
+      realtimeSync.destroy();
+    };
+  }, []);
+
   // Add or Update Ticket
   const handleSaveIssue = (data: Partial<Issue>) => {
     const nowIso = new Date().toISOString();
@@ -352,22 +558,29 @@ export default function App() {
         });
       }
 
+      const updatedIssue = {
+        ...editingIssue,
+        ...data,
+        timeline: updatedTimeline,
+      } as Issue;
+
       setIssues((prev) =>
-        prev.map((i) =>
-          i.id === editingIssue.id
-            ? ({
-                ...i,
-                ...data,
-                timeline: updatedTimeline,
-              } as Issue)
-            : i
-        )
+        prev.map((i) => (i.id === editingIssue.id ? updatedIssue : i))
+      );
+
+      // Broadcast update across team
+      realtimeSync.broadcastTicketUpdate(
+        updatedIssue,
+        currentUser.name,
+        'تعديل تذكرة',
+        `تم تحديث بيانات التذكرة ${editingIssue.id}`
       );
 
       addAuditLog('تعديل تذكرة', `تم تحديث بيانات التذكرة ${editingIssue.id}`);
       setEditingIssue(null);
     } else {
       // Create new ticket and automatically start stopwatch and open details!
+      const uniqueSuffix = Math.floor(Math.random() * 900 + 100);
       const newId = `INC-${1000 + issues.length + 1}`;
       const initialStatus = (data.status === 'Open' || !data.status) ? ('In Progress' as IssueStatus) : data.status;
       const newIssue: Issue = {
@@ -407,6 +620,9 @@ export default function App() {
         newIssue,
         ...prev.map((i) => (i.isWorkingNow ? { ...i, isWorkingNow: false, activeWorker: null } : i)),
       ]);
+
+      // Broadcast new ticket immediately to entire team in all regions!
+      realtimeSync.broadcastTicketCreate(newIssue, currentUser.name, currentUser.department);
 
       addAuditLog('إنشاء تذكرة', `تم تسجيل بلاغ جديد برقم ${newId} للعميل ${data.client} وبدء عداد العمل فوراً`);
       setNotifications((prev) => [
@@ -548,6 +764,7 @@ export default function App() {
 
   // Quick Status Change
   const handleQuickStatusChange = (issue: Issue, newStatus: IssueStatus) => {
+    let updatedIssueToBroadcast: Issue | null = null;
     setIssues((prev) =>
       prev.map((i) => {
         if (i.id === issue.id) {
@@ -560,16 +777,28 @@ export default function App() {
             details: `تم تحويل الحالة من (${i.status}) إلى (${newStatus}).`,
             type: 'status',
           });
-          return {
+          const updated: Issue = {
             ...i,
             status: newStatus,
             isWorkingNow: newStatus === 'Resolved' || newStatus === 'Closed' ? false : i.isWorkingNow,
             timeline: updatedTimeline,
           };
+          updatedIssueToBroadcast = updated;
+          return updated;
         }
         return i;
       })
     );
+
+    if (updatedIssueToBroadcast) {
+      realtimeSync.broadcastTicketUpdate(
+        updatedIssueToBroadcast,
+        currentUser.name,
+        'تغيير الحالة',
+        `تم تحويل الحالة إلى (${newStatus})`
+      );
+    }
+
     addAuditLog('تحديث حالة', `تحويل حالة التذكرة ${issue.id} إلى ${newStatus}`);
   };
 
@@ -587,12 +816,19 @@ export default function App() {
             details: `تم تحويل الحالة جماعياً إلى (${newStatus}).`,
             type: 'status',
           });
-          return {
+          const updated: Issue = {
             ...item,
             status: newStatus,
             isWorkingNow: newStatus === 'Resolved' || newStatus === 'Closed' ? false : item.isWorkingNow,
             timeline: updatedTimeline,
           };
+          realtimeSync.broadcastTicketUpdate(
+            updated,
+            currentUser.name,
+            'تحديث جماعي للحالة',
+            `تحويل إلى (${newStatus})`
+          );
+          return updated;
         }
         return item;
       })
@@ -603,18 +839,22 @@ export default function App() {
   // Bulk Delete
   const handleBulkDelete = (issueIds: string[]) => {
     setIssues((prev) => prev.filter((i) => !issueIds.includes(i.id)));
+    issueIds.forEach((id) => realtimeSync.broadcastTicketDelete(id, currentUser.name));
     addAuditLog('حذف جماعي', `تم حذف ${issueIds.length} تذكرة نهائياً.`);
   };
 
   // Delete Single Issue
   const handleDeleteIssue = (issueId: string) => {
     setIssues((prev) => prev.filter((i) => i.id !== issueId));
+    realtimeSync.broadcastTicketDelete(issueId, currentUser.name);
     addAuditLog('حذف تذكرة', `تم حذف التذكرة ${issueId} نهائياً.`);
   };
 
   // Resolve Ticket with Reason
   const handleConfirmResolve = (issueId: string, reason: string) => {
     const nowIso = new Date().toISOString();
+    let resolvedIssueToBroadcast: Issue | null = null;
+
     setIssues((prev) =>
       prev.map((item) => {
         if (item.id === issueId) {
@@ -636,7 +876,7 @@ export default function App() {
             time: 'الآن',
           });
 
-          return {
+          const resolved: Issue = {
             ...item,
             status: 'Resolved' as IssueStatus,
             resolutionReason: reason,
@@ -646,10 +886,21 @@ export default function App() {
             comments: updatedComments,
             timeline: updatedTimeline,
           };
+          resolvedIssueToBroadcast = resolved;
+          return resolved;
         }
         return item;
       })
     );
+
+    if (resolvedIssueToBroadcast) {
+      realtimeSync.broadcastTicketUpdate(
+        resolvedIssueToBroadcast,
+        currentUser.name,
+        'حل التذكرة',
+        `تم حل التذكرة: ${reason}`
+      );
+    }
 
     addAuditLog('حل تذكرة', `إغلاق التذكرة ${issueId} وسبب الحل: ${reason}`);
     setResolvingIssue(null);
@@ -669,11 +920,18 @@ export default function App() {
             details: `تم تسجيل تقييم الخدمة (${rating} من 5).`,
             type: 'comment',
           });
-          return {
+          const updated: Issue = {
             ...item,
             csat: rating,
             timeline: updatedTimeline,
           };
+          realtimeSync.broadcastTicketUpdate(
+            updated,
+            currentUser.name,
+            'تقييم رضا العميل',
+            `${rating} من 5`
+          );
+          return updated;
         }
         return item;
       })
@@ -686,18 +944,18 @@ export default function App() {
     commentText: string,
     attachment?: { name: string; url: string }
   ) => {
+    const newComment = {
+      id: `c-${Date.now()}`,
+      user: currentUser.name,
+      text: commentText,
+      time: 'الآن',
+      attachment,
+    };
+
     setIssues((prev) =>
       prev.map((item) => {
         if (item.id === issueId) {
-          const updatedComments = [...item.comments];
-          updatedComments.push({
-            id: `c-${Date.now()}`,
-            user: currentUser.name,
-            text: commentText,
-            time: 'الآن',
-            attachment,
-          });
-
+          const updatedComments = [...item.comments, newComment];
           const updatedTimeline = [...item.timeline];
           updatedTimeline.unshift({
             id: `t-${Date.now()}`,
@@ -717,16 +975,57 @@ export default function App() {
         return item;
       })
     );
+
+    // Broadcast new comment to all team members
+    realtimeSync.broadcastComment(issueId, newComment, currentUser.name);
   };
 
   // User Management
+  const handleLogin = (user: AppUser) => {
+    setCurrentUser(user);
+    setIsAuthenticated(true);
+    try {
+      localStorage.setItem(STORAGE_KEY + '_IS_AUTHENTICATED', 'true');
+      localStorage.setItem(STORAGE_KEY + '_CURRENT_USER_ID', user.id);
+    } catch (e) {
+      console.error(e);
+    }
+    addAuditLog('تسجيل دخول', `قام الموظف ${user.name} (${user.role}) بتسجيل الدخول إلى المنظومة.`);
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    try {
+      localStorage.removeItem(STORAGE_KEY + '_IS_AUTHENTICATED');
+    } catch (e) {
+      console.error(e);
+    }
+    addAuditLog('تسجيل خروج', `قام الموظف ${currentUser.name} بتسجيل الخروج من المنظومة.`);
+  };
+
+  const handleSwitchUser = (user: AppUser) => {
+    setCurrentUser(user);
+    try {
+      localStorage.setItem(STORAGE_KEY + '_CURRENT_USER_ID', user.id);
+    } catch {}
+    addAuditLog('تبديل مستخدم', `تم تبديل جلسة العمل إلى ${user.name} (${user.role})`);
+  };
+
+  const handleUpdateUserPassword = (userId: string, newPassword: string) => {
+    setUsers((prev) =>
+      prev.map((item) => (item.id === userId ? { ...item, password: newPassword } : item))
+    );
+    const u = users.find((item) => item.id === userId);
+    addAuditLog('تغيير كلمة المرور', `تم تحديث كلمة المرور للموظف (${u?.name || userId}) بنجاح.`);
+  };
+
   const handleAddUser = (userData: Omit<AppUser, 'id'>) => {
     const newUser: AppUser = {
       id: `usr-${Date.now()}`,
       ...userData,
     };
     setUsers((prev) => [...prev, newUser]);
-    addAuditLog('إضافة موظف', `تم إنشاء حساب ${userData.name} بالدور ${userData.role} وتعيين الصلاحيات`);
+    addAuditLog('إضافة موظف', `تم إنشاء حساب ${userData.name} بالدور ${userData.role} وتحديد كلمة المرور والصلاحيات`);
   };
 
   const handleUpdateUserPermissions = (userId: string, newPermissions: string[]) => {
@@ -824,19 +1123,92 @@ export default function App() {
 
   // Supabase save
   const handleSaveSupabase = (url: string, key: string) => {
+    const cleanUrl = url.trim();
+    const cleanKey = key.trim();
     setSupabaseConfig({
-      url,
-      key,
-      connected: true,
+      url: cleanUrl,
+      key: cleanKey,
+      connected: !!(cleanUrl && cleanKey),
       lastSync: new Date().toLocaleTimeString('ar-EG'),
     });
-    addAuditLog('إعداد السحابة', 'تم تحديث مفاتيح الاتصال مع Supabase');
-    alert('تم حفظ إعدادات الاتصال السحابي!');
+    if (cleanUrl && cleanKey && cleanUrl.startsWith('https://')) {
+      try {
+        const client = createClient(cleanUrl, cleanKey);
+        supabaseRef.current = client;
+      } catch (err) {
+        console.warn('Error creating supabase client:', err);
+      }
+    }
+    addAuditLog('إعداد السحابة', 'تم حفظ وتحديث مفتاح الربط Publishable API Key مع Supabase');
+    alert('تم حفظ إعدادات الاتصال السحابي عبر Publishable API Key بنجاح!');
+  };
+
+  // Test Supabase Connection with Publishable API Key
+  const handleTestSupabaseConnection = async (
+    url: string,
+    key: string
+  ): Promise<{ success: boolean; message: string }> => {
+    const cleanUrl = url.trim();
+    const cleanKey = key.trim();
+
+    if (!cleanUrl || !cleanKey) {
+      return {
+        success: false,
+        message: 'يرجى إدخال رابط المشروع Project URL ومفتاح Publishable API Key أولاً.',
+      };
+    }
+
+    if (!cleanUrl.startsWith('https://')) {
+      return {
+        success: false,
+        message: 'رابط Project URL يجب أن يبدأ بـ https://',
+      };
+    }
+
+    try {
+      const client = createClient(cleanUrl, cleanKey);
+      const { error } = await client.from('issues').select('id').limit(1);
+
+      if (error) {
+        // Table does not exist error in PostgreSQL / PostgREST (means connection & Publishable key are valid!)
+        if (
+          error.code === '42P01' ||
+          error.code === 'PGRST116' ||
+          error.code === 'PGRST204' ||
+          error.message?.toLowerCase().includes('does not exist') ||
+          error.message?.includes('relation "issues" does not exist')
+        ) {
+          supabaseRef.current = client;
+          setSupabaseConfig((prev) => ({ ...prev, url: cleanUrl, key: cleanKey, connected: true }));
+          return {
+            success: true,
+            message: 'تم التحقق من الـ Publishable API Key بنجاح! 🟢 (ملاحظة: جدول issues لم يُنشأ بعد في قاعدة بياناتك؛ يمكنك نسخه وإنشاؤه عبر زر "مخطط جدول issues")',
+          };
+        }
+
+        return {
+          success: false,
+          message: `فشل التحقق من المفتاح: ${error.message} (رمز الخطأ: ${error.code || 'عام'})`,
+        };
+      }
+
+      supabaseRef.current = client;
+      setSupabaseConfig((prev) => ({ ...prev, url: cleanUrl, key: cleanKey, connected: true }));
+      return {
+        success: true,
+        message: 'الاتصال سليم 100%! تم التحقق من مشروع Supabase ومفتاح Publishable API Key وجدول التذاكر جاهز للمزامنة 🟢',
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        message: `تعذر الاتصال بـ Supabase: ${err?.message || 'تأكد من صحة الرابط ومفتاح الـ API'}`
+      };
+    }
   };
 
   const handleSyncSupabaseNow = async () => {
     if (!supabaseRef.current) {
-      alert('يرجى التأكد من إدخال Project URL و Key صالحين أولاً!');
+      alert('يرجى التأكد من إدخال Project URL و Publishable API Key صالحين أولاً!');
       return;
     }
     try {
@@ -865,8 +1237,8 @@ export default function App() {
         connected: true,
         lastSync: new Date().toLocaleTimeString('ar-EG'),
       }));
-      alert('تمت مزامنة جميع التذاكر والسجلات الحية مع قاعدة Supabase بنجاح!');
-      addAuditLog('مزامنة سحابية', 'نجاح المزامنة الحية مع Supabase');
+      alert('تمت مزامنة جميع التذاكر والسجلات الحية مع قاعدة Supabase بنجاح عبر Publishable API Key!');
+      addAuditLog('مزامنة سحابية', 'نجاح المزامنة الحية مع Supabase عبر Publishable API Key');
     } catch (e: any) {
       alert(`تنبيه المزامنة: ${e.message || 'تأكد من إنشاء جدول issues في مشروع Supabase'}`);
     }
@@ -901,6 +1273,79 @@ export default function App() {
   const handleNavigateToSupabaseSettings = () => {
     setAdminSubTab('supabase');
     setCurrentTab('admin');
+  };
+
+  // Full System Restore handler (Overwrite or Merge)
+  const handleRestoreBackup = (backup: SystemBackupData, mode: 'overwrite' | 'merge') => {
+    if (mode === 'overwrite') {
+      if (Array.isArray(backup.issues)) setIssues(backup.issues);
+      if (Array.isArray(backup.users) && backup.users.length > 0) setUsers(backup.users);
+      if (Array.isArray(backup.categories) && backup.categories.length > 0) setCategories(backup.categories);
+      if (Array.isArray(backup.tags) && backup.tags.length > 0) setTags(backup.tags);
+      if (Array.isArray(backup.cannedResponses) && backup.cannedResponses.length > 0) setCannedResponses(backup.cannedResponses);
+      if (backup.soundSettings) setSoundSettings(backup.soundSettings);
+      if (backup.generalSettings) setGeneralSettings(backup.generalSettings);
+      if (Array.isArray(backup.auditLogs)) setAuditLogs(backup.auditLogs);
+      addAuditLog('استعادة نسخة احتياطية', `استبدال شامل لكافة بيانات المنظومة من نسخة احتياطية (${backup.issues?.length || 0} تذكرة)`);
+    } else {
+      // Merge mode: Add missing items without overwriting existing IDs
+      if (Array.isArray(backup.issues)) {
+        setIssues((prev) => {
+          const existingIds = new Set(prev.map((i) => i.id));
+          const newIssues = backup.issues.filter((i) => !existingIds.has(i.id));
+          return [...prev, ...newIssues];
+        });
+      }
+      if (Array.isArray(backup.categories)) {
+        setCategories((prev) => {
+          const existingCatNames = new Set(prev.map((c) => c.name.toLowerCase()));
+          const newCats = backup.categories.filter((c) => !existingCatNames.has(c.name.toLowerCase()));
+          return [...prev, ...newCats];
+        });
+      }
+      if (Array.isArray(backup.users)) {
+        setUsers((prev) => {
+          const existingUsernames = new Set(prev.map((u) => u.username.toLowerCase()));
+          const newUsers = backup.users.filter((u) => !existingUsernames.has(u.username.toLowerCase()));
+          return [...prev, ...newUsers];
+        });
+      }
+      if (Array.isArray(backup.tags)) {
+        setTags((prev) => Array.from(new Set([...prev, ...backup.tags])));
+      }
+      if (Array.isArray(backup.cannedResponses)) {
+        setCannedResponses((prev) => Array.from(new Set([...prev, ...backup.cannedResponses])));
+      }
+      addAuditLog('دمج نسخة احتياطية', `تم دمج بيانات جديدة من نسخة احتياطية ذكياً`);
+    }
+  };
+
+  // Reset system to factory default
+  const handleResetSystemToDefault = () => {
+    if (confirm('⚠️ تحذير شديد: هل أنت متأكد تماماً من رغبتك في مسح كافة التعديلات واستعادة بيانات المصنع الافتراضية للمنظومة؟ لا يمكن التراجع عن هذا الإجراء إلا إذا كنت قد حمّلت نسخة احتياطية مسبقاً.')) {
+      setIssues(INITIAL_ISSUES);
+      setUsers(INITIAL_USERS);
+      setCategories(INITIAL_CATEGORIES);
+      setTags(INITIAL_TAGS);
+      setCannedResponses(INITIAL_CANNED_RESPONSES);
+      setSoundSettings(INITIAL_SOUND_SETTINGS);
+      setGeneralSettings(INITIAL_GENERAL_SETTINGS);
+      setAuditLogs(INITIAL_AUDIT_LOGS);
+
+      try {
+        localStorage.removeItem(STORAGE_KEY + '_ISSUES');
+        localStorage.removeItem(STORAGE_KEY + '_USERS');
+        localStorage.removeItem(STORAGE_KEY + '_CATEGORIES');
+        localStorage.removeItem(STORAGE_KEY + '_TAGS');
+        localStorage.removeItem(STORAGE_KEY + '_CANNED');
+        localStorage.removeItem(STORAGE_KEY + '_SOUND');
+        localStorage.removeItem(STORAGE_KEY + '_GENERAL');
+        localStorage.removeItem(STORAGE_KEY + '_AUDIT');
+      } catch (e) {
+        console.error('Error clearing localStorage', e);
+      }
+      alert('تمت استعادة المنظومة بنجاح إلى الإعدادات الأولية!');
+    }
   };
 
   // Open Customer 360 profile
@@ -1041,8 +1486,19 @@ export default function App() {
     );
   };
 
+  if (!isAuthenticated) {
+    return (
+      <LoginScreen
+        users={users}
+        generalSettings={generalSettings}
+        onLogin={handleLogin}
+      />
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-['Cairo',sans-serif] transition-colors duration-150">
+    <BadgeStyleProvider style={generalSettings.badgeStyle || 'clean-arabic'}>
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-['Cairo',sans-serif] transition-colors duration-150">
       {/* Audio element for SLA alert */}
       <audio ref={alarmAudioRef} src={soundSettings.alarmUrl} preload="auto" loop />
 
@@ -1052,7 +1508,8 @@ export default function App() {
         setCurrentTab={setCurrentTab}
         currentUser={currentUser}
         users={users}
-        onSwitchUser={setCurrentUser}
+        onSwitchUser={handleSwitchUser}
+        onLogout={handleLogout}
         breachedCount={breachedCount}
         soundSettings={soundSettings}
         onToggleMute={() =>
@@ -1072,7 +1529,62 @@ export default function App() {
         theme={theme}
         onToggleTheme={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
         generalSettings={generalSettings}
+        realtimeStatus={realtimeStatus}
+        onlineUsers={onlineUsers}
+        totalConnections={totalConnections}
+        onRefreshRealtime={() => realtimeSync.fetchServerState()}
       />
+
+      {/* Floating Multi-Region Live Notification Toast */}
+      {liveToast && (
+        <div className="fixed bottom-6 left-6 z-50 max-w-sm w-full bg-white dark:bg-slate-900 border-2 border-emerald-500 rounded-2xl shadow-[0_10px_35px_rgba(16,185,129,0.35)] p-4 animate-scaleUp">
+          <div className="flex items-start justify-between gap-3">
+            <div className="p-2 rounded-xl bg-emerald-100 dark:bg-emerald-950/70 text-emerald-600 dark:text-emerald-400">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+              </span>
+            </div>
+            <div className="flex-1">
+              <h4 className="font-black text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
+                <span>تنبيه سحابي فوري 🌐</span>
+              </h4>
+              <p className="font-bold text-emerald-600 dark:text-emerald-400 text-xs mt-0.5">
+                {liveToast.title}
+              </p>
+              <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
+                {liveToast.desc}
+              </p>
+              <div className="text-[10px] text-slate-400 mt-1">
+                بواسطة: {liveToast.author} {liveToast.location ? `• ${liveToast.location}` : ''}
+              </div>
+            </div>
+            <button
+              onClick={() => setLiveToast(null)}
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 text-xs font-bold"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="mt-3 flex gap-2">
+            <button
+              onClick={() => {
+                handleSelectTicketById(liveToast.ticketId);
+                setLiveToast(null);
+              }}
+              className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow shadow-emerald-600/20 active:scale-95"
+            >
+              فتح وعرض التذكرة الآن 👁️
+            </button>
+            <button
+              onClick={() => setLiveToast(null)}
+              className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-bold transition"
+            >
+              تجاهل
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto px-4 py-6 flex-grow w-full space-y-6">
@@ -1123,6 +1635,7 @@ export default function App() {
             onAddUser={handleAddUser}
             onDeleteUser={handleDeleteUser}
             onUpdateUserPermissions={handleUpdateUserPermissions}
+            onUpdateUserPassword={handleUpdateUserPassword}
             tags={tags}
             onAddTag={handleAddTag}
             onDeleteTag={handleDeleteTag}
@@ -1142,11 +1655,19 @@ export default function App() {
             supabaseConfig={supabaseConfig}
             onSaveSupabaseConfig={handleSaveSupabase}
             onSyncSupabaseNow={handleSyncSupabaseNow}
+            onTestSupabaseConnection={handleTestSupabaseConnection}
             auditLogs={auditLogs}
             onClearAuditLogs={() => setAuditLogs([])}
             issues={issues}
             generalSettings={generalSettings}
             onUpdateGeneralSettings={setGeneralSettings}
+            onRestoreBackup={handleRestoreBackup}
+            onResetSystemToDefault={handleResetSystemToDefault}
+            realtimeStatus={realtimeStatus}
+            onlineUsers={onlineUsers}
+            totalConnections={totalConnections}
+            onRefreshRealtime={() => realtimeSync.fetchServerState()}
+            currentUser={currentUser}
           />
         )}
       </main>
@@ -1256,5 +1777,6 @@ export default function App() {
         onConfirmMerge={handleConfirmMerge}
       />
     </div>
+    </BadgeStyleProvider>
   );
 }

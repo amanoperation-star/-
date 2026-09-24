@@ -65,6 +65,7 @@ export interface AppUser {
   department: string;
   avatar: string;
   permissions?: string[];
+  password?: string;
 }
 
 export interface CategoryRule {
@@ -107,6 +108,7 @@ export interface NotificationItem {
 export interface SoundSettings {
   muted: boolean;
   alarmUrl: string;
+  customNotificationUrl?: string;
   alarmStyle: 'pulse-red' | 'dark-rose' | 'amber-warning';
   volume: number;
 }
@@ -117,6 +119,8 @@ export interface SupabaseConfig {
   connected: boolean;
   lastSync?: string;
 }
+
+export type BadgeStyleType = 'clean-arabic' | 'bilingual' | 'modern-pill';
 
 export interface GeneralSettings {
   appName: string;
@@ -130,5 +134,21 @@ export interface GeneralSettings {
   showSubtitle: boolean;
   showFooterCopyright: boolean;
   customFooterNote: string;
+  badgeStyle?: BadgeStyleType;
+}
+
+export interface SystemBackupData {
+  version: string;
+  exportedAt: string;
+  exportedBy?: string;
+  systemName?: string;
+  issues: Issue[];
+  users: AppUser[];
+  categories: CategoryRule[];
+  tags: string[];
+  cannedResponses: string[];
+  soundSettings: SoundSettings;
+  generalSettings: GeneralSettings;
+  auditLogs: AuditLog[];
 }
 

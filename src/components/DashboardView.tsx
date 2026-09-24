@@ -333,7 +333,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       >
                         {item.client}
                       </span>
-                      <PriorityBadge priority={item.priority} size="sm" showEnglish={false} />
+                      <PriorityBadge priority={item.priority} size="sm" />
                     </div>
                     <p className="text-[11px] text-slate-600 dark:text-slate-400 truncate max-w-sm">{item.desc}</p>
                     <span className="text-[10px] text-amber-700 dark:text-amber-400 block font-semibold">المسؤول: {item.owner}</span>
