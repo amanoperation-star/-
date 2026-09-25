@@ -18,6 +18,7 @@ export interface RealtimeEventHandlers {
   onStateSynced: (fullState: any) => void;
   onPresenceUpdated: (users: ActiveUserPresence[], totalConnections: number) => void;
   onStatusChanged: (status: SyncConnectionStatus) => void;
+  onCollisionsUpdated?: (collisions: any) => void;
 }
 
 class RealtimeSyncManager {
@@ -148,6 +149,9 @@ class RealtimeSyncManager {
         if (Array.isArray(data.activeUsers)) {
           this.handlers?.onPresenceUpdated(data.activeUsers, data.totalConnections || 1);
         }
+        if (data.collisions) {
+          this.handlers?.onCollisionsUpdated?.(data.collisions);
+        }
         break;
       }
 
@@ -189,6 +193,13 @@ class RealtimeSyncManager {
       case 'presence:update': {
         if (Array.isArray(data.activeUsers)) {
           this.handlers?.onPresenceUpdated(data.activeUsers, data.totalConnections || 1);
+        }
+        break;
+      }
+
+      case 'ticket:collisions_update': {
+        if (data.collisions) {
+          this.handlers?.onCollisionsUpdated?.(data.collisions);
         }
         break;
       }
@@ -322,6 +333,40 @@ class RealtimeSyncManager {
       });
     } catch (err) {
       console.warn('[RealtimeSync] Seed error:', err);
+    }
+  }
+
+  // 7. Send ticket focus (collision detection)
+  public sendTicketFocus(ticketId: string, action: 'viewing' | 'editing' | 'working', user: any) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      try {
+        this.ws.send(
+          JSON.stringify({
+            type: 'ticket:focus',
+            ticketId,
+            action,
+            user,
+          })
+        );
+      } catch (err) {
+        console.warn('[RealtimeSync] sendTicketFocus error:', err);
+      }
+    }
+  }
+
+  // 8. Send ticket blur (collision detection)
+  public sendTicketBlur(ticketId: string) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      try {
+        this.ws.send(
+          JSON.stringify({
+            type: 'ticket:blur',
+            ticketId,
+          })
+        );
+      } catch (err) {
+        console.warn('[RealtimeSync] sendTicketBlur error:', err);
+      }
     }
   }
 

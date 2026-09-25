@@ -31,6 +31,8 @@ import {
 } from 'lucide-react';
 import { Issue, CategoryRule, Priority, IssueStatus, AppUser } from '../types';
 import { calculateDueDate, formatArabicDate } from '../utils/sla';
+import { collisionManager, useTicketCollision } from '../utils/collisionDetector';
+import { CollisionAlertBanner } from './CollisionAlertBanner';
 
 export type ModalDesignType = 'cards' | 'executive' | 'wizard' | 'compact';
 
@@ -42,6 +44,7 @@ interface IssueModalProps {
   categories: CategoryRule[];
   tags: string[];
   users: AppUser[];
+  currentUser?: AppUser;
 }
 
 export const IssueModal: React.FC<IssueModalProps> = ({
@@ -52,6 +55,7 @@ export const IssueModal: React.FC<IssueModalProps> = ({
   categories,
   tags,
   users,
+  currentUser,
 }) => {
   // Design Layout Selection (Saved in LocalStorage)
   const [modalDesign, setModalDesign] = useState<ModalDesignType>(() => {
@@ -81,6 +85,22 @@ export const IssueModal: React.FC<IssueModalProps> = ({
   const [attachment, setAttachment] = useState<{ name: string; url: string; size?: string } | undefined>(undefined);
 
   const isEditMode = Boolean(initialData && initialData.id);
+
+  // Collision detection hook for edit mode
+  const { otherViewers, hasCollision } = useTicketCollision(
+    initialData?.id,
+    currentUser || ({ id: 'guest', name: 'مستخدم', role: 'Agent' } as any)
+  );
+
+  // Notify team presence when editing an existing ticket
+  useEffect(() => {
+    if (isOpen && initialData?.id && currentUser) {
+      collisionManager.notifyFocus(initialData.id, 'editing', currentUser);
+      return () => {
+        collisionManager.notifyBlur(initialData.id, currentUser);
+      };
+    }
+  }, [isOpen, initialData?.id, currentUser]);
 
   // Synchronize on modal open or data change
   useEffect(() => {
@@ -382,6 +402,13 @@ export const IssueModal: React.FC<IssueModalProps> = ({
         {/* ======================================================== */}
         <div className="overflow-y-auto flex-1 p-4 sm:p-5 custom-scrollbar text-xs">
           
+          {/* Ticket Collision Detection Alert Banner */}
+          {hasCollision && (
+            <div className="mb-4">
+              <CollisionAlertBanner viewers={otherViewers} />
+            </div>
+          )}
+
           {/* ---------------------------------------------------- */}
           {/* DESIGN 1: CARDS LAYOUT (بطاقات منظمة وعصرية)         */}
           {/* ---------------------------------------------------- */}

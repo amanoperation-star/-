@@ -16,11 +16,15 @@ import {
   User,
   GitMerge,
   ArrowLeft,
-  ExternalLink
+  ExternalLink,
+  Phone
 } from 'lucide-react';
 import { Issue, AppUser } from '../types';
 import { formatSecondsToHMS, isTicketSlaBreached, getRemainingTimeFormatted } from '../utils/sla';
 import { PriorityBadge, StatusBadge } from './Badges';
+import { collisionManager, useTicketCollision } from '../utils/collisionDetector';
+import { CollisionAlertBanner } from './CollisionAlertBanner';
+import { WhatsAppChatModal } from './WhatsAppChatModal';
 
 interface DetailsModalProps {
   isOpen: boolean;
@@ -36,12 +40,14 @@ interface DetailsModalProps {
   onOpenCustomerProfile?: (clientName: string) => void;
   onOpenMergeModal?: (ticketId: string) => void;
   onNavigateToTicket?: (ticketId: string) => void;
+  onUpdatePhone?: (issueId: string, phone: string) => void;
 }
 
 export const DetailsModal: React.FC<DetailsModalProps> = ({
   isOpen,
   onClose,
   issue,
+  currentUser,
   cannedResponses,
   onToggleTimer,
   onStartTimer,
@@ -51,9 +57,24 @@ export const DetailsModal: React.FC<DetailsModalProps> = ({
   onOpenCustomerProfile,
   onOpenMergeModal,
   onNavigateToTicket,
+  onUpdatePhone,
 }) => {
   const [commentInput, setCommentInput] = useState('');
   const [tempCommentAttachment, setTempCommentAttachment] = useState<{ name: string; url: string } | undefined>(undefined);
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+
+  // Collision detection hook
+  const { otherViewers, hasCollision } = useTicketCollision(issue?.id, currentUser);
+
+  // Notify team presence/collision that current user opened this ticket
+  useEffect(() => {
+    if (isOpen && issue) {
+      collisionManager.notifyFocus(issue.id, issue.isWorkingNow ? 'working' : 'viewing', currentUser);
+      return () => {
+        collisionManager.notifyBlur(issue.id, currentUser);
+      };
+    }
+  }, [isOpen, issue?.id, issue?.isWorkingNow, currentUser]);
 
   // Automatically guarantee timer starts as soon as ticket details modal opens
   useEffect(() => {
@@ -133,17 +154,32 @@ export const DetailsModal: React.FC<DetailsModalProps> = ({
                   </button>
                 )}
               </div>
-              <div className="flex items-center gap-2 mt-0.5">
+              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                 <span className="text-[10px] text-amber-700 dark:text-amber-400 font-bold flex items-center gap-1">
                   <TagIcon className="w-2.5 h-2.5" />
                   <span>{issue.tag || 'عام'}</span>
                 </span>
                 <span className="text-[10px] text-slate-500 dark:text-slate-400">• {issue.type}</span>
+                {issue.clientPhone && (
+                  <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-mono font-bold flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/50 px-1.5 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800">
+                    <Phone className="w-2.5 h-2.5 text-emerald-600" />
+                    <span dir="ltr">{issue.clientPhone}</span>
+                  </span>
+                )}
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* 1-Click WhatsApp Chat Button */}
+            <button
+              onClick={() => setShowWhatsAppModal(true)}
+              className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm active:scale-95"
+              title="مراسلة العميل مباشرة عبر واتساب بضغطة زر واحدة (1-Click WhatsApp)"
+            >
+              <MessageSquare className="w-3.5 h-3.5 fill-white/20" />
+              <span>مراسلة واتساب 💬</span>
+            </button>
             {onOpenMergeModal && issue.status !== 'Closed' && !issue.mergedIntoTicketId && (
               <button
                 onClick={() => onOpenMergeModal(issue.id)}
@@ -174,6 +210,11 @@ export const DetailsModal: React.FC<DetailsModalProps> = ({
         {/* Modal Scrollable Body */}
         <div className="p-5 overflow-y-auto space-y-5 text-xs">
           
+          {/* Ticket Collision Detection Alert Banner */}
+          {hasCollision && (
+            <CollisionAlertBanner viewers={otherViewers} />
+          )}
+
           {/* Merged Into Secondary Banner */}
           {issue.mergedIntoTicketId && (
             <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-amber-900 dark:text-amber-200">
@@ -492,6 +533,15 @@ export const DetailsModal: React.FC<DetailsModalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* 1-Click WhatsApp Chat Direct Modal */}
+      <WhatsAppChatModal
+        isOpen={showWhatsAppModal}
+        onClose={() => setShowWhatsAppModal(false)}
+        issue={issue}
+        currentUser={currentUser}
+        onUpdatePhone={onUpdatePhone}
+      />
     </div>
   );
 };

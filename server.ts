@@ -72,7 +72,7 @@ const app = express();
 app.use(express.json({ limit: '20mb' }));
 app.get('/favicon.ico', (_req, res) => res.status(204).end());
 
-// Active team members presence tracking
+// Active team members presence & ticket collision tracking
 interface ConnectedClient {
   ws: WebSocket;
   id: string;
@@ -84,6 +84,39 @@ interface ConnectedClient {
   lastPing: number;
 }
 const connectedClients = new Map<WebSocket, ConnectedClient>();
+
+// Ticket Collision Detection State: Map of WebSocket to active ticket view
+interface ActiveTicketView {
+  ticketId: string;
+  userId: string;
+  userName: string;
+  userRole: string;
+  userAvatar?: string;
+  action: 'viewing' | 'editing' | 'working';
+  timestamp: number;
+}
+const activeTicketViews = new Map<WebSocket, ActiveTicketView>();
+
+const getCollisionsMap = (): Record<string, ActiveTicketView[]> => {
+  const map: Record<string, ActiveTicketView[]> = {};
+  const now = Date.now();
+  for (const [ws, view] of activeTicketViews.entries()) {
+    if (ws.readyState === WebSocket.OPEN && now - view.timestamp < 60000) {
+      if (!map[view.ticketId]) map[view.ticketId] = [];
+      map[view.ticketId].push(view);
+    } else {
+      activeTicketViews.delete(ws);
+    }
+  }
+  return map;
+};
+
+const broadcastCollisions = () => {
+  broadcast({
+    type: 'ticket:collisions_update',
+    collisions: getCollisionsMap(),
+  });
+};
 
 const getActiveUsersList = () => {
   const users: any[] = [];
@@ -142,6 +175,15 @@ app.get('/api/state', (_req, res) => {
     state,
     activeUsers: getActiveUsersList(),
     totalConnections: connectedClients.size,
+    collisions: getCollisionsMap(),
+  });
+});
+
+// API: Get active ticket collisions
+app.get('/api/collisions', (_req, res) => {
+  res.json({
+    status: 'ok',
+    collisions: getCollisionsMap(),
   });
 });
 
@@ -383,6 +425,7 @@ wss.on('connection', (ws, request) => {
       state,
       activeUsers: getActiveUsersList(),
       totalConnections: connectedClients.size,
+      collisions: getCollisionsMap(),
     })
   );
 
@@ -473,6 +516,29 @@ wss.on('connection', (ws, request) => {
           break;
         }
 
+        case 'ticket:focus': {
+          const { ticketId, action, user } = data;
+          if (ticketId) {
+            activeTicketViews.set(ws, {
+              ticketId,
+              userId: user?.id || clientInfo.id,
+              userName: user?.name || clientInfo.name || 'موظف في الفريق',
+              userRole: user?.role || clientInfo.role || 'Agent',
+              userAvatar: user?.avatar || 'م',
+              action: action || 'viewing',
+              timestamp: Date.now(),
+            });
+            broadcastCollisions();
+          }
+          break;
+        }
+
+        case 'ticket:blur': {
+          activeTicketViews.delete(ws);
+          broadcastCollisions();
+          break;
+        }
+
         default:
           break;
       }
@@ -483,13 +549,17 @@ wss.on('connection', (ws, request) => {
 
   ws.on('close', () => {
     connectedClients.delete(ws);
+    activeTicketViews.delete(ws);
     broadcastPresence();
+    broadcastCollisions();
   });
 
   ws.on('error', (err) => {
     console.error('[WS] Connection error:', err);
     connectedClients.delete(ws);
+    activeTicketViews.delete(ws);
     broadcastPresence();
+    broadcastCollisions();
   });
 });
 

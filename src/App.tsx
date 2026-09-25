@@ -36,6 +36,7 @@ import { isTicketSlaBreached, calculateDueDate } from './utils/sla';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { LoginScreen } from './components/LoginScreen';
 import { BadgeStyleProvider } from './components/Badges';
+import { collisionManager } from './utils/collisionDetector';
 
 const STORAGE_KEY = 'ENTERPRISE_ISSUE_TRACKER_PRO_V8';
 
@@ -522,6 +523,10 @@ export default function App() {
         onStatusChanged: (status: SyncConnectionStatus) => {
           setRealtimeStatus(status);
         },
+
+        onCollisionsUpdated: (collisions: any) => {
+          collisionManager.updateServerCollisions(collisions);
+        },
       },
       currentUser
     );
@@ -542,6 +547,24 @@ export default function App() {
       realtimeSync.destroy();
     };
   }, []);
+
+  // Update client phone on issue
+  const handleUpdateIssuePhone = (issueId: string, newPhone: string) => {
+    const trimmed = newPhone.trim();
+    setIssues((prev) =>
+      prev.map((i) => (i.id === issueId ? { ...i, clientPhone: trimmed } : i))
+    );
+    if (detailIssue && detailIssue.id === issueId) {
+      setDetailIssue((prev) => (prev ? { ...prev, clientPhone: trimmed } : null));
+    }
+    realtimeSync.broadcastTicketUpdate(
+      { id: issueId, clientPhone: trimmed } as any,
+      currentUser.name,
+      'تحديث هاتف العميل',
+      `تم تحديث رقم هاتف التذكرة إلى ${trimmed}`
+    );
+    addAuditLog('تحديث هاتف العميل', `تم تحديث هاتف العميل للتذكرة ${issueId} إلى ${trimmed}`);
+  };
 
   // Add or Update Ticket
   const handleSaveIssue = (data: Partial<Issue>) => {
@@ -1799,6 +1822,7 @@ export default function App() {
             onBulkDelete={handleBulkDelete}
             onOpenCustomerProfile={handleOpenCustomerProfile}
             onOpenMergeModal={handleOpenMergeModal}
+            onUpdatePhone={handleUpdateIssuePhone}
           />
         )}
 
@@ -1889,6 +1913,7 @@ export default function App() {
         categories={categories}
         tags={tags}
         users={users}
+        currentUser={currentUser}
       />
 
       <DetailsModal
@@ -1908,6 +1933,7 @@ export default function App() {
         onOpenCustomerProfile={handleOpenCustomerProfile}
         onOpenMergeModal={handleOpenMergeModal}
         onNavigateToTicket={handleSelectTicketById}
+        onUpdatePhone={handleUpdateIssuePhone}
       />
 
       <ResolveModal
@@ -1929,6 +1955,8 @@ export default function App() {
         }}
         clientName={selectedCustomerName}
         issues={issues}
+        currentUser={currentUser}
+        onUpdatePhone={handleUpdateIssuePhone}
         onOpenTicketDetails={handleOpenTicketDetails}
         onOpenNewTicketForClient={(name, phone, email) => {
           setEditingIssue({

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   Search, 
   FileSpreadsheet, 
@@ -12,12 +12,17 @@ import {
   Clock, 
   AlertTriangle,
   User,
-  GitMerge
+  GitMerge,
+  MessageSquare,
+  Phone
 } from 'lucide-react';
 import { Issue, AppUser, Priority, IssueStatus } from '../types';
 import { isTicketSlaBreached, getRemainingTimeFormatted, formatSecondsToHMS } from '../utils/sla';
 import { exportTicketsToCSV } from '../utils/export';
 import { PriorityBadge, StatusBadge } from './Badges';
+import { useAllTicketCollisions } from '../utils/collisionDetector';
+import { CollisionAlertBanner } from './CollisionAlertBanner';
+import { WhatsAppChatModal } from './WhatsAppChatModal';
 
 interface IssuesViewProps {
   issues: Issue[];
@@ -35,12 +40,14 @@ interface IssuesViewProps {
   onOpenCustomerProfile?: (clientName: string) => void;
   onOpenMergeModal?: (ticketIds: string[]) => void;
   initialFilterStatus?: string;
+  onUpdatePhone?: (issueId: string, phone: string) => void;
 }
 
 export const IssuesView: React.FC<IssuesViewProps> = ({
   issues,
   tags,
   users,
+  currentUser,
   onOpenDetails,
   onOpenEdit,
   onOpenResolve,
@@ -51,17 +58,18 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
   onOpenCustomerProfile,
   onOpenMergeModal,
   initialFilterStatus = 'ALL',
+  onUpdatePhone,
 }) => {
   const [search, setSearch] = useState('');
+  const [whatsAppIssue, setWhatsAppIssue] = useState<Issue | null>(null);
+
+  // Hook to watch collisions on all tickets in real-time
+  const collisionsMap = useAllTicketCollisions(currentUser);
   const [filterTag, setFilterTag] = useState('ALL');
   const [filterStatus, setFilterStatus] = useState(initialFilterStatus);
   const [filterPriority, setFilterPriority] = useState('ALL');
   const [filterOwner, setFilterOwner] = useState('ALL');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-
-  useEffect(() => {
-    setFilterStatus(initialFilterStatus);
-  }, [initialFilterStatus]);
 
   // Filtering
   const filteredIssues = issues.filter((item) => {
@@ -291,21 +299,6 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
                   <td colSpan={11} className="text-center py-12 text-slate-500 dark:text-slate-400">
                     <p className="text-sm font-bold text-slate-700 dark:text-slate-300">لا توجد تذاكر تطابق معايير البحث والفلترة المحددة</p>
                     <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">جرب تغيير شروط الفلترة أو إضافة تذكرة جديدة</p>
-                    {issues.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setFilterStatus('ALL');
-                          setFilterTag('ALL');
-                          setFilterPriority('ALL');
-                          setFilterOwner('ALL');
-                          setSearch('');
-                        }}
-                        className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
-                      >
-                        <span>إلغاء جميع الفلاتر وعرض كافة التذاكر ({issues.length} تذكرة) 🔄</span>
-                      </button>
-                    )}
                   </td>
                 </tr>
               ) : (
@@ -366,7 +359,29 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
                               <User className="w-3 h-3" />
                             </button>
                           )}
+
+                          {/* 1-Click WhatsApp Quick Action */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setWhatsAppIssue(item);
+                            }}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 text-[10px] font-bold transition shadow-2xs cursor-pointer active:scale-95"
+                            title={`مراسلة العميل (${item.client}) عبر واتساب بنقرة واحدة`}
+                          >
+                            <MessageSquare className="w-3 h-3 fill-emerald-600/20 text-emerald-600 dark:text-emerald-400" />
+                            <span>واتساب 💬</span>
+                          </button>
                         </div>
+
+                        {/* Collision Detection Live Chip */}
+                        {collisionsMap[item.id] && collisionsMap[item.id].length > 0 && (
+                          <div className="mt-1">
+                            <CollisionAlertBanner viewers={collisionsMap[item.id]} compact />
+                          </div>
+                        )}
+
                         <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
                           {item.tag && (
                             <span className="inline-flex items-center gap-1 text-[10px] text-amber-700 dark:text-amber-400 font-semibold">
@@ -455,6 +470,18 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
                       {/* Actions */}
                       <td className="p-3.5 text-center">
                         <div className="flex items-center justify-center gap-1">
+                          {/* 1-Click WhatsApp Direct Chat */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setWhatsAppIssue(item);
+                            }}
+                            className="p-1.5 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/60 rounded-lg transition"
+                            title={`مراسلة العميل عبر واتساب`}
+                          >
+                            <MessageSquare className="w-4 h-4 fill-emerald-600/20" />
+                          </button>
                           <button
                             onClick={() => onOpenDetails(item)}
                             className="p-1.5 text-indigo-600 dark:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition"
@@ -499,6 +526,15 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
           </table>
         </div>
       </div>
+
+      {/* 1-Click WhatsApp Direct Chat Modal */}
+      <WhatsAppChatModal
+        isOpen={Boolean(whatsAppIssue)}
+        onClose={() => setWhatsAppIssue(null)}
+        issue={whatsAppIssue}
+        currentUser={currentUser}
+        onUpdatePhone={onUpdatePhone}
+      />
     </div>
   );
 };
