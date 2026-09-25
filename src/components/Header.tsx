@@ -205,19 +205,22 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Navigation Tabs */}
+        {/* Navigation Tabs - Only show Dashboard & Admin for Admin users */}
         <div className="flex items-center bg-slate-100 dark:bg-slate-800/90 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700/80 gap-1">
-          <button
-            onClick={() => setCurrentTab('dashboard')}
-            className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 ${
-              currentTab === 'dashboard'
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-700/60'
-            }`}
-          >
-            <LayoutDashboard className="w-4 h-4" />
-            <span>لوحة التحكم</span>
-          </button>
+          {currentUser.role === 'Admin' && (
+            <button
+              onClick={() => setCurrentTab('dashboard')}
+              className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 ${
+                currentTab === 'dashboard'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-700/60'
+              }`}
+            >
+              <LayoutDashboard className="w-4 h-4" />
+              <span>لوحة التحكم</span>
+            </button>
+          )}
+
           <button
             onClick={() => setCurrentTab('issues')}
             className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 ${
@@ -229,17 +232,20 @@ export const Header: React.FC<HeaderProps> = ({
             <ListTodo className="w-4 h-4" />
             <span>سجل المشاكل</span>
           </button>
-          <button
-            onClick={() => setCurrentTab('admin')}
-            className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 ${
-              currentTab === 'admin'
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-700/60'
-            }`}
-          >
-            <ShieldCheck className="w-4 h-4 text-amber-500 dark:text-amber-400" />
-            <span>لوحة الإدمن</span>
-          </button>
+
+          {currentUser.role === 'Admin' && (
+            <button
+              onClick={() => setCurrentTab('admin')}
+              className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 ${
+                currentTab === 'admin'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-700/60'
+              }`}
+            >
+              <ShieldCheck className="w-4 h-4 text-amber-500 dark:text-amber-400" />
+              <span>لوحة الإدمن</span>
+            </button>
+          )}
         </div>
 
         {/* Right Actions */}
@@ -289,9 +295,9 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Cloud Connection Light Indicator (منورة في حالة الاتصال بالسحابة / مطفية في حالة عدم الاتصال) */}
           {realtimeStatus === 'connected' || supabaseConnected ? (
             <button
-              onClick={onNavigateToSupabaseSettings}
-              className="px-2.5 py-1.5 rounded-xl flex items-center gap-1.5 text-xs font-bold transition-all duration-300 bg-emerald-500/15 hover:bg-emerald-500/25 dark:bg-emerald-950/70 dark:hover:bg-emerald-900/80 border-2 border-emerald-500 dark:border-emerald-400 text-emerald-600 dark:text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.55)] ring-1 ring-emerald-400/50 cursor-pointer"
-              title="متصل بالسحابة اللحظية (العلامة منورة 🟢) - انقر لعرض تفاصيل المزامنة في الإعدادات"
+              onClick={currentUser.role === 'Admin' ? onNavigateToSupabaseSettings : undefined}
+              className={`px-2.5 py-1.5 rounded-xl flex items-center gap-1.5 text-xs font-bold transition-all duration-300 bg-emerald-500/15 hover:bg-emerald-500/25 dark:bg-emerald-950/70 dark:hover:bg-emerald-900/80 border-2 border-emerald-500 dark:border-emerald-400 text-emerald-600 dark:text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.55)] ring-1 ring-emerald-400/50 ${currentUser.role === 'Admin' ? 'cursor-pointer' : 'cursor-default'}`}
+              title={currentUser.role === 'Admin' ? "متصل بالسحابة اللحظية (العلامة منورة 🟢) - انقر لعرض تفاصيل المزامنة في الإعدادات" : "متصل بالسحابة اللحظية (العلامة منورة 🟢)"}
               aria-label="حالة الاتصال السحابي: متصل (منورة)"
             >
               <span className="relative flex h-2 w-2">
@@ -303,9 +309,9 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           ) : realtimeStatus === 'connecting' ? (
             <button
-              onClick={onNavigateToSupabaseSettings}
-              className="px-2.5 py-1.5 rounded-xl flex items-center gap-1.5 text-xs font-bold transition-all duration-300 bg-amber-500/15 border border-amber-500 text-amber-600 dark:text-amber-400 cursor-pointer"
-              title="جارِ الاتصال بالسحابة..."
+              onClick={currentUser.role === 'Admin' ? onNavigateToSupabaseSettings : undefined}
+              className={`px-2.5 py-1.5 rounded-xl flex items-center gap-1.5 text-xs font-bold transition-all duration-300 bg-amber-500/15 border border-amber-500 text-amber-600 dark:text-amber-400 ${currentUser.role === 'Admin' ? 'cursor-pointer' : 'cursor-default'}`}
+              title={currentUser.role === 'Admin' ? "جارِ الاتصال بالسحابة... - انقر للإعدادات" : "جارِ الاتصال بالسحابة..."}
               aria-label="حالة الاتصال السحابي: جارِ الاتصال"
             >
               <RefreshCw className="w-3.5 h-3.5 text-amber-500 animate-spin" />
@@ -313,9 +319,9 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           ) : (
             <button
-              onClick={onNavigateToSupabaseSettings}
-              className="px-2.5 py-1.5 rounded-xl flex items-center gap-1.5 text-xs font-bold transition-all duration-300 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800/60 dark:hover:bg-slate-700/60 border border-slate-300 dark:border-slate-700/60 text-slate-400 dark:text-slate-500 opacity-50 hover:opacity-80 shadow-none cursor-pointer"
-              title="غير متصل بالسحابة (العلامة مطفية) - انقر لعرض تفاصيل المزامنة في الإعدادات"
+              onClick={currentUser.role === 'Admin' ? onNavigateToSupabaseSettings : undefined}
+              className={`px-2.5 py-1.5 rounded-xl flex items-center gap-1.5 text-xs font-bold transition-all duration-300 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800/60 dark:hover:bg-slate-700/60 border border-slate-300 dark:border-slate-700/60 text-slate-400 dark:text-slate-500 opacity-50 hover:opacity-80 shadow-none ${currentUser.role === 'Admin' ? 'cursor-pointer' : 'cursor-default'}`}
+              title={currentUser.role === 'Admin' ? "غير متصل بالسحابة (العلامة مطفية) - انقر لعرض تفاصيل المزامنة في الإعدادات" : "غير متصل بالسحابة (العلامة مطفية)"}
               aria-label="حالة الاتصال السحابي: غير متصل (مطفية)"
             >
               <span className="inline-flex rounded-full h-2 w-2 bg-slate-400 dark:bg-slate-600"></span>

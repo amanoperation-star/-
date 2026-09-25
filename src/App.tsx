@@ -179,10 +179,28 @@ export default function App() {
     }
   });
 
-  // Tab & Navigation
-  const [currentTab, setCurrentTab] = useState<'dashboard' | 'issues' | 'admin'>('dashboard');
+  // Tab & Navigation (Default to 'dashboard' for Admin, 'issues' for non-admin)
+  const [currentTab, setCurrentTab] = useState<'dashboard' | 'issues' | 'admin'>(() => {
+    try {
+      const savedUserId = localStorage.getItem(STORAGE_KEY + '_CURRENT_USER_ID');
+      if (savedUserId) {
+        const savedUsers = localStorage.getItem(STORAGE_KEY + '_USERS');
+        const list: AppUser[] = savedUsers ? JSON.parse(savedUsers) : INITIAL_USERS;
+        const found = list.find((u) => u.id === savedUserId);
+        if (found && found.role !== 'Admin') return 'issues';
+      }
+    } catch {}
+    return 'dashboard';
+  });
   const [adminSubTab, setAdminSubTab] = useState<'general' | 'backup' | 'users' | 'tags' | 'audio' | 'reports' | 'categories' | 'canned' | 'supabase' | 'csat' | 'audit'>('general');
   const [initialFilterStatus, setInitialFilterStatus] = useState<string>('ALL');
+
+  // Enforce access control: non-admin users only see and access 'issues'
+  useEffect(() => {
+    if (currentUser.role !== 'Admin' && (currentTab === 'dashboard' || currentTab === 'admin')) {
+      setCurrentTab('issues');
+    }
+  }, [currentUser.role, currentTab]);
 
   // Modals state
   const [showIssueModal, setShowIssueModal] = useState(false);
@@ -983,6 +1001,11 @@ export default function App() {
   // User Management
   const handleLogin = (user: AppUser) => {
     setCurrentUser(user);
+    if (user.role !== 'Admin') {
+      setCurrentTab('issues');
+    } else {
+      setCurrentTab('dashboard');
+    }
     setIsAuthenticated(true);
     try {
       localStorage.setItem(STORAGE_KEY + '_IS_AUTHENTICATED', 'true');
@@ -1005,6 +1028,9 @@ export default function App() {
 
   const handleSwitchUser = (user: AppUser) => {
     setCurrentUser(user);
+    if (user.role !== 'Admin' && (currentTab === 'dashboard' || currentTab === 'admin')) {
+      setCurrentTab('issues');
+    }
     try {
       localStorage.setItem(STORAGE_KEY + '_CURRENT_USER_ID', user.id);
     } catch {}
@@ -1415,10 +1441,12 @@ export default function App() {
     addAuditLog('تبديل حالة السحابة', !supabaseConfig.connected ? 'تشغيل السحابة وتوهج الزر بالأخضر 🟢' : 'إيقاف السحابة ⚪');
   };
 
-  // Quick jump directly to Supabase settings in Admin view
+  // Quick jump directly to Supabase settings in Admin view (Admin only)
   const handleNavigateToSupabaseSettings = () => {
-    setAdminSubTab('supabase');
-    setCurrentTab('admin');
+    if (currentUser.role === 'Admin') {
+      setAdminSubTab('supabase');
+      setCurrentTab('admin');
+    }
   };
 
   // Full System Restore handler (Overwrite or Merge)
@@ -1734,7 +1762,7 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto px-4 py-6 flex-grow w-full space-y-6">
-        {currentTab === 'dashboard' && (
+        {currentUser.role === 'Admin' && currentTab === 'dashboard' && (
           <DashboardView
             issues={issues}
             users={users}
@@ -1774,7 +1802,7 @@ export default function App() {
           />
         )}
 
-        {currentTab === 'admin' && (
+        {currentUser.role === 'Admin' && currentTab === 'admin' && (
           <AdminView
             initialTab={adminSubTab}
             users={users}
