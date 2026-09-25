@@ -36,7 +36,16 @@ import {
   CheckCircle2,
   ExternalLink,
   Info,
-  Key
+  Key,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  Sparkles,
+  LayoutGrid,
+  Layers,
+  Activity,
+  PanelRightClose,
+  PanelRightOpen,
 } from 'lucide-react';
 import { AppUser, CategoryRule, SoundSettings, SupabaseConfig, AuditLog, Issue, Priority, GeneralSettings, SystemBackupData } from '../types';
 import { SyncConnectionStatus, ActiveUserPresence } from '../utils/realtimeSync';
@@ -45,6 +54,7 @@ import { ALL_PERMISSIONS, getDefaultPermissionsForRole } from '../utils/permissi
 import { CategoriesManagementView } from './CategoriesManagementView';
 import { GeneralSettingsTab } from './GeneralSettingsTab';
 import { BackupRestoreTab } from './BackupRestoreTab';
+import { ScheduledReportsView } from './ScheduledReportsView';
 
 interface AdminViewProps {
   users: AppUser[];
@@ -71,6 +81,7 @@ interface AdminViewProps {
   supabaseConfig: SupabaseConfig;
   onSaveSupabaseConfig: (url: string, key: string) => void;
   onSyncSupabaseNow: () => void;
+  onPullSupabaseNow?: () => void;
   onTestSupabaseConnection?: (url: string, key: string) => Promise<{ success: boolean; message: string }>;
   auditLogs: AuditLog[];
   onClearAuditLogs: () => void;
@@ -112,6 +123,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   supabaseConfig,
   onSaveSupabaseConfig,
   onSyncSupabaseNow,
+  onPullSupabaseNow,
   onTestSupabaseConnection,
   auditLogs,
   onClearAuditLogs,
@@ -246,72 +258,486 @@ export const AdminView: React.FC<AdminViewProps> = ({
     setPasswordModalUser(null);
   };
 
+  // Layout mode: 'sidebar' (default enterprise split) vs 'ribbon' (top cards deck)
+  const [navLayout, setNavLayout] = useState<'sidebar' | 'ribbon'>(() => {
+    try {
+      const saved = localStorage.getItem('ADMIN_VIEW_LAYOUT');
+      if (saved === 'sidebar' || saved === 'ribbon') return saved;
+    } catch {}
+    return 'sidebar';
+  });
+
+  const handleSelectNavLayout = (layout: 'sidebar' | 'ribbon') => {
+    setNavLayout(layout);
+    try {
+      localStorage.setItem('ADMIN_VIEW_LAYOUT', layout);
+    } catch {}
+  };
+
+  // Search input within Admin Settings
+  const [adminSearchQuery, setAdminSearchQuery] = useState('');
+
+  // Performance & Key Metrics
+  const ratedIssues = issues.filter((i) => i.csat && i.csat > 0);
+  const avgCsat =
+    ratedIssues.length > 0
+      ? (ratedIssues.reduce((acc, curr) => acc + curr.csat, 0) / ratedIssues.length).toFixed(1)
+      : '4.8';
+
+  // Grouped Navigation Data for Professional Organization
+  const adminNavGroups = [
+    {
+      groupTitle: 'إعدادات النظام والبيانات',
+      groupKey: 'system',
+      icon: Database,
+      items: [
+        {
+          id: 'general',
+          label: 'الإعدادات العامة والهوية',
+          desc: 'اسم المنظومة، الشعار، والخيارات الأساسية',
+          icon: Sliders,
+          badge: 'عام',
+          badgeColor: 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300',
+        },
+        {
+          id: 'backup',
+          label: 'النسخ الاحتياطي والاستعادة',
+          desc: 'تصدير واستيراد قاعدة البيانات JSON',
+          icon: Database,
+          badge: 'JSON',
+          badgeColor: 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300',
+        },
+        {
+          id: 'supabase',
+          label: 'المزامنة السحابية (Supabase)',
+          desc: 'ربط السحابة، المفاتيح، والنسخ الحي',
+          icon: Cloud,
+          badge: supabaseConfig.connected ? 'متصل 🟢' : 'غير متصل ⚪',
+          badgeColor: supabaseConfig.connected
+            ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
+            : 'bg-slate-100 dark:bg-slate-800 text-slate-500',
+        },
+      ],
+    },
+    {
+      groupTitle: 'فريق العمل والأمان',
+      groupKey: 'access',
+      icon: Users,
+      items: [
+        {
+          id: 'users',
+          label: 'إدارة الحسابات والموظفين',
+          desc: 'إضافة وتعديل المستخدمين والصلاحيات',
+          icon: Users,
+          badge: `${users.length} موظف`,
+          badgeColor: 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300',
+        },
+        {
+          id: 'audit',
+          label: 'سجل التدقيق الأمني (Audit)',
+          desc: 'تتبع كافة الحركات والعمليات بالوقت',
+          icon: History,
+          badge: `${auditLogs.length} سجل`,
+          badgeColor: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400',
+        },
+      ],
+    },
+    {
+      groupTitle: 'قواعد التشغيل و SLA',
+      groupKey: 'rules',
+      icon: FolderTree,
+      items: [
+        {
+          id: 'categories',
+          label: 'الأقسام وقواعد SLA',
+          desc: 'توجيه البلاغات وفرق الدعم والمهل',
+          icon: FolderTree,
+          badge: `${categories.length} قسم`,
+          badgeColor: 'bg-cyan-100 dark:bg-cyan-950 text-cyan-700 dark:text-cyan-300',
+        },
+        {
+          id: 'canned',
+          label: 'الردود السريعة الذكية',
+          desc: 'قوالب الردود الجاهزة على التذاكر',
+          icon: Zap,
+          badge: `${cannedResponses.length} قالب`,
+          badgeColor: 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300',
+        },
+        {
+          id: 'tags',
+          label: 'الوسوم المخصصة (Tags)',
+          desc: 'تصنيفات العملاء والأولويات المخصصة',
+          icon: TagIcon,
+          badge: `${tags.length} وسم`,
+          badgeColor: 'bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300',
+        },
+        {
+          id: 'audio',
+          label: 'التنبيهات الصوتية والإنذار',
+          desc: 'نغمات انتهاء SLA وتخصيص الصوت',
+          icon: Volume2,
+          badge: soundSettings.muted ? 'صامت 🔕' : 'مفعل 🔔',
+          badgeColor: soundSettings.muted
+            ? 'bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300'
+            : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300',
+        },
+      ],
+    },
+    {
+      groupTitle: 'التقارير ومؤشرات الجودة',
+      groupKey: 'insights',
+      icon: FileSpreadsheet,
+      items: [
+        {
+          id: 'reports',
+          label: 'التقارير المتقدمة والتصدير',
+          desc: 'تصدير التذاكر إلى ملفات CSV وإحصائيات',
+          icon: FileSpreadsheet,
+          badge: 'CSV',
+          badgeColor: 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300',
+        },
+        {
+          id: 'csat',
+          label: 'تقييمات رضا العملاء (CSAT)',
+          desc: 'سجل آراء وتقييمات العملاء والنجوم',
+          icon: Star,
+          badge: `${avgCsat} ★`,
+          badgeColor: 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300',
+        },
+      ],
+    },
+  ];
+
+  // Active item info
+  const allNavItems = adminNavGroups.flatMap((g) => g.items);
+  const activeNavItem = allNavItems.find((item) => item.id === adminTab) || allNavItems[0];
+  const activeGroup = adminNavGroups.find((g) => g.items.some((item) => item.id === adminTab));
+
+  // Filtered Navigation based on search
+  const filteredNavGroups = adminNavGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter(
+        (item) =>
+          item.label.toLowerCase().includes(adminSearchQuery.toLowerCase()) ||
+          item.desc.toLowerCase().includes(adminSearchQuery.toLowerCase()) ||
+          group.groupTitle.toLowerCase().includes(adminSearchQuery.toLowerCase())
+      ),
+    }))
+    .filter((group) => group.items.length > 0);
+
   return (
     <div className="space-y-6">
-      {/* Top Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-6 rounded-3xl border border-indigo-900/50 shadow-xl flex flex-wrap justify-between items-center gap-4">
-        <div>
-          <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 px-3 py-1 rounded-full text-xs font-extrabold tracking-wider mb-2 inline-flex items-center gap-1.5">
-            <ShieldCheck className="w-4 h-4 text-amber-400" />
-            <span>لوحة الإدارة والتحكم الشاملة (Admin Hub)</span>
-          </span>
-          <h2 className="text-xl font-black mt-1">مركز التحكم بالحسابات، اتفاقيات SLA، والتكامل السحابي</h2>
-          <p className="text-xs text-slate-300 mt-1">
-            إدارة كاملة لقواعد التوجيه الآلي، التنبيهات الصوتية، الردود السريعة، وسجل التدقيق الأمني.
-          </p>
-        </div>
+      {/* ======================================================== */}
+      {/* Modern Executive Top Banner with Live KPI Health Badges  */}
+      {/* ======================================================== */}
+      <div className="relative bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 text-white p-5 sm:p-6 rounded-3xl border border-slate-800 shadow-xl overflow-hidden">
+        <div className="absolute top-0 right-0 w-96 h-full bg-gradient-to-l from-indigo-500/15 via-purple-500/10 to-transparent pointer-events-none" />
+        <div className="absolute -bottom-8 left-16 w-48 h-24 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => exportTicketsToJSON(issues)}
-            className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition shadow flex items-center gap-1.5"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>نسخة احتياطية (JSON)</span>
-          </button>
-          <button
-            onClick={() => exportTicketsToCSV(issues)}
-            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow flex items-center gap-1.5"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5" />
-            <span>سحب التقرير الشامل (CSV)</span>
-          </button>
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+          {/* Title & Description */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-3 py-1 rounded-full text-xs font-extrabold tracking-wider inline-flex items-center gap-1.5 shadow-xs">
+                <ShieldCheck className="w-4 h-4 text-indigo-400" />
+                <span>مركز الإدارة والحوكمة الشاملة (Admin Enterprise Hub)</span>
+              </span>
+              <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold">
+                v8.5 Pro
+              </span>
+            </div>
+            <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+              إدارة المنظومة، المستخدمين، اتفاقيات SLA، والتكامل السحابي
+            </h2>
+            <p className="text-xs text-slate-300/80 max-w-2xl leading-relaxed">
+              تحكم كامل في قواعد التوجيه الآلي، فرق العمل، الصلاحيات المخصصة، التنبيهات الصوتية، والنسخ الاحتياطي والمزامنة السحابية.
+            </p>
+
+            {/* Quick Live KPI Badges Bar */}
+            <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
+              <div className="bg-slate-900/80 border border-slate-700/80 px-3 py-1 rounded-xl flex items-center gap-1.5 text-slate-300">
+                <Users className="w-3.5 h-3.5 text-indigo-400" />
+                <span>المستخدمين: <strong className="text-white font-mono">{users.length}</strong></span>
+              </div>
+              <div className="bg-slate-900/80 border border-slate-700/80 px-3 py-1 rounded-xl flex items-center gap-1.5 text-slate-300">
+                <FolderTree className="w-3.5 h-3.5 text-cyan-400" />
+                <span>الأقسام: <strong className="text-white font-mono">{categories.length}</strong></span>
+              </div>
+              <div className="bg-slate-900/80 border border-slate-700/80 px-3 py-1 rounded-xl flex items-center gap-1.5 text-slate-300">
+                <Cloud className="w-3.5 h-3.5 text-emerald-400" />
+                <span>السحابة: <strong className={supabaseConfig.connected ? 'text-emerald-400' : 'text-slate-400'}>{supabaseConfig.connected ? 'متصلة 🟢' : 'غير متصلة ⚪'}</strong></span>
+              </div>
+              <div className="bg-slate-900/80 border border-slate-700/80 px-3 py-1 rounded-xl flex items-center gap-1.5 text-slate-300">
+                <Star className="w-3.5 h-3.5 text-amber-400" />
+                <span>مؤشر CSAT: <strong className="text-amber-300 font-mono">{avgCsat} ★</strong></span>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Toolbar & Layout Toggle */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            {/* View Mode Switcher */}
+            <div className="flex items-center bg-slate-900/90 p-1 rounded-xl border border-slate-700/80 shadow-inner">
+              <button
+                type="button"
+                onClick={() => handleSelectNavLayout('sidebar')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  navLayout === 'sidebar'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+                title="عرض القائمة الجانبية المصنفة"
+              >
+                <PanelRightOpen className="w-3.5 h-3.5" />
+                <span>قائمة جانبية</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSelectNavLayout('ribbon')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  navLayout === 'ribbon'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+                title="عرض الشريط العلوي المجمع"
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span>شريط علوي</span>
+              </button>
+            </div>
+
+            {/* Export Buttons */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => exportTicketsToJSON(issues)}
+                className="flex-1 sm:flex-initial px-3.5 py-2 bg-indigo-600/90 hover:bg-indigo-600 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center justify-center gap-1.5"
+                title="تصدير نسخة احتياطية بصيغة JSON"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>نسخة JSON</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => exportTicketsToCSV(issues)}
+                className="flex-1 sm:flex-initial px-3.5 py-2 bg-emerald-600/90 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center justify-center gap-1.5"
+                title="تصدير التقرير الشامل بصيغة CSV"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>تقرير CSV</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Sub Tabs */}
-      <div className="flex border-b border-slate-200 dark:border-slate-700/80 gap-2 overflow-x-auto text-xs font-bold pb-1">
-        {[
-          { id: 'general', label: 'الإعدادات العامة والهوية ⚙️', icon: Sliders, color: 'text-indigo-600 dark:text-indigo-400' },
-          { id: 'backup', label: 'النسخ الاحتياطي والاستعادة 💾', icon: Database, color: 'text-emerald-600 dark:text-emerald-400' },
-          { id: 'users', label: 'إدارة الحسابات', icon: Users, color: 'text-indigo-600 dark:text-indigo-400' },
-          { id: 'tags', label: 'الوسوم (Tags)', icon: TagIcon, color: 'text-amber-600 dark:text-amber-400' },
-          { id: 'audio', label: 'الصوت والإنذار 🔔', icon: Volume2, color: 'text-rose-600 dark:text-rose-400' },
-          { id: 'categories', label: 'الأقسام و SLA', icon: FolderTree, color: 'text-cyan-600 dark:text-cyan-400' },
-          { id: 'canned', label: 'الردود السريعة', icon: Zap, color: 'text-yellow-600 dark:text-yellow-400' },
-          { id: 'reports', label: 'التقارير المتقدمة', icon: FileSpreadsheet, color: 'text-emerald-600 dark:text-emerald-400' },
-          { id: 'supabase', label: 'المزامنة السحابية والفروع 🌐', icon: Cloud, color: 'text-emerald-600 dark:text-emerald-400' },
-          { id: 'csat', label: 'تقييمات CSAT', icon: Star, color: 'text-amber-600 dark:text-amber-400' },
-          { id: 'audit', label: 'سجل العمليات (Audit)', icon: History, color: 'text-slate-500 dark:text-slate-400' },
-        ].map((tab) => {
-          const Icon = tab.icon;
-          const isActive = adminTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setAdminTab(tab.id as any)}
-              className={`pb-3 px-3 border-b-2 transition flex items-center gap-1.5 whitespace-nowrap ${
-                isActive
-                  ? 'border-indigo-600 dark:border-indigo-500 text-indigo-600 dark:text-indigo-400 font-extrabold'
-                  : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-              }`}
-            >
-              <Icon className={`w-4 h-4 ${tab.color}`} />
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
-      </div>
+      {/* ======================================================== */}
+      {/* Navigation & Tab Content Layout (Sidebar vs Ribbon)     */}
+      {/* ======================================================== */}
+      <div className={navLayout === 'sidebar' ? 'grid grid-cols-1 lg:grid-cols-12 gap-6 items-start' : 'space-y-5'}>
+        
+        {/* ---------------------------------------------------- */}
+        {/* OPTION A: SIDEBAR NAVIGATION (Modern Enterprise 280px) */}
+        {/* ---------------------------------------------------- */}
+        {navLayout === 'sidebar' ? (
+          <aside className="lg:col-span-4 xl:col-span-3 space-y-4">
+            {/* Search Box in Settings */}
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={adminSearchQuery}
+                onChange={(e) => setAdminSearchQuery(e.target.value)}
+                placeholder="بحث في الإعدادات والأقسام..."
+                className="w-full bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-2xl pr-9 pl-8 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-xs"
+              />
+              {adminSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setAdminSearchQuery('')}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Categorized Navigation Accordion/List */}
+            <div className="bg-white dark:bg-slate-800/90 rounded-3xl border border-slate-200 dark:border-slate-700/80 p-3 shadow-xs space-y-4">
+              {filteredNavGroups.map((group) => {
+                const GroupIcon = group.icon;
+                return (
+                  <div key={group.groupKey} className="space-y-1.5">
+                    {/* Category Title */}
+                    <div className="flex items-center gap-1.5 px-3 py-1 text-[11px] font-extrabold text-slate-400 dark:text-slate-400 uppercase tracking-wider">
+                      <GroupIcon className="w-3.5 h-3.5 text-indigo-500" />
+                      <span>{group.groupTitle}</span>
+                    </div>
+
+                    {/* Group Items */}
+                    <div className="space-y-1">
+                      {group.items.map((item) => {
+                        const ItemIcon = item.icon;
+                        const isActive = adminTab === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => setAdminTab(item.id as any)}
+                            className={`w-full text-right p-2.5 rounded-2xl transition-all flex items-center justify-between group cursor-pointer ${
+                              isActive
+                                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                                : 'hover:bg-slate-100 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-300'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div
+                                className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                                  isActive
+                                    ? 'bg-white/20 text-white'
+                                    : 'bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400'
+                                }`}
+                              >
+                                <ItemIcon className="w-4 h-4" />
+                              </div>
+                              <div className="min-w-0">
+                                <span className="font-bold text-xs block truncate">{item.label}</span>
+                                <span
+                                  className={`text-[10px] block truncate ${
+                                    isActive ? 'text-indigo-100' : 'text-slate-400'
+                                  }`}
+                                >
+                                  {item.desc}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 shrink-0 mr-1.5">
+                              {item.badge && (
+                                <span
+                                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                    isActive
+                                      ? 'bg-white/20 text-white'
+                                      : item.badgeColor
+                                  }`}
+                                >
+                                  {item.badge}
+                                </span>
+                              )}
+                              <ChevronLeft
+                                className={`w-3.5 h-3.5 transition-transform ${
+                                  isActive ? 'text-white translate-x-0.5' : 'text-slate-400 opacity-40'
+                                }`}
+                              />
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Quick Helper Tip Card */}
+            <div className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-950/40 dark:to-slate-800/40 border border-indigo-200/80 dark:border-indigo-800/50 p-4 rounded-3xl text-xs space-y-1 text-slate-700 dark:text-slate-300">
+              <span className="font-bold text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5 text-xs">
+                <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                <span>إدارة فورية متزامنة</span>
+              </span>
+              <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                أي تعديلات تجريها على الصلاحيات أو الأقسام تطبق فوراً لجميع أعضاء الفريق عبر البث المباشر.
+              </p>
+            </div>
+          </aside>
+        ) : (
+          /* ---------------------------------------------------- */
+          /* OPTION B: RIBBON DOCK (Top Segmented Navigation)     */
+          /* ---------------------------------------------------- */
+          <div className="space-y-3">
+            {/* Group Tabs Dock */}
+            <div className="bg-white dark:bg-slate-800/90 p-2 rounded-3xl border border-slate-200 dark:border-slate-700/80 shadow-xs">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {adminNavGroups.map((group) => {
+                  const GroupIcon = group.icon;
+                  const isGroupActive = group.items.some((i) => i.id === adminTab);
+                  return (
+                    <div
+                      key={group.groupKey}
+                      className={`p-3 rounded-2xl border transition-all ${
+                        isGroupActive
+                          ? 'bg-indigo-50 dark:bg-indigo-950/50 border-indigo-300 dark:border-indigo-700/80 shadow-xs'
+                          : 'bg-slate-50 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 font-bold text-xs mb-2 text-slate-800 dark:text-slate-200">
+                        <GroupIcon className={`w-4 h-4 ${isGroupActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`} />
+                        <span>{group.groupTitle}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {group.items.map((item) => {
+                          const isActive = adminTab === item.id;
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => setAdminTab(item.id as any)}
+                              className={`px-2.5 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                                isActive
+                                  ? 'bg-indigo-600 text-white shadow-xs'
+                                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-700'
+                              }`}
+                            >
+                              <span>{item.label.split(' ')[0]} {item.label.split(' ')[1] || ''}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ---------------------------------------------------- */}
+        {/* Main Content Area for the Active Tab                */}
+        {/* ---------------------------------------------------- */}
+        <div className={navLayout === 'sidebar' ? 'lg:col-span-8 xl:col-span-9 min-w-0 space-y-4' : 'w-full space-y-4'}>
+          {/* Breadcrumb & Section Header Card */}
+          <div className="bg-white dark:bg-slate-800/90 p-4 rounded-3xl border border-slate-200 dark:border-slate-700/80 shadow-xs flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800/80 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold shadow-xs">
+                {React.createElement(activeNavItem.icon, { className: 'w-5 h-5' })}
+              </div>
+              <div>
+                <div className="flex items-center gap-2 text-[11px] text-slate-400 font-medium">
+                  <span>لوحة الإدارة</span>
+                  <span>/</span>
+                  <span className="text-slate-600 dark:text-slate-300 font-bold">{activeGroup?.groupTitle}</span>
+                </div>
+                <h3 className="font-extrabold text-base text-slate-900 dark:text-white tracking-tight">
+                  {activeNavItem.label}
+                </h3>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-500 dark:text-slate-400 hidden sm:inline">
+                {activeNavItem.desc}
+              </span>
+              {activeNavItem.badge && (
+                <span className={`text-xs font-bold px-3 py-1 rounded-xl shadow-2xs ${activeNavItem.badgeColor}`}>
+                  {activeNavItem.badge}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Active Tab View Body */}
+          <div className="space-y-4">
 
       {/* 0. GENERAL SETTINGS TAB */}
       {adminTab === 'general' && generalSettings && onUpdateGeneralSettings && (
@@ -666,67 +1092,80 @@ export const AdminView: React.FC<AdminViewProps> = ({
         </div>
       )}
 
-      {/* 6. REPORTS TAB */}
+      {/* 6. REPORTS TAB: PERIODIC SCHEDULES & MTTR/CSAT ANALYTICS */}
       {adminTab === 'reports' && (
-        <div className="bg-white dark:bg-slate-800/90 p-5 rounded-3xl border border-slate-200 dark:border-slate-700/80 shadow-sm space-y-5">
-          <h4 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
-            <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
-            <span>مركز استخراج وتوليد التقارير الإدارية المتقدمة</span>
-          </h4>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            يمكنك سحب تقارير تفصيلية جاهزة للفتح مباشرة في Microsoft Excel مع ترميز UTF-8 سليم للغة العربية.
-          </p>
+        <div className="space-y-6">
+          <ScheduledReportsView
+            issues={issues}
+            categories={categories}
+            generalSettings={generalSettings}
+            onExportCSV={() => exportTicketsToCSV(issues)}
+          />
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col justify-between space-y-3 shadow-2xs">
-              <div>
-                <h5 className="font-bold text-xs text-indigo-600 dark:text-indigo-400">📊 التقرير الشامل لكافة التذاكر</h5>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                  سجل كامل بجميع الحالات، أوقات العمل الفعلية، مواعيد الـ SLA، وتقييمات العملاء.
-                </p>
-              </div>
-              <button
-                onClick={() => exportTicketsToCSV(issues)}
-                className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition shadow flex items-center justify-center gap-2"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5" />
-                <span>سحب التقرير الكامل (CSV)</span>
-              </button>
-            </div>
+          {/* Quick Instant Export Tools Box */}
+          <div className="bg-white dark:bg-slate-800/90 p-5 rounded-3xl border border-slate-200 dark:border-slate-700/80 shadow-xs space-y-4">
+            <h4 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+              <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
+              <span>أدوات التصدير الفوري وسحب الملفات المباشر</span>
+            </h4>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              يمكنك سحب تقارير تفصيلية جاهزة للفتح مباشرة في Microsoft Excel مع ترميز UTF-8 سليم للغة العربية.
+            </p>
 
-            <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col justify-between space-y-3 shadow-2xs">
-              <div>
-                <h5 className="font-bold text-xs text-rose-600 dark:text-rose-400">⚠️ تقرير المتأخرات فقط (SLA Breached)</h5>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                  تصفية وتصدير فوري للتذاكر التي تجاوزت وقت المعالجة المسموح به لتقييم الالتزام.
-                </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col justify-between space-y-3 shadow-2xs">
+                <div>
+                  <h5 className="font-bold text-xs text-indigo-600 dark:text-indigo-400">📊 التقرير الشامل لكافة التذاكر</h5>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                    سجل كامل بجميع الحالات، أوقات العمل الفعلية، مواعيد الـ SLA، وتقييمات العملاء.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => exportTicketsToCSV(issues)}
+                  className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  <span>سحب التقرير الكامل (CSV)</span>
+                </button>
               </div>
-              <button
-                onClick={() => {
-                  const breached = issues.filter((i) => i.status !== 'Resolved' && i.status !== 'Closed');
-                  exportTicketsToCSV(breached, `SLA_Breached_Report_${new Date().toISOString().slice(0, 10)}.csv`);
-                }}
-                className="w-full py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold transition shadow flex items-center justify-center gap-2"
-              >
-                <AlertTriangle className="w-3.5 h-3.5" />
-                <span>سحب تقرير المتأخرات</span>
-              </button>
-            </div>
 
-            <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col justify-between space-y-3 shadow-2xs">
-              <div>
-                <h5 className="font-bold text-xs text-amber-600 dark:text-amber-400">💾 نسخة احتياطية برمجية (JSON)</h5>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                  نسخة رقمية كاملة تحتوي على السجلات والتايم لاين والتعليقات لاستعادتها أو نقلها لأي نظام آخر.
-                </p>
+              <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col justify-between space-y-3 shadow-2xs">
+                <div>
+                  <h5 className="font-bold text-xs text-rose-600 dark:text-rose-400">⚠️ تقرير المتأخرات فقط (SLA Breached)</h5>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                    تصفية وتصدير فوري للتذاكر التي تجاوزت وقت المعالجة المسموح به لتقييم الالتزام.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const breached = issues.filter((i) => i.status !== 'Resolved' && i.status !== 'Closed');
+                    exportTicketsToCSV(breached, `SLA_Breached_Report_${new Date().toISOString().slice(0, 10)}.csv`);
+                  }}
+                  className="w-full py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <span>سحب تقرير المتأخرات</span>
+                </button>
               </div>
-              <button
-                onClick={() => exportTicketsToJSON(issues)}
-                className="w-full py-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-amber-600 dark:text-amber-300 rounded-xl text-xs font-bold transition shadow flex items-center justify-center gap-2 border border-slate-300 dark:border-slate-700"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>تصدير نسخة JSON</span>
-              </button>
+
+              <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col justify-between space-y-3 shadow-2xs">
+                <div>
+                  <h5 className="font-bold text-xs text-amber-600 dark:text-amber-400">💾 نسخة احتياطية برمجية (JSON)</h5>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                    نسخة رقمية كاملة تحتوي على السجلات والتايم لاين والتعليقات لاستعادتها أو نقلها لأي نظام آخر.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => exportTicketsToJSON(issues)}
+                  className="w-full py-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-amber-600 dark:text-amber-300 rounded-xl text-xs font-bold transition shadow-xs flex items-center justify-center gap-2 border border-slate-300 dark:border-slate-700 cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>تصدير نسخة JSON</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -989,6 +1428,45 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 </div>
               )}
 
+              {/* Comprehensive Cloud Entities Status Cards */}
+              <div className="bg-slate-50/70 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-800 dark:text-slate-200 text-xs flex items-center gap-1.5">
+                    <Database className="w-4 h-4 text-indigo-500" />
+                    <span>البيانات المشمولة في المزامنة السحابية الكاملة:</span>
+                  </span>
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-300 dark:border-emerald-800">
+                    مزامنة ثنائية (رفع واسترجاع)
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+                  <div className="bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700/80">
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 block">التذاكر والبلاغات</span>
+                    <strong className="text-sm text-indigo-600 dark:text-indigo-400 block font-mono mt-0.5">{issues.length} تذكرة</strong>
+                    <span className="text-[9px] text-slate-400">جدول issues</span>
+                  </div>
+
+                  <div className="bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700/80">
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 block">المستخدمين والصلاحيات</span>
+                    <strong className="text-sm text-emerald-600 dark:text-emerald-400 block font-mono mt-0.5">{users.length} مستخدم</strong>
+                    <span className="text-[9px] text-slate-400">جدول app_users</span>
+                  </div>
+
+                  <div className="bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700/80">
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 block">الأقسام وقواعد SLA</span>
+                    <strong className="text-sm text-amber-600 dark:text-amber-400 block font-mono mt-0.5">{categories.length} قسم</strong>
+                    <span className="text-[9px] text-slate-400">متجر السحابة</span>
+                  </div>
+
+                  <div className="bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700/80">
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 block">الوسوم والردود والإعدادات</span>
+                    <strong className="text-sm text-purple-600 dark:text-purple-400 block font-mono mt-0.5">{tags.length} وسم</strong>
+                    <span className="text-[9px] text-slate-400">متجر السحابة</span>
+                  </div>
+                </div>
+              </div>
+
               {/* Action Buttons */}
               <div className="flex flex-wrap items-center gap-2.5 pt-2">
                 <button
@@ -1066,10 +1544,23 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   type="button"
                   onClick={onSyncSupabaseNow}
                   className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold transition shadow-sm flex items-center gap-1.5 cursor-pointer text-xs"
+                  title="رفع وحفظ جميع التذاكر والمستخدمين والإعدادات في السحابة"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
-                  <span>مزامنة البيانات الآن</span>
+                  <span>رفع ومزامنة الكل سحابياً ⬆️</span>
                 </button>
+
+                {onPullSupabaseNow && (
+                  <button
+                    type="button"
+                    onClick={onPullSupabaseNow}
+                    className="px-4 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-bold transition shadow-sm flex items-center gap-1.5 cursor-pointer text-xs"
+                    title="استيراد وسحب جميع التذاكر والمستخدمين والإعدادات من السحابة"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>استيراد واسترجاع الكل من السحابة ⬇️</span>
+                  </button>
+                )}
 
                 <button
                   type="button"
@@ -1077,7 +1568,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   className="px-3 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700/60 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-semibold transition flex items-center gap-1.5 cursor-pointer text-xs ml-auto"
                 >
                   <Database className="w-3.5 h-3.5 text-indigo-500" />
-                  <span>{showSqlHelper ? 'إخفاء كود الجدول' : 'مخطط جدول issues (SQL)'}</span>
+                  <span>{showSqlHelper ? 'إخفاء كود الجداول' : 'مخطط SQL الشامل للجداول'}</span>
                 </button>
               </div>
 
@@ -1087,15 +1578,19 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-xs text-slate-300 flex items-center gap-1.5">
                       <Database className="w-4 h-4 text-emerald-400" />
-                      <span>كود SQL لإنشاء جدول التذاكر وتفعيل صلاحية مفتاح Publishable API Key:</span>
+                      <span>كود SQL الشامل لإنشاء جداول التذاكر، المستخدمين، والمتجر السحابي:</span>
                     </span>
                     <button
                       type="button"
                       onClick={() => {
-                        const sqlCode = `-- كود إنشاء جدول التذاكر في Supabase SQL Editor
+                        const sqlCode = `-- كود إنشاء جداول المنظومة المتكاملة في Supabase SQL Editor
+
+-- 1. جدول التذاكر والبلاغات (issues)
 create table if not exists issues (
   id text primary key,
   client text,
+  client_email text,
+  client_phone text,
   tag text,
   type text,
   desc_text text,
@@ -1109,10 +1604,34 @@ create table if not exists issues (
   due_date text
 );
 
--- السماح بالوصول عبر Publishable API Key
+-- 2. جدول المستخدمين والحسابات والصلاحيات (app_users)
+create table if not exists app_users (
+  id text primary key,
+  name text,
+  username text,
+  email text,
+  role text,
+  department text,
+  avatar text,
+  permissions jsonb default '[]'::jsonb,
+  password text
+);
+
+-- 3. جدول متجر النظام السحابي الشامل (system_cloud_store: الأقسام، الإعدادات، الوسوم)
+create table if not exists system_cloud_store (
+  key text primary key,
+  data jsonb,
+  updated_at timestamp with time zone default now()
+);
+
+-- 4. تفعيل سياسات الأمان RLS والسماح بالقراءة والكتابة عبر المفتاح الآمن
 alter table issues enable row level security;
-create policy "Allow all via Publishable API Key" on issues
-  for all using (true) with check (true);`;
+alter table app_users enable row level security;
+alter table system_cloud_store enable row level security;
+
+create policy "Allow all on issues" on issues for all using (true) with check (true);
+create policy "Allow all on app_users" on app_users for all using (true) with check (true);
+create policy "Allow all on system_cloud_store" on system_cloud_store for all using (true) with check (true);`;
                         navigator.clipboard.writeText(sqlCode);
                         setCopiedSql(true);
                         setTimeout(() => setCopiedSql(false), 2500);
@@ -1127,15 +1646,18 @@ create policy "Allow all via Publishable API Key" on issues
                       ) : (
                         <>
                           <Copy className="w-3.5 h-3.5" />
-                          <span>نسخ الكود</span>
+                          <span>نسخ الكود الكامل</span>
                         </>
                       )}
                     </button>
                   </div>
                   <pre className="p-3 rounded-xl bg-slate-950 font-mono text-[11px] text-emerald-300 overflow-x-auto leading-relaxed border border-slate-800" dir="ltr">
-{`create table if not exists issues (
+{`-- 1. جدول التذاكر والبلاغات
+create table if not exists issues (
   id text primary key,
   client text,
+  client_email text,
+  client_phone text,
   tag text,
   type text,
   desc_text text,
@@ -1149,12 +1671,37 @@ create policy "Allow all via Publishable API Key" on issues
   due_date text
 );
 
+-- 2. جدول المستخدمين والحسابات وكلمات المرور والصلاحيات
+create table if not exists app_users (
+  id text primary key,
+  name text,
+  username text,
+  email text,
+  role text,
+  department text,
+  avatar text,
+  permissions jsonb default '[]'::jsonb,
+  password text
+);
+
+-- 3. جدول متجر النظام السحابي (الأقسام وقواعد SLA والإعدادات)
+create table if not exists system_cloud_store (
+  key text primary key,
+  data jsonb,
+  updated_at timestamp with time zone default now()
+);
+
+-- 4. تفعيل سياسات الوصول
 alter table issues enable row level security;
-create policy "Allow all via Publishable API Key" on issues
-  for all using (true) with check (true);`}
+alter table app_users enable row level security;
+alter table system_cloud_store enable row level security;
+
+create policy "Allow all on issues" on issues for all using (true) with check (true);
+create policy "Allow all on app_users" on app_users for all using (true) with check (true);
+create policy "Allow all on system_cloud_store" on system_cloud_store for all using (true) with check (true);`}
                   </pre>
                   <p className="text-[11px] text-slate-400 font-normal">
-                    انسخ هذا الكود والصقه في <strong>SQL Editor</strong> داخل مشروعك على Supabase ثم اضغط <strong>Run</strong> لإنشاء الجدول فوراً.
+                    انسخ هذا الكود والصقه في <strong>SQL Editor</strong> داخل مشروعك على Supabase ثم اضغط <strong>Run</strong> لإنشاء الجداول وحفظ كل شيء (التذاكر، المستخدمين، الأقسام، والإعدادات).
                   </p>
                 </div>
               )}
@@ -1241,6 +1788,10 @@ create policy "Allow all via Publishable API Key" on issues
           </div>
         </div>
       )}
+
+          </div>
+        </div>
+      </div>
 
       {/* Add User Modal */}
       {showAddUserModal && (

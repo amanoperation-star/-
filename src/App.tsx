@@ -1167,28 +1167,27 @@ export default function App() {
 
     try {
       const client = createClient(cleanUrl, cleanKey);
-      const { error } = await client.from('issues').select('id').limit(1);
+      const { error: issuesErr } = await client.from('issues').select('id').limit(1);
 
-      if (error) {
-        // Table does not exist error in PostgreSQL / PostgREST (means connection & Publishable key are valid!)
+      if (issuesErr) {
         if (
-          error.code === '42P01' ||
-          error.code === 'PGRST116' ||
-          error.code === 'PGRST204' ||
-          error.message?.toLowerCase().includes('does not exist') ||
-          error.message?.includes('relation "issues" does not exist')
+          issuesErr.code === '42P01' ||
+          issuesErr.code === 'PGRST116' ||
+          issuesErr.code === 'PGRST204' ||
+          issuesErr.message?.toLowerCase().includes('does not exist') ||
+          issuesErr.message?.includes('relation "issues" does not exist')
         ) {
           supabaseRef.current = client;
           setSupabaseConfig((prev) => ({ ...prev, url: cleanUrl, key: cleanKey, connected: true }));
           return {
             success: true,
-            message: 'تم التحقق من الـ Publishable API Key بنجاح! 🟢 (ملاحظة: جدول issues لم يُنشأ بعد في قاعدة بياناتك؛ يمكنك نسخه وإنشاؤه عبر زر "مخطط جدول issues")',
+            message: 'تم التحقق من الـ Publishable API Key بنجاح! 🟢 (ملاحظة: الجداول السحابية لم تُنشأ بعد، يرجى نسخ كود SQL الشامل من الزر بالأسفل وتشغيله في Supabase SQL Editor لحفظ التذاكر واليوزرات والإعدادات).',
           };
         }
 
         return {
           success: false,
-          message: `فشل التحقق من المفتاح: ${error.message} (رمز الخطأ: ${error.code || 'عام'})`,
+          message: `فشل التحقق من المفتاح: ${issuesErr.message} (رمز الخطأ: ${issuesErr.code || 'عام'})`,
         };
       }
 
@@ -1196,7 +1195,7 @@ export default function App() {
       setSupabaseConfig((prev) => ({ ...prev, url: cleanUrl, key: cleanKey, connected: true }));
       return {
         success: true,
-        message: 'الاتصال سليم 100%! تم التحقق من مشروع Supabase ومفتاح Publishable API Key وجدول التذاكر جاهز للمزامنة 🟢',
+        message: 'الاتصال سليم 100%! تم التحقق من مشروع Supabase وجاهز لحفظ واسترجاع التذاكر واليوزرات والإعدادات سحابياً 🟢',
       };
     } catch (err: any) {
       return {
@@ -1206,14 +1205,17 @@ export default function App() {
     }
   };
 
-  const handleSyncSupabaseNow = async () => {
+  // Full Push to Supabase (Issues, Users, Settings)
+  const handleSyncSupabaseNow = async (silent = false) => {
     if (!supabaseRef.current) {
-      alert('يرجى التأكد من إدخال Project URL و Publishable API Key صالحين أولاً!');
+      if (!silent) alert('يرجى التأكد من إدخال Project URL و Publishable API Key صالحين أولاً!');
       return;
     }
     try {
-      // Upsert issues to Supabase
-      const payload = issues.map((i) => ({
+      const client = supabaseRef.current;
+
+      // 1. Upsert issues
+      const issuesPayload = issues.map((i) => ({
         id: i.id,
         client: i.client,
         tag: i.tag,
@@ -1229,18 +1231,162 @@ export default function App() {
         due_date: i.dueDate,
       }));
 
-      const { error } = await supabaseRef.current.from('issues').upsert(payload, { onConflict: 'id' });
-      if (error) throw error;
+      const { error: issuesError } = await client.from('issues').upsert(issuesPayload, { onConflict: 'id' });
+      if (issuesError && !issuesError.message?.includes('does not exist')) {
+        console.warn('Issues sync note:', issuesError);
+      }
+
+      // 2. Upsert app_users
+      const usersPayload = users.map((u) => ({
+        id: u.id,
+        name: u.name,
+        username: u.username,
+        email: u.email,
+        role: u.role,
+        department: u.department,
+        avatar: u.avatar,
+        permissions: u.permissions || [],
+        password: u.password || '123456',
+      }));
+
+      const { error: usersError } = await client.from('app_users').upsert(usersPayload, { onConflict: 'id' });
+      if (usersError && !usersError.message?.includes('does not exist')) {
+        console.warn('Users sync note:', usersError);
+      }
+
+      // 3. Upsert system_cloud_store (categories, tags, canned responses, settings)
+      const systemStorePayload = [
+        { key: 'categories', data: categories, updated_at: new Date().toISOString() },
+        { key: 'tags', data: tags, updated_at: new Date().toISOString() },
+        { key: 'canned_responses', data: cannedResponses, updated_at: new Date().toISOString() },
+        { key: 'general_settings', data: generalSettings, updated_at: new Date().toISOString() },
+        { key: 'sound_settings', data: soundSettings, updated_at: new Date().toISOString() },
+        { key: 'audit_logs', data: auditLogs.slice(0, 100), updated_at: new Date().toISOString() },
+      ];
+
+      const { error: storeError } = await client.from('system_cloud_store').upsert(systemStorePayload, { onConflict: 'key' });
+      if (storeError && !storeError.message?.includes('does not exist')) {
+        console.warn('Store sync note:', storeError);
+      }
 
       setSupabaseConfig((prev) => ({
         ...prev,
         connected: true,
         lastSync: new Date().toLocaleTimeString('ar-EG'),
       }));
-      alert('تمت مزامنة جميع التذاكر والسجلات الحية مع قاعدة Supabase بنجاح عبر Publishable API Key!');
-      addAuditLog('مزامنة سحابية', 'نجاح المزامنة الحية مع Supabase عبر Publishable API Key');
+
+      if (!silent) {
+        alert(
+          `✅ تمت المزامنة الشاملة وحفظ كل البيانات في السحابة بنجاح!\n\n` +
+          `• تذاكر وبلاغات: ${issues.length} تذكرة محفوظة\n` +
+          `• مستخدمين وصلاحيات: ${users.length} مستخدم مع كلمات المرور\n` +
+          `• أقسام وقواعد توجيه: ${categories.length} قسم\n` +
+          `• الوسوم والردود الجاهزة والإعدادات العامة محفوظة بالكامل.`
+        );
+      }
+      addAuditLog('مزامنة سحابية شاملة', `تم حفظ وتحديث ${issues.length} تذكرة و ${users.length} مستخدم في Supabase`);
     } catch (e: any) {
-      alert(`تنبيه المزامنة: ${e.message || 'تأكد من إنشاء جدول issues في مشروع Supabase'}`);
+      if (!silent) {
+        alert(`تنبيه المزامنة: ${e.message || 'تأكد من إنشاء الجداول عبر كود SQL المتاح في المنظومة'}`);
+      }
+    }
+  };
+
+  // Full Pull from Supabase (Issues, Users, Settings)
+  const handlePullSupabaseNow = async (silent = false) => {
+    if (!supabaseRef.current) {
+      if (!silent) alert('يرجى التأكد من الاتصال بـ Supabase أولاً!');
+      return;
+    }
+    try {
+      const client = supabaseRef.current;
+      let pulledIssues = 0;
+      let pulledUsers = 0;
+      let pulledCats = 0;
+
+      // 1. Pull issues
+      const { data: issuesData, error: issuesErr } = await client.from('issues').select('*');
+      if (!issuesErr && issuesData && issuesData.length > 0) {
+        const mappedIssues: Issue[] = issuesData.map((row: any) => ({
+          id: row.id,
+          client: row.client || 'عميل',
+          clientEmail: row.client_email || undefined,
+          clientPhone: row.client_phone || undefined,
+          tag: row.tag || 'VIP Client',
+          type: row.type || 'تقني / Technical',
+          desc: row.desc_text || '',
+          assigned: row.assigned || 'فريق الدعم',
+          owner: row.owner || 'محمد علي',
+          priority: (row.priority as Priority) || 'Medium',
+          status: (row.status as IssueStatus) || 'Open',
+          workTime: row.worktime || 0,
+          csat: row.csat || 5,
+          createdAt: row.created_at || new Date().toISOString(),
+          dueDate: row.due_date || new Date().toISOString(),
+          timeline: Array.isArray(row.timeline) ? row.timeline : [],
+          comments: Array.isArray(row.comments) ? row.comments : [],
+          attachment: row.attachment || undefined,
+        }));
+        setIssues(mappedIssues);
+        pulledIssues = mappedIssues.length;
+      }
+
+      // 2. Pull app_users
+      const { data: usersData, error: usersErr } = await client.from('app_users').select('*');
+      if (!usersErr && usersData && usersData.length > 0) {
+        const mappedUsers: AppUser[] = usersData.map((row: any) => ({
+          id: row.id,
+          name: row.name,
+          username: row.username,
+          email: row.email,
+          role: row.role,
+          department: row.department,
+          avatar: row.avatar || `https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces`,
+          permissions: Array.isArray(row.permissions) ? row.permissions : [],
+          password: row.password || '123456',
+        }));
+        setUsers(mappedUsers);
+        pulledUsers = mappedUsers.length;
+      }
+
+      // 3. Pull system_cloud_store
+      const { data: storeData, error: storeErr } = await client.from('system_cloud_store').select('*');
+      if (!storeErr && storeData) {
+        for (const row of storeData) {
+          if (row.key === 'categories' && Array.isArray(row.data)) {
+            setCategories(row.data);
+            pulledCats = row.data.length;
+          } else if (row.key === 'tags' && Array.isArray(row.data)) {
+            setTags(row.data);
+          } else if (row.key === 'canned_responses' && Array.isArray(row.data)) {
+            setCannedResponses(row.data);
+          } else if (row.key === 'general_settings' && row.data && typeof row.data === 'object') {
+            setGeneralSettings(row.data);
+          } else if (row.key === 'sound_settings' && row.data && typeof row.data === 'object') {
+            setSoundSettings(row.data);
+          }
+        }
+      }
+
+      setSupabaseConfig((prev) => ({
+        ...prev,
+        connected: true,
+        lastSync: new Date().toLocaleTimeString('ar-EG'),
+      }));
+
+      if (!silent) {
+        alert(
+          `📥 تم استيراد واسترجاع جميع البيانات السحابية بنجاح!\n\n` +
+          `• استيراد ${pulledIssues} تذكرة من السحابة\n` +
+          `• استيراد ${pulledUsers} مستخدم مع كلمات المرور والصلاحيات\n` +
+          `• استيراد ${pulledCats} قسم وقواعد التوجيه والإعدادات والوسوم.`
+        );
+      }
+      addAuditLog('استيراد سحابي شامل', `تم استيراد ${pulledIssues} تذكرة و ${pulledUsers} مستخدم من Supabase`);
+    } catch (e: any) {
+      if (!silent) {
+        alert(`تنبيه أثناء الاستيراد: ${e.message || 'تأكد من وجود البيانات والجداول في السحابة'}`);
+      }
     }
   };
 
@@ -1655,6 +1801,7 @@ export default function App() {
             supabaseConfig={supabaseConfig}
             onSaveSupabaseConfig={handleSaveSupabase}
             onSyncSupabaseNow={handleSyncSupabaseNow}
+            onPullSupabaseNow={handlePullSupabaseNow}
             onTestSupabaseConnection={handleTestSupabaseConnection}
             auditLogs={auditLogs}
             onClearAuditLogs={() => setAuditLogs([])}

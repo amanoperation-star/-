@@ -152,3 +152,22 @@ export interface SystemBackupData {
   auditLogs: AuditLog[];
 }
 
+export interface ScheduledReport {
+  id: string;
+  title: string;
+  frequency: 'weekly' | 'monthly' | 'daily';
+  dayOfWeek?: number; // 0 for Sunday, 6 for Saturday, etc.
+  dayOfMonth?: number; // 1-31
+  time: string; // e.g. "09:00"
+  recipients: string[];
+  includeMttr: boolean;
+  includeCsat: boolean;
+  includeSla: boolean;
+  includeCategories: boolean;
+  status: 'active' | 'paused';
+  format: 'email_digest' | 'pdf_summary' | 'csv_data';
+  lastRun?: string;
+  nextRun: string;
+  createdAt: string;
+}
+

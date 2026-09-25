@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Search, 
   FileSpreadsheet, 
@@ -58,6 +58,10 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
   const [filterPriority, setFilterPriority] = useState('ALL');
   const [filterOwner, setFilterOwner] = useState('ALL');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    setFilterStatus(initialFilterStatus);
+  }, [initialFilterStatus]);
 
   // Filtering
   const filteredIssues = issues.filter((item) => {
@@ -287,6 +291,21 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
                   <td colSpan={11} className="text-center py-12 text-slate-500 dark:text-slate-400">
                     <p className="text-sm font-bold text-slate-700 dark:text-slate-300">لا توجد تذاكر تطابق معايير البحث والفلترة المحددة</p>
                     <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">جرب تغيير شروط الفلترة أو إضافة تذكرة جديدة</p>
+                    {issues.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFilterStatus('ALL');
+                          setFilterTag('ALL');
+                          setFilterPriority('ALL');
+                          setFilterOwner('ALL');
+                          setSearch('');
+                        }}
+                        className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
+                      >
+                        <span>إلغاء جميع الفلاتر وعرض كافة التذاكر ({issues.length} تذكرة) 🔄</span>
+                      </button>
+                    )}
                   </td>
                 </tr>
               ) : (
