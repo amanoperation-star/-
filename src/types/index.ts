@@ -151,6 +151,8 @@ export interface SupabaseConfig {
 
 export type BadgeStyleType = 'clean-arabic' | 'bilingual' | 'modern-pill';
 
+export type CabDesignStyle = 'dynamic_table' | 'itil_cards';
+
 export interface GeneralSettings {
   appName: string;
   appBadge: string;
@@ -164,6 +166,7 @@ export interface GeneralSettings {
   showFooterCopyright: boolean;
   customFooterNote: string;
   badgeStyle?: BadgeStyleType;
+  cabDesignStyle?: CabDesignStyle;
 }
 
 export interface SlaSettings {

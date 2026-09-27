@@ -53,7 +53,7 @@ import {
   Calendar,
   Paperclip,
 } from 'lucide-react';
-import { AppUser, CategoryRule, SoundSettings, SupabaseConfig, AuditLog, Issue, Priority, GeneralSettings, SystemBackupData, ExternalVendor } from '../types';
+import { AppUser, CategoryRule, SoundSettings, SupabaseConfig, AuditLog, Issue, Priority, GeneralSettings, SystemBackupData, ExternalVendor, CabBusinessActivity } from '../types';
 import { SyncConnectionStatus, ActiveUserPresence } from '../utils/realtimeSync';
 import { exportTicketsToCSV, exportTicketsToJSON } from '../utils/export';
 import { ALL_PERMISSIONS, getDefaultPermissionsForRole } from '../utils/permissions';
@@ -108,6 +108,7 @@ interface AdminViewProps {
   onUpdateExternalVendor?: (id: string, updates: Partial<ExternalVendor>) => void;
   onDeleteExternalVendor?: (id: string) => void;
   onNavigateToSla?: () => void;
+  cabActivities?: CabBusinessActivity[];
 }
 
 export const AdminView: React.FC<AdminViewProps> = ({
@@ -155,6 +156,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   onUpdateExternalVendor,
   onDeleteExternalVendor,
   onNavigateToSla,
+  cabActivities = [],
 }) => {
   const [adminTab, setAdminTab] = useState<'general' | 'backup' | 'users' | 'tags' | 'audio' | 'reports' | 'categories' | 'canned' | 'supabase' | 'csat' | 'audit' | 'vendors' | 'sla_page' | 'attachments'>(
     initialTab || 'general'
@@ -1912,7 +1914,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 text-center">
                   <div className="bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700/80">
                     <span className="text-[10px] text-slate-500 dark:text-slate-400 block">التذاكر والبلاغات</span>
                     <strong className="text-sm text-indigo-600 dark:text-indigo-400 block font-mono mt-0.5">{issues.length} تذكرة</strong>
@@ -1923,6 +1925,12 @@ export const AdminView: React.FC<AdminViewProps> = ({
                     <span className="text-[10px] text-slate-500 dark:text-slate-400 block">المستخدمين والصلاحيات</span>
                     <strong className="text-sm text-emerald-600 dark:text-emerald-400 block font-mono mt-0.5">{users.length} مستخدم</strong>
                     <span className="text-[9px] text-slate-400">جدول app_users</span>
+                  </div>
+
+                  <div className="bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700/80">
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 block">اعتماد التغيير (CAB)</span>
+                    <strong className="text-sm text-cyan-600 dark:text-cyan-400 block font-mono mt-0.5">{cabActivities.length} نشاط</strong>
+                    <span className="text-[9px] text-slate-400">جدول cab_activities</span>
                   </div>
 
                   <div className="bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700/80">
@@ -2055,7 +2063,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                     <button
                       type="button"
                       onClick={() => {
-                        const sqlCode = `-- كود إنشاء جداول المنظومة المتكاملة في Supabase SQL Editor
+                        const sqlCode = `-- كود إنشاء جداول المنظومة المتكاملة في Supabase SQL Editor (شاملاً تحديثات الـ CAB)
 
 -- 1. جدول التذاكر والبلاغات (issues)
 create table if not exists issues (
@@ -2073,7 +2081,9 @@ create table if not exists issues (
   worktime integer default 0,
   csat integer default 5,
   created_at text,
-  due_date text
+  due_date text,
+  comments jsonb default '[]'::jsonb,
+  timeline jsonb default '[]'::jsonb
 );
 
 -- 2. جدول المستخدمين والحسابات والصلاحيات (app_users)
@@ -2089,20 +2099,48 @@ create table if not exists app_users (
   password text
 );
 
--- 3. جدول متجر النظام السحابي الشامل (system_cloud_store: الأقسام، الإعدادات، الوسوم)
+-- 3. جدول أنشطة إدارة التغيير ونوافذ الصيانة (cab_activities)
+create table if not exists cab_activities (
+  id text primary key,
+  activity_name text not null,
+  scope text,
+  impacted_services text,
+  service_impact text,
+  stop_service_target_system text,
+  stopped_system_name text,
+  downtime_required text default 'No',
+  date text,
+  start_time text,
+  end_time text,
+  maintenance_window text,
+  requestor text,
+  tpm text,
+  change_management text default 'IT Change Management',
+  status text default 'Pending Approval',
+  risk_level text default 'Low',
+  rollback_plan text,
+  rollback_reason text,
+  comments jsonb default '[]'::jsonb,
+  audit_trail jsonb default '[]'::jsonb,
+  created_at text default now()::text
+);
+
+-- 4. جدول متجر النظام السحابي الشامل (system_cloud_store: الأقسام، الإعدادات، الوسوم)
 create table if not exists system_cloud_store (
   key text primary key,
   data jsonb,
   updated_at timestamp with time zone default now()
 );
 
--- 4. تفعيل سياسات الأمان RLS والسماح بالقراءة والكتابة عبر المفتاح الآمن
+-- 5. تفعيل سياسات الأمان RLS والسماح بالقراءة والكتابة
 alter table issues enable row level security;
 alter table app_users enable row level security;
+alter table cab_activities enable row level security;
 alter table system_cloud_store enable row level security;
 
 create policy "Allow all on issues" on issues for all using (true) with check (true);
 create policy "Allow all on app_users" on app_users for all using (true) with check (true);
+create policy "Allow all on cab_activities" on cab_activities for all using (true) with check (true);
 create policy "Allow all on system_cloud_store" on system_cloud_store for all using (true) with check (true);`;
                         navigator.clipboard.writeText(sqlCode);
                         setCopiedSql(true);
@@ -2140,10 +2178,12 @@ create table if not exists issues (
   worktime integer default 0,
   csat integer default 5,
   created_at text,
-  due_date text
+  due_date text,
+  comments jsonb default '[]'::jsonb,
+  timeline jsonb default '[]'::jsonb
 );
 
--- 2. جدول المستخدمين والحسابات وكلمات المرور والصلاحيات
+-- 2. جدول المستخدمين والحسابات والصلاحيات
 create table if not exists app_users (
   id text primary key,
   name text,
@@ -2156,20 +2196,48 @@ create table if not exists app_users (
   password text
 );
 
--- 3. جدول متجر النظام السحابي (الأقسام وقواعد SLA والإعدادات)
+-- 3. جدول أنشطة الـ CAB ونوافذ الصيانة
+create table if not exists cab_activities (
+  id text primary key,
+  activity_name text not null,
+  scope text,
+  impacted_services text,
+  service_impact text,
+  stop_service_target_system text,
+  stopped_system_name text,
+  downtime_required text default 'No',
+  date text,
+  start_time text,
+  end_time text,
+  maintenance_window text,
+  requestor text,
+  tpm text,
+  change_management text default 'IT Change Management',
+  status text default 'Pending Approval',
+  risk_level text default 'Low',
+  rollback_plan text,
+  rollback_reason text,
+  comments jsonb default '[]'::jsonb,
+  audit_trail jsonb default '[]'::jsonb,
+  created_at text default now()::text
+);
+
+-- 4. متجر النظام السحابي الشامل
 create table if not exists system_cloud_store (
   key text primary key,
   data jsonb,
   updated_at timestamp with time zone default now()
 );
 
--- 4. تفعيل سياسات الوصول
+-- 5. تفعيل سياسات الوصول
 alter table issues enable row level security;
 alter table app_users enable row level security;
+alter table cab_activities enable row level security;
 alter table system_cloud_store enable row level security;
 
 create policy "Allow all on issues" on issues for all using (true) with check (true);
 create policy "Allow all on app_users" on app_users for all using (true) with check (true);
+create policy "Allow all on cab_activities" on cab_activities for all using (true) with check (true);
 create policy "Allow all on system_cloud_store" on system_cloud_store for all using (true) with check (true);`}
                   </pre>
                   <p className="text-[11px] text-slate-400 font-normal">

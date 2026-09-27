@@ -568,6 +568,148 @@ export const GeneralSettingsTab: React.FC<GeneralSettingsTabProps> = ({
               </div>
             </div>
           </div>
+          {/* Section 5: CAB Design Style Switcher (مبدل نمط وتصميم لوحة اعتماد التغييرات الفنية) */}
+          <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-5 md:col-span-2">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-cyan-50 dark:bg-cyan-950/60 text-cyan-600 dark:text-cyan-400">
+                  <Layers className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                    <span>نمط وتصميم شاشة اعتماد التغييرات الفنية (CAB View Style)</span>
+                    <span className="text-[10px] bg-cyan-50 dark:bg-cyan-950/60 text-cyan-700 dark:text-cyan-300 font-bold px-2 py-0.5 rounded-full border border-cyan-200 dark:border-cyan-800">
+                      تصميمين متكاملين (2 Designs)
+                    </span>
+                  </h4>
+                  <p className="text-[11px] text-slate-400">
+                    حدد طريقة العرض الافتراضية للأنشطة: إما جدول ديناميكي بسيط وقابل للفرز التلقائي، أو نمط البطاقات الموثقة المفصلة
+                  </p>
+                </div>
+              </div>
+
+              <div className="text-[11px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
+                <span className="text-slate-400">النمط المختار:</span>
+                <span className="text-cyan-600 dark:text-cyan-400 font-black">
+                  {(formData.cabDesignStyle || 'dynamic_table') === 'dynamic_table' ? 'الجدول الديناميكي القابل للفرز 📊' : 'قالب بطاقات ITIL المفصلة 🗂️'}
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Option 1: Dynamic Sortable Table */}
+              <div
+                onClick={() => setFormData({ ...formData, cabDesignStyle: 'dynamic_table' })}
+                className={`cursor-pointer rounded-2xl p-4 border transition-all duration-200 flex flex-col justify-between text-right ${
+                  (formData.cabDesignStyle || 'dynamic_table') === 'dynamic_table'
+                    ? 'border-cyan-600 bg-cyan-50/50 dark:bg-cyan-950/30 ring-2 ring-cyan-500 shadow-md scale-[1.01]'
+                    : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-slate-50/40 dark:bg-slate-950/40 hover:bg-white dark:hover:bg-slate-900/60'
+                }`}
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className={`w-5 h-5 rounded-full flex items-center justify-center border transition ${
+                          (formData.cabDesignStyle || 'dynamic_table') === 'dynamic_table'
+                            ? 'border-cyan-600 bg-cyan-600 text-white'
+                            : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800'
+                        }`}
+                      >
+                        {(formData.cabDesignStyle || 'dynamic_table') === 'dynamic_table' && <Check className="w-3 h-3 stroke-[3]" />}
+                      </div>
+                      <h5 className="text-xs font-black text-slate-900 dark:text-white">
+                        📊 جدول ديناميكي بسيط وقابل للفرز (Dynamic Sortable Table)
+                      </h5>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-800 dark:bg-cyan-950/80 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800">
+                      موصى به للسرعة ⚡
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mb-3">
+                    عرض الأنشطة في صفوف جدول ديناميكي انسيابي وبسيط جداً بدون زحام بصري، مع إمكانية الفرز التفاعلي الفوري حسب تاريخ الإنشاء، تاريخ الصيانة، الحالة، والخطورة.
+                  </p>
+
+                  <div className="space-y-1 mb-3">
+                    <div className="flex items-center gap-1.5 text-[10px] text-slate-600 dark:text-slate-300">
+                      <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 shrink-0"></span>
+                      <span>فرز فوري بنقرة واحدة (تاريخ الإنشاء، الحالة، والخطورة)</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[10px] text-slate-600 dark:text-slate-300">
+                      <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 shrink-0"></span>
+                      <span>عرض مضغوط ومريح لقراءة العشرات من طلبات التغيير بسرعة</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[10px] text-slate-600 dark:text-slate-300">
+                      <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 shrink-0"></span>
+                      <span>إجراءات سريعة وشارة حالة تفاعلية في نفس السطر</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-2.5 bg-slate-100 dark:bg-slate-950/80 rounded-xl border border-slate-200 dark:border-slate-800 text-[10px] text-cyan-700 dark:text-cyan-400 font-mono font-bold flex items-center justify-between">
+                  <span>نمط: Dynamic Clean Table</span>
+                  {(formData.cabDesignStyle || 'dynamic_table') === 'dynamic_table' && <span>🟢 النمط المطبق</span>}
+                </div>
+              </div>
+
+              {/* Option 2: Standard ITIL Cards */}
+              <div
+                onClick={() => setFormData({ ...formData, cabDesignStyle: 'itil_cards' })}
+                className={`cursor-pointer rounded-2xl p-4 border transition-all duration-200 flex flex-col justify-between text-right ${
+                  formData.cabDesignStyle === 'itil_cards'
+                    ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/30 ring-2 ring-indigo-500 shadow-md scale-[1.01]'
+                    : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-slate-50/40 dark:bg-slate-950/40 hover:bg-white dark:hover:bg-slate-900/60'
+                }`}
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className={`w-5 h-5 rounded-full flex items-center justify-center border transition ${
+                          formData.cabDesignStyle === 'itil_cards'
+                            ? 'border-indigo-600 bg-indigo-600 text-white'
+                            : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800'
+                        }`}
+                      >
+                        {formData.cabDesignStyle === 'itil_cards' && <Check className="w-3 h-3 stroke-[3]" />}
+                      </div>
+                      <h5 className="text-xs font-black text-slate-900 dark:text-white">
+                        🗂️ نمط بطاقات ITIL المفصلة (Standard ITIL Cards)
+                      </h5>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-950/80 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                      نموذج التوثيق الكامل 📑
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mb-3">
+                    عرض كل نشاط تغيير في بطاقة موثقة كاملة ومقسمة إلى الأقسام الأربعة (Activity Details, Schedule, Ownership, Risk & Rollback) مع سجل التعليقات المباشر.
+                  </p>
+
+                  <div className="space-y-1 mb-3">
+                    <div className="flex items-center gap-1.5 text-[10px] text-slate-600 dark:text-slate-300">
+                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0"></span>
+                      <span>بطاقات تفصيلية تحاكي نماذج الـ ITIL القياسية لاجتماعات الـ CAB</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[10px] text-slate-600 dark:text-slate-300">
+                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0"></span>
+                      <span>مربع تعليقات فنية مباشر لكل نشاط مع إمكانية الرد الفوري</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[10px] text-slate-600 dark:text-slate-300">
+                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0"></span>
+                      <span>عرض شامل للأنظمة المتوقفة وخطط التراجع الكاملة</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-2.5 bg-slate-100 dark:bg-slate-950/80 rounded-xl border border-slate-200 dark:border-slate-800 text-[10px] text-indigo-700 dark:text-indigo-400 font-mono font-bold flex items-center justify-between">
+                  <span>نمط: ITIL Detailed Cards</span>
+                  {formData.cabDesignStyle === 'itil_cards' && <span>🟢 النمط المطبق</span>}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Action Buttons */}

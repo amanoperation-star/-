@@ -271,19 +271,18 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
 
           {/* Cloud Connection Light Indicator */}
-          <button
-            onClick={currentUser.role === 'Admin' ? onNavigateToSupabaseSettings : undefined}
-            className="px-2.5 py-1.5 rounded-xl flex items-center gap-1.5 text-xs font-bold transition-all duration-300 bg-emerald-500/15 hover:bg-emerald-500/25 dark:bg-emerald-950/70 dark:hover:bg-emerald-900/80 border border-emerald-500 dark:border-emerald-400 text-emerald-600 dark:text-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.35)] ring-1 ring-emerald-400/40 cursor-pointer"
-            title="السحابة المركزية متصلة ومسجلة 🟢"
-            aria-label="حالة الاتصال السحابي: السحابة مسجلة ومتصلة"
+          <div
+            className="px-2.5 py-1.5 rounded-xl flex items-center gap-1.5 text-xs font-bold transition-all duration-300 bg-emerald-500/15 dark:bg-emerald-950/70 border border-emerald-500/50 dark:border-emerald-400/50 text-emerald-700 dark:text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.3)] ring-1 ring-emerald-400/30 select-none"
+            title="السحابة المركزية مسجلة ومزامنة تلقائياً 🟢 - المزامنة اللحظية مفعلة بين جميع الأجهزة والمتصفحات فوراً بدون تسجيل"
+            aria-label="حالة الاتصال السحابي: السحابة مسجلة ومتصلة تلقائياً"
           >
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-80"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
             <Radio className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400 animate-pulse" />
-            <span className="font-bold text-[11px] text-emerald-600 dark:text-emerald-300 hidden sm:inline">السحابة 🟢</span>
-          </button>
+            <span className="font-extrabold text-[11px] text-emerald-700 dark:text-emerald-300">السحابة المركزية متصلة 🟢</span>
+          </div>
 
           {/* Notifications */}
           <div className="relative" ref={notifMenuRef}>

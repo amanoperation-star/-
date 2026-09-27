@@ -246,14 +246,20 @@ export default function App() {
 
   const handleAddCabActivity = (act: CabBusinessActivity) => {
     setCabActivities((prev) => [act, ...prev]);
+    realtimeSync.broadcastCabCreate(act, currentUser.name);
+    addAuditLog('إضافة نشاط CAB', `تم تسجيل نشاط التغيير ${act.id} (${act.activityName}) ومزامنته سحابياً`);
   };
 
   const handleUpdateCabActivity = (act: CabBusinessActivity) => {
     setCabActivities((prev) => prev.map((a) => (a.id === act.id ? act : a)));
+    realtimeSync.broadcastCabUpdate(act, currentUser.name, `تحديث نشاط ${act.id}`);
+    addAuditLog('تعديل نشاط CAB', `تم تحديث نشاط التغيير ${act.id}`);
   };
 
   const handleDeleteCabActivity = (id: string) => {
     setCabActivities((prev) => prev.filter((a) => a.id !== id));
+    realtimeSync.broadcastCabDelete(id, currentUser.name);
+    addAuditLog('حذف نشاط CAB', `تم حذف نشاط التغيير ${id}`);
   };
 
   // Enforce access control: non-admin users only see and access 'issues'
@@ -429,6 +435,12 @@ export default function App() {
               setExternalVendors(data.state.externalVendors);
               try {
                 localStorage.setItem(STORAGE_KEY + '_EXTERNAL_VENDORS', JSON.stringify(data.state.externalVendors));
+              } catch {}
+            }
+            if (Array.isArray(data.state.cabActivities) && data.state.cabActivities.length > 0) {
+              setCabActivities(data.state.cabActivities);
+              try {
+                localStorage.setItem(STORAGE_KEY + '_CAB_ACTIVITIES', JSON.stringify(data.state.cabActivities));
               } catch {}
             }
           }
@@ -616,11 +628,43 @@ export default function App() {
           }
         },
 
+        onCabCreated: (activity: CabBusinessActivity, author: string) => {
+          setCabActivities((prev) => {
+            if (prev.some((a) => a.id === activity.id)) return prev;
+            return [activity, ...prev];
+          });
+          if (author !== currentUserRef.current.name) {
+            addNotification('نشاط CAB جديد 📋', `قام ${author} بإضافة نشاط التغيير ${activity.id} (${activity.activityName})`, undefined, 'info');
+          }
+        },
+
+        onCabUpdated: (activity: CabBusinessActivity, author: string, details?: string) => {
+          setCabActivities((prev) =>
+            prev.map((a) => (a.id === activity.id ? { ...a, ...activity } : a))
+          );
+          if (author !== currentUserRef.current.name) {
+            addNotification('تحديث نشاط CAB 🔄', `قام ${author} بتحديث نشاط ${activity.id}: ${details || activity.status}`, undefined, 'info');
+          }
+        },
+
+        onCabDeleted: (activityId: string, author: string) => {
+          setCabActivities((prev) => prev.filter((a) => a.id !== activityId));
+          if (author !== currentUserRef.current.name) {
+            addNotification('حذف نشاط CAB 🗑️', `قام ${author} بحذف نشاط التغيير ${activityId}`, undefined, 'warning');
+          }
+        },
+
         onStateSynced: (serverState: any) => {
           if (Array.isArray(serverState.issues) && serverState.issues.length > 0) {
             setIssues(serverState.issues);
             try {
               localStorage.setItem(STORAGE_KEY + '_ISSUES', JSON.stringify(serverState.issues));
+            } catch {}
+          }
+          if (Array.isArray(serverState.cabActivities) && serverState.cabActivities.length > 0) {
+            setCabActivities(serverState.cabActivities);
+            try {
+              localStorage.setItem(STORAGE_KEY + '_CAB_ACTIVITIES', JSON.stringify(serverState.cabActivities));
             } catch {}
           }
           if (Array.isArray(serverState.externalVendors)) {
@@ -681,6 +725,7 @@ export default function App() {
       auditLogs,
       externalVendors,
       slaSettings,
+      cabActivities,
     } as any);
 
     return () => {
@@ -2200,6 +2245,7 @@ export default function App() {
             onDeleteActivity={handleDeleteCabActivity}
             currentUser={currentUser}
             appSkin={appSkin}
+            cabDesignStyle={generalSettings.cabDesignStyle || 'dynamic_table'}
           />
         )}
 
@@ -2249,6 +2295,7 @@ export default function App() {
             onUpdateExternalVendor={handleUpdateExternalVendor}
             onDeleteExternalVendor={handleDeleteExternalVendor}
             onNavigateToSla={() => setCurrentTab('sla')}
+            cabActivities={cabActivities}
           />
         )}
       </main>

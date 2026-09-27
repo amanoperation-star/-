@@ -1,4 +1,4 @@
-import { Issue, AppUser, CategoryRule, GeneralSettings, SoundSettings, AuditLog, ExternalVendor } from '../types';
+import { Issue, AppUser, CategoryRule, GeneralSettings, SoundSettings, AuditLog, ExternalVendor, CabBusinessActivity } from '../types';
 
 export type SyncConnectionStatus = 'connected' | 'connecting' | 'disconnected' | 'offline';
 
@@ -15,6 +15,9 @@ export interface RealtimeEventHandlers {
   onTicketUpdated: (issue: Issue, actor: string, changeType?: string, details?: string) => void;
   onTicketCommentAdded: (issueId: string, comment: any, actor: string) => void;
   onTicketDeleted: (issueId: string, actor: string) => void;
+  onCabCreated?: (activity: CabBusinessActivity, author: string) => void;
+  onCabUpdated?: (activity: CabBusinessActivity, author: string, details?: string) => void;
+  onCabDeleted?: (activityId: string, author: string) => void;
   onStateSynced: (fullState: any) => void;
   onPresenceUpdated: (users: ActiveUserPresence[], totalConnections: number) => void;
   onStatusChanged: (status: SyncConnectionStatus) => void;
@@ -220,6 +223,27 @@ class RealtimeSyncManager {
         break;
       }
 
+      case 'cab:created': {
+        if (data.activity) {
+          this.handlers?.onCabCreated?.(data.activity, data.author || 'زميل في الفريق');
+        }
+        break;
+      }
+
+      case 'cab:updated': {
+        if (data.activity) {
+          this.handlers?.onCabUpdated?.(data.activity, data.author || 'زميل في الفريق', data.details);
+        }
+        break;
+      }
+
+      case 'cab:deleted': {
+        if (data.activityId) {
+          this.handlers?.onCabDeleted?.(data.activityId, data.author || 'مدير النظام');
+        }
+        break;
+      }
+
       default:
         break;
     }
@@ -316,6 +340,71 @@ class RealtimeSyncManager {
     }
   }
 
+  // 4b. Broadcast CAB activity create
+  public async broadcastCabCreate(activity: CabBusinessActivity, author: string) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(
+        JSON.stringify({
+          type: 'cab:create',
+          activity,
+          author,
+        })
+      );
+    }
+    try {
+      await fetch('/api/cab-activities', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ activity, author }),
+      });
+    } catch (err) {
+      console.warn('[RealtimeSync] REST CAB create error:', err);
+    }
+  }
+
+  // 4c. Broadcast CAB activity update
+  public async broadcastCabUpdate(activity: CabBusinessActivity, author: string, details?: string) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(
+        JSON.stringify({
+          type: 'cab:update',
+          activity,
+          author,
+          details,
+        })
+      );
+    }
+    try {
+      await fetch(`/api/cab-activities/${activity.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ activity, author, details }),
+      });
+    } catch (err) {
+      console.warn('[RealtimeSync] REST CAB update error:', err);
+    }
+  }
+
+  // 4d. Broadcast CAB activity delete
+  public async broadcastCabDelete(activityId: string, author: string) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(
+        JSON.stringify({
+          type: 'cab:delete',
+          activityId,
+          author,
+        })
+      );
+    }
+    try {
+      await fetch(`/api/cab-activities/${activityId}?author=${encodeURIComponent(author)}`, {
+        method: 'DELETE',
+      });
+    } catch (err) {
+      console.warn('[RealtimeSync] REST CAB delete error:', err);
+    }
+  }
+
   // 5. Initial fetch from server to get latest state
   public async fetchServerState() {
     try {
@@ -341,6 +430,8 @@ class RealtimeSyncManager {
     soundSettings: SoundSettings;
     auditLogs: AuditLog[];
     externalVendors?: ExternalVendor[];
+    slaSettings?: any;
+    cabActivities?: CabBusinessActivity[];
   }) {
     try {
       await fetch('/api/init-seed', {

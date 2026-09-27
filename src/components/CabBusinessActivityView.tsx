@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Plus, 
   Search, 
@@ -29,9 +29,14 @@ import {
   FileSpreadsheet,
   CheckCircle,
   Clock3,
-  Filter
+  Filter,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Sparkles,
+  SlidersHorizontal
 } from 'lucide-react';
-import { CabBusinessActivity, AppUser, CabAuditLog } from '../types';
+import { CabBusinessActivity, AppUser, CabAuditLog, CabDesignStyle } from '../types';
 
 interface CollisionResult {
   hasCollision: boolean;
@@ -281,7 +286,11 @@ interface CabBusinessActivityViewProps {
   onDeleteActivity: (id: string) => void;
   currentUser: AppUser;
   appSkin?: 'standard' | 'amethyst' | 'cyberpunk' | 'ocean';
+  cabDesignStyle?: CabDesignStyle;
 }
+
+export type CabSortField = 'createdAt' | 'status' | 'date' | 'riskLevel' | 'activityName' | 'id';
+export type SortOrder = 'asc' | 'desc';
 
 export const CabBusinessActivityView: React.FC<CabBusinessActivityViewProps> = ({
   activities,
@@ -290,10 +299,27 @@ export const CabBusinessActivityView: React.FC<CabBusinessActivityViewProps> = (
   onDeleteActivity,
   currentUser,
   appSkin = 'standard',
+  cabDesignStyle = 'dynamic_table',
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
-  const [viewMode, setViewMode] = useState<'table' | 'grouped' | 'cards'>('table');
+  
+  // Initialize view mode based on Admin settings (or fallback to dynamic table)
+  const [viewMode, setViewMode] = useState<'table' | 'grouped' | 'cards'>(() => {
+    return cabDesignStyle === 'itil_cards' ? 'cards' : 'table';
+  });
+
+  // Keep viewMode synced if admin changes setting in real-time
+  useEffect(() => {
+    if (cabDesignStyle) {
+      setViewMode(cabDesignStyle === 'itil_cards' ? 'cards' : 'table');
+    }
+  }, [cabDesignStyle]);
+
+  // Dynamic Sorting State
+  const [sortBy, setSortBy] = useState<CabSortField>('createdAt');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+
   const [collapsedDates, setCollapsedDates] = useState<Record<string, boolean>>({});
 
   // Ticking time state for live countdowns
@@ -545,28 +571,88 @@ export const CabBusinessActivityView: React.FC<CabBusinessActivityViewProps> = (
     setShowModal(false);
   };
 
-  // Filter activities
-  const filteredActivities = activities.filter((act) => {
-    if (filterStatus !== 'ALL' && act.status !== filterStatus) return false;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      return (
-        act.id.toLowerCase().includes(q) ||
-        act.activityName.toLowerCase().includes(q) ||
-        act.scope.toLowerCase().includes(q) ||
-        act.requestor.toLowerCase().includes(q) ||
-        (act.stopServiceTargetSystem || '').toLowerCase().includes(q) ||
-        (act.stoppedSystemName || '').toLowerCase().includes(q) ||
-        act.impactedServices.toLowerCase().includes(q) ||
-        act.date.toLowerCase().includes(q)
-      );
+  // Status and Risk Hierarchy weights for sorting
+  const statusRankMap: Record<string, number> = {
+    'Pending Approval': 1,
+    'Approved': 2,
+    'Completed': 3,
+    'Draft': 4,
+    'Rolled Back': 5,
+    'Rejected': 6,
+  };
+
+  const riskRankMap: Record<string, number> = {
+    'Critical': 4,
+    'High': 3,
+    'Medium': 2,
+    'Low': 1,
+  };
+
+  // Filter and Sort activities
+  const sortedAndFilteredActivities = useMemo(() => {
+    const filtered = activities.filter((act) => {
+      if (filterStatus !== 'ALL' && act.status !== filterStatus) return false;
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        return (
+          act.id.toLowerCase().includes(q) ||
+          act.activityName.toLowerCase().includes(q) ||
+          act.scope.toLowerCase().includes(q) ||
+          act.requestor.toLowerCase().includes(q) ||
+          (act.stopServiceTargetSystem || '').toLowerCase().includes(q) ||
+          (act.stoppedSystemName || '').toLowerCase().includes(q) ||
+          act.impactedServices.toLowerCase().includes(q) ||
+          act.date.toLowerCase().includes(q)
+        );
+      }
+      return true;
+    });
+
+    return [...filtered].sort((a, b) => {
+      let comparison = 0;
+      if (sortBy === 'createdAt') {
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        if (timeA !== timeB) {
+          comparison = timeA - timeB;
+        } else {
+          comparison = (a.id || '').localeCompare(b.id || '');
+        }
+      } else if (sortBy === 'status') {
+        const rankA = statusRankMap[a.status || ''] || 99;
+        const rankB = statusRankMap[b.status || ''] || 99;
+        comparison = rankA - rankB;
+        if (comparison === 0) {
+          comparison = (a.activityName || '').localeCompare(b.activityName || '', 'ar');
+        }
+      } else if (sortBy === 'riskLevel') {
+        const rankA = riskRankMap[a.riskLevel || 'Low'] || 0;
+        const rankB = riskRankMap[b.riskLevel || 'Low'] || 0;
+        comparison = rankA - rankB;
+      } else if (sortBy === 'date') {
+        comparison = (a.date || '').localeCompare(b.date || '');
+      } else if (sortBy === 'activityName') {
+        comparison = (a.activityName || '').localeCompare(b.activityName || '', 'ar');
+      } else if (sortBy === 'id') {
+        comparison = (a.id || '').localeCompare(b.id || '');
+      }
+
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+  }, [activities, filterStatus, searchQuery, sortBy, sortOrder]);
+
+  const handleHeaderSort = (field: CabSortField) => {
+    if (sortBy === field) {
+      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortBy(field);
+      setSortOrder('desc');
     }
-    return true;
-  });
+  };
 
   // Export CSV Functionality (Feature 4)
   const handleExportCSV = () => {
-    const listToExport = activities.filter((a) => {
+    const listToExport = sortedAndFilteredActivities.filter((a) => {
       if (exportFilterScope === 'APPROVED') return a.status === 'Approved' || a.status === 'Completed';
       if (exportFilterScope === 'DOWNTIME') return a.downtimeRequired === 'Yes';
       return true;
@@ -623,7 +709,7 @@ export const CabBusinessActivityView: React.FC<CabBusinessActivityViewProps> = (
   };
 
   // Group activities by Date
-  const groupedByDate = filteredActivities.reduce((acc, act) => {
+  const groupedByDate = sortedAndFilteredActivities.reduce((acc, act) => {
     const key = act.date || 'غير محدد التاريخ';
     if (!acc[key]) acc[key] = [];
     acc[key].push(act);
@@ -759,31 +845,88 @@ export const CabBusinessActivityView: React.FC<CabBusinessActivityViewProps> = (
 
 
 
-      {/* Filter, Search and View Modes Toolbar */}
-      <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
-        {/* Search Input */}
-        <div className="flex-1 relative">
-          <Search className="w-4 h-4 absolute right-3 top-2.5 text-slate-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="بحث باسم النشاط، السيستم المستهدف، التوقف، أو المسئول..."
-            className="w-full pr-9 pl-3 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          />
+      {/* Filter, Search, Sort and View Modes Toolbar */}
+      <div className="bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
+        <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+          {/* Search Input */}
+          <div className="flex-1 relative">
+            <Search className="w-4 h-4 absolute right-3 top-2.5 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="بحث باسم النشاط، السيستم المستهدف، التوقف، أو المسئول..."
+              className="w-full pr-9 pl-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          {/* View Modes Switcher (2 Designs + Grouped) */}
+          <div className="flex items-center gap-2 self-end md:self-auto">
+            <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-[11px] font-bold text-slate-500 dark:text-slate-400">
+              <span>النمط المختار من الإدمن:</span>
+              <span className="text-blue-600 dark:text-cyan-400">
+                {cabDesignStyle === 'dynamic_table' ? '📊 الجدول الديناميكي' : '🗂️ بطاقات ITIL'}
+              </span>
+            </div>
+
+            <div className="flex bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800 gap-1 select-none shrink-0">
+              <button
+                type="button"
+                onClick={() => setViewMode('table')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                  viewMode === 'table'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+                title="الجدول الديناميكي البسيط القابل للفرز"
+              >
+                <List className="w-3.5 h-3.5" />
+                <span>جدول ديناميكي</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setViewMode('cards')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                  viewMode === 'cards'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+                title="نمط بطاقات الـ ITIL المفصلة"
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span>بطاقات ITIL</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setViewMode('grouped')}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                  viewMode === 'grouped'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+                title="تجميع الأنشطة حسب اليوم"
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                <span>حسب اليوم</span>
+              </button>
+            </div>
+          </div>
         </div>
 
-        {/* Status Filter Tabs */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800 overflow-x-auto">
+        {/* Filters & Sorting Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+          {/* Status Filter Tabs */}
+          <div className="flex items-center gap-1 overflow-x-auto max-w-full pb-1 sm:pb-0">
             {['ALL', 'Pending Approval', 'Approved', 'Completed', 'Draft', 'Rejected', 'Rolled Back'].map((st) => (
               <button
                 key={st}
                 onClick={() => setFilterStatus(st)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition whitespace-nowrap cursor-pointer ${
                   filterStatus === st
-                    ? 'bg-blue-600 text-white shadow-2xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-800'
                 }`}
               >
                 {st === 'ALL' ? 'الكل' : st === 'Pending Approval' ? 'قيد الاعتماد' : st === 'Approved' ? 'معتمد' : st === 'Completed' ? 'مكتمل' : st === 'Rolled Back' ? 'تراجع' : st}
@@ -791,49 +934,95 @@ export const CabBusinessActivityView: React.FC<CabBusinessActivityViewProps> = (
             ))}
           </div>
 
-          {/* View Modes Switcher */}
-          <div className="flex bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800 gap-1 select-none shrink-0">
-            <button
-              onClick={() => setViewMode('table')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
-                viewMode === 'table'
-                  ? 'bg-indigo-600 text-white shadow-2xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <List className="w-3.5 h-3.5" />
-              <span>جدول</span>
-            </button>
+          {/* Fast Sort Bar */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+              <SlidersHorizontal className="w-3.5 h-3.5 text-blue-500" />
+              <span>الفرز:</span>
+            </span>
 
-            <button
-              onClick={() => setViewMode('grouped')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
-                viewMode === 'grouped'
-                  ? 'bg-indigo-600 text-white shadow-2xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <Calendar className="w-3.5 h-3.5" />
-              <span>حسب اليوم</span>
-            </button>
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => handleHeaderSort('createdAt')}
+                className={`px-2 py-0.5 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer ${
+                  sortBy === 'createdAt'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <span>تاريخ الإنشاء</span>
+                {sortBy === 'createdAt' && (sortOrder === 'desc' ? <ArrowDown className="w-3 h-3" /> : <ArrowUp className="w-3 h-3" />)}
+              </button>
 
-            <button
-              onClick={() => setViewMode('cards')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
-                viewMode === 'cards'
-                  ? 'bg-indigo-600 text-white shadow-2xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <LayoutGrid className="w-3.5 h-3.5" />
-              <span>بطاقات</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => handleHeaderSort('status')}
+                className={`px-2 py-0.5 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer ${
+                  sortBy === 'status'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <span>الحالة</span>
+                {sortBy === 'status' && (sortOrder === 'desc' ? <ArrowDown className="w-3 h-3" /> : <ArrowUp className="w-3 h-3" />)}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleHeaderSort('riskLevel')}
+                className={`px-2 py-0.5 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer ${
+                  sortBy === 'riskLevel'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <span>الخطورة</span>
+                {sortBy === 'riskLevel' && (sortOrder === 'desc' ? <ArrowDown className="w-3 h-3" /> : <ArrowUp className="w-3 h-3" />)}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleHeaderSort('date')}
+                className={`px-2 py-0.5 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer ${
+                  sortBy === 'date'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <span>موعد الصيانة</span>
+                {sortBy === 'date' && (sortOrder === 'desc' ? <ArrowDown className="w-3 h-3" /> : <ArrowUp className="w-3 h-3" />)}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleHeaderSort('activityName')}
+                className={`px-2 py-0.5 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer ${
+                  sortBy === 'activityName'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <span>الاسم</span>
+                {sortBy === 'activityName' && (sortOrder === 'desc' ? <ArrowDown className="w-3 h-3" /> : <ArrowUp className="w-3 h-3" />)}
+              </button>
+
+              {/* Direction Toggler */}
+              <button
+                type="button"
+                onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                className="px-2 py-0.5 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer"
+                title={sortOrder === 'desc' ? 'ترتيب تنازلي (الأحدث/الأعلى أولاً)' : 'ترتيب تصاعدي (الأقدم/الأدنى أولاً)'}
+              >
+                {sortOrder === 'desc' ? 'تنازلي 🔽' : 'تصاعدي 🔼'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Main Table / Grouped / Cards View */}
-      {filteredActivities.length === 0 ? (
+      {sortedAndFilteredActivities.length === 0 ? (
         <div className="bg-white dark:bg-slate-900 rounded-2xl p-8 text-center space-y-3 border border-slate-200 dark:border-slate-800">
           <div className="w-12 h-12 bg-blue-50 dark:bg-blue-950/50 rounded-full flex items-center justify-center mx-auto text-blue-500 text-xl">
             📋
@@ -849,38 +1038,133 @@ export const CabBusinessActivityView: React.FC<CabBusinessActivityViewProps> = (
           </button>
         </div>
       ) : viewMode === 'table' ? (
-        /* MODE 1: COMPACT FAST DATA TABLE */
-        <div className="cab-activity-card overflow-hidden">
+        /* MODE 1: DYNAMIC SORTABLE CLEAN TABLE (تصميم جدول ديناميكي بسيط وقابل للفرز) */
+        <div className="cab-activity-card overflow-hidden bg-slate-900 border border-slate-800 rounded-2xl shadow-md">
           <div className="overflow-x-auto">
             <table className="w-full text-right text-xs">
-              <thead className="bg-[#0B192C] text-white font-bold border-b border-slate-800">
+              <thead className="bg-[#0B192C] text-white font-bold border-b border-slate-800 select-none">
                 <tr>
-                  <th className="p-3">كود النشاط</th>
-                  <th className="p-3">اسم النشاط والأنظمة المستهدفة</th>
-                  <th className="p-3">الجدول وعداد الـ SLA</th>
-                  <th className="p-3 text-center">توقف الخدمة</th>
-                  <th className="p-3">المسؤول</th>
-                  <th className="p-3 text-center">الإجراءات السريعة وحالة الاعتماد</th>
+                  {/* ID & Created Date Sortable Column */}
+                  <th 
+                    onClick={() => handleHeaderSort('createdAt')}
+                    className="p-3.5 cursor-pointer hover:bg-slate-800/80 transition text-right"
+                    title="انقر للفرز حسب تاريخ الإنشاء أو الكود"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>كود النشاط والإنشاء</span>
+                      {sortBy === 'createdAt' ? (
+                        sortOrder === 'desc' ? <ArrowDown className="w-3.5 h-3.5 text-cyan-400" /> : <ArrowUp className="w-3.5 h-3.5 text-cyan-400" />
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 text-slate-500 opacity-60" />
+                      )}
+                    </div>
+                  </th>
+
+                  {/* Activity Name Sortable Column */}
+                  <th 
+                    onClick={() => handleHeaderSort('activityName')}
+                    className="p-3.5 cursor-pointer hover:bg-slate-800/80 transition text-right"
+                    title="انقر للفرز حسب اسم النشاط"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>اسم النشاط والأنظمة المستهدفة</span>
+                      {sortBy === 'activityName' ? (
+                        sortOrder === 'desc' ? <ArrowDown className="w-3.5 h-3.5 text-cyan-400" /> : <ArrowUp className="w-3.5 h-3.5 text-cyan-400" />
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 text-slate-500 opacity-60" />
+                      )}
+                    </div>
+                  </th>
+
+                  {/* Schedule & SLA Sortable Column */}
+                  <th 
+                    onClick={() => handleHeaderSort('date')}
+                    className="p-3.5 cursor-pointer hover:bg-slate-800/80 transition text-right"
+                    title="انقر للفرز حسب موعد نافذة الصيانة"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>الجدول وعداد الـ SLA</span>
+                      {sortBy === 'date' ? (
+                        sortOrder === 'desc' ? <ArrowDown className="w-3.5 h-3.5 text-cyan-400" /> : <ArrowUp className="w-3.5 h-3.5 text-cyan-400" />
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 text-slate-500 opacity-60" />
+                      )}
+                    </div>
+                  </th>
+
+                  {/* Risk & Downtime Sortable Column */}
+                  <th 
+                    onClick={() => handleHeaderSort('riskLevel')}
+                    className="p-3.5 cursor-pointer hover:bg-slate-800/80 transition text-center"
+                    title="انقر للفرز حسب مستوى الخطورة"
+                  >
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span>الخطورة والتوقف</span>
+                      {sortBy === 'riskLevel' ? (
+                        sortOrder === 'desc' ? <ArrowDown className="w-3.5 h-3.5 text-cyan-400" /> : <ArrowUp className="w-3.5 h-3.5 text-cyan-400" />
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 text-slate-500 opacity-60" />
+                      )}
+                    </div>
+                  </th>
+
+                  {/* Requestor */}
+                  <th className="p-3.5 text-right">
+                    <span>المسؤول وطالب التغيير</span>
+                  </th>
+
+                  {/* Status & Actions Sortable Column */}
+                  <th 
+                    onClick={() => handleHeaderSort('status')}
+                    className="p-3.5 cursor-pointer hover:bg-slate-800/80 transition text-center"
+                    title="انقر للفرز حسب حالة الاعتماد"
+                  >
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span>الإجراءات السريعة وحالة الاعتماد</span>
+                      {sortBy === 'status' ? (
+                        sortOrder === 'desc' ? <ArrowDown className="w-3.5 h-3.5 text-cyan-400" /> : <ArrowUp className="w-3.5 h-3.5 text-cyan-400" />
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 text-slate-500 opacity-60" />
+                      )}
+                    </div>
+                  </th>
                 </tr>
               </thead>
+
               <tbody className="divide-y divide-slate-800/80 bg-slate-900 text-white">
-                {filteredActivities.map((act) => {
+                {sortedAndFilteredActivities.map((act) => {
                   const countdown = calculateWindowCountdown(act.date, act.startTime, act.endTime);
+                  
+                  // Format Creation Date
+                  const createdDateDisplay = act.createdAt 
+                    ? new Date(act.createdAt).toLocaleDateString('ar-EG', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                    : 'مسجل بالنظام';
+
                   return (
-                    <tr key={act.id} className="hover:bg-slate-800/70 transition">
-                      {/* ID */}
-                      <td className="p-3 whitespace-nowrap">
-                        <span className="font-mono font-bold text-xs text-cyan-400 bg-cyan-950/80 px-2 py-0.5 rounded border border-cyan-800 block text-center">
-                          {act.id}
-                        </span>
+                    <tr key={act.id} className="hover:bg-slate-800/60 transition group">
+                      {/* ID & Created At */}
+                      <td className="p-3.5 whitespace-nowrap align-top">
+                        <div className="space-y-1">
+                          <span className="font-mono font-black text-xs text-cyan-300 bg-cyan-950/90 px-2.5 py-1 rounded-lg border border-cyan-800 block text-center shadow-xs">
+                            {act.id}
+                          </span>
+                          <div className="text-[10px] text-slate-400 font-mono text-center">
+                            ⏱️ {createdDateDisplay}
+                          </div>
+                        </div>
                       </td>
 
                       {/* Name & Target / Stopped Systems */}
-                      <td className="p-3 max-w-sm">
-                        <h4 className="font-black text-white text-xs leading-snug">
+                      <td className="p-3.5 max-w-sm align-top">
+                        <h4 className="font-black text-white text-xs leading-snug group-hover:text-cyan-300 transition-colors">
                           {act.activityName}
                         </h4>
-                        <div className="mt-1 space-y-0.5 text-[10px] bg-slate-950/70 p-1.5 rounded-lg border border-slate-800">
+                        {act.scope && (
+                          <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-1">
+                            {act.scope}
+                          </p>
+                        )}
+                        <div className="mt-1.5 space-y-1 text-[10px] bg-slate-950/80 p-2 rounded-xl border border-slate-800">
                           {act.stopServiceTargetSystem && (
                             <div className="text-amber-300 font-semibold truncate">
                               🎯 السيستم المراد إيقاف الخدمة عليه: <span className="text-white font-bold">{act.stopServiceTargetSystem}</span>
@@ -899,84 +1183,108 @@ export const CabBusinessActivityView: React.FC<CabBusinessActivityViewProps> = (
                         </div>
                       </td>
 
-                      {/* Schedule & SLA Countdown Timer (Feature 5) */}
-                      <td className="p-3 whitespace-nowrap">
+                      {/* Schedule & SLA Countdown Timer */}
+                      <td className="p-3.5 whitespace-nowrap align-top">
                         <div className="space-y-1">
-                          <div className="font-bold text-emerald-400 font-mono text-[11px]">
-                            📅 {act.date}
+                          <div className="font-bold text-emerald-400 font-mono text-[11px] flex items-center gap-1">
+                            <span>📅</span>
+                            <span>{act.date}</span>
                           </div>
-                          <div className="font-mono text-[10px] text-sky-300 font-bold">
-                            ⏰ {act.maintenanceWindow || `${act.startTime} - ${act.endTime}`}
+                          <div className="font-mono text-[10px] text-sky-300 font-bold flex items-center gap-1">
+                            <span>⏰</span>
+                            <span>{act.maintenanceWindow || `${act.startTime} - ${act.endTime}`}</span>
                           </div>
-                          <div className={`inline-flex items-center gap-1 text-[10px] font-bold font-mono px-2 py-0.5 rounded border ${countdown.color}`}>
+                          <div className={`inline-flex items-center gap-1 text-[10px] font-bold font-mono px-2 py-0.5 rounded-md border ${countdown.color}`}>
                             <Clock3 className="w-3 h-3 shrink-0" />
                             <span>{countdown.label}</span>
                           </div>
                         </div>
                       </td>
 
-                      {/* Downtime */}
-                      <td className="p-3 text-center whitespace-nowrap">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
-                          act.downtimeRequired === 'Yes'
-                            ? 'bg-rose-950 text-rose-300 border-rose-800'
-                            : 'bg-emerald-950 text-emerald-300 border-emerald-800'
-                        }`}>
-                          {act.downtimeRequired === 'Yes' ? 'توقف (Yes)' : 'بدون توقف (No)'}
-                        </span>
+                      {/* Risk Level & Downtime */}
+                      <td className="p-3.5 text-center whitespace-nowrap align-top">
+                        <div className="space-y-1.5 inline-flex flex-col items-center">
+                          {/* Risk Level */}
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black border ${
+                            act.riskLevel === 'Critical'
+                              ? 'bg-rose-950 text-rose-300 border-rose-700 ring-1 ring-rose-500/50'
+                              : act.riskLevel === 'High'
+                              ? 'bg-amber-950 text-amber-300 border-amber-700'
+                              : act.riskLevel === 'Medium'
+                              ? 'bg-blue-950 text-blue-300 border-blue-700'
+                              : 'bg-emerald-950 text-emerald-300 border-emerald-700'
+                          }`}>
+                            {act.riskLevel === 'Critical' ? 'حرج 🔴' : act.riskLevel === 'High' ? 'مرتفع 🟠' : act.riskLevel === 'Medium' ? 'متوسط 🟡' : 'منخفض 🟢'}
+                          </span>
+
+                          {/* Downtime */}
+                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${
+                            act.downtimeRequired === 'Yes'
+                              ? 'bg-rose-950/80 text-rose-300 border-rose-800'
+                              : 'bg-slate-800 text-slate-300 border-slate-700'
+                          }`}>
+                            {act.downtimeRequired === 'Yes' ? 'توقف (Downtime)' : 'بدون توقف'}
+                          </span>
+                        </div>
                       </td>
 
-                      {/* Requestor */}
-                      <td className="p-3 whitespace-nowrap">
-                        <div className="text-[11px]">
+                      {/* Requestor & TPM */}
+                      <td className="p-3.5 whitespace-nowrap align-top">
+                        <div className="text-[11px] space-y-0.5">
                           <span className="font-bold text-amber-300 block">👤 {act.requestor}</span>
                           {act.tpm && <span className="text-slate-400 text-[10px] block">TPM: {act.tpm}</span>}
+                          {act.changeManagement && (
+                            <span className="text-slate-500 text-[9px] block truncate max-w-[120px]">{act.changeManagement}</span>
+                          )}
                         </div>
                       </td>
 
                       {/* Actions & Simple Status Toggle Badge */}
-                      <td className="p-3 text-center whitespace-nowrap">
-                        <div className="flex items-center justify-center gap-2">
-                          {/* Quick Action Buttons */}
-                          <div className="flex items-center gap-1">
+                      <td className="p-3.5 text-center whitespace-nowrap align-top">
+                        <div className="flex flex-col items-center gap-2">
+                          {/* Simple Inline Status Badge */}
+                          <ApprovalStatusToggleBadge activity={act} onUpdate={handleUpdateActivityWithAudit} onTriggerRollback={handleTriggerRollbackModal} size="sm" />
+
+                          {/* Action Toolbar */}
+                          <div className="flex items-center gap-1 bg-slate-950/60 p-1 rounded-xl border border-slate-800">
                             <button
                               onClick={() => setViewingCardActivity(act)}
-                              className="p-1 text-slate-300 hover:text-cyan-400 hover:bg-slate-800 rounded transition cursor-pointer"
-                              title="عرض القالب الموثق الكامل"
+                              className="p-1.5 text-slate-300 hover:text-cyan-400 hover:bg-slate-800 rounded-lg transition cursor-pointer"
+                              title="عرض القالب الموثق الكامل (ITIL Standard Template)"
                             >
-                              <Eye className="w-4 h-4" />
+                              <Eye className="w-3.5 h-3.5" />
                             </button>
 
                             <button
                               onClick={() => setAuditLogActivity(act)}
-                              className="p-1 text-slate-300 hover:text-amber-400 hover:bg-slate-800 rounded transition cursor-pointer"
+                              className="p-1.5 text-slate-300 hover:text-amber-400 hover:bg-slate-800 rounded-lg transition cursor-pointer"
                               title="سجل التدقيق والتغييرات (Audit Trail)"
                             >
-                              <History className="w-4 h-4" />
+                              <History className="w-3.5 h-3.5" />
                             </button>
 
                             <button
                               onClick={() => handleTriggerRollbackModal(act)}
-                              className="p-1 text-purple-400 hover:bg-purple-950/60 rounded transition cursor-pointer"
+                              className="p-1.5 text-purple-400 hover:bg-purple-950/60 rounded-lg transition cursor-pointer"
                               title="زر التراجع السريع (Rollback)"
                             >
-                              <RotateCcw className="w-4 h-4" />
+                              <RotateCcw className="w-3.5 h-3.5" />
                             </button>
 
                             <button
                               onClick={() => handleOpenEdit(act)}
-                              className="p-1 text-amber-400 hover:bg-amber-950/60 rounded transition cursor-pointer"
-                              title="تعديل"
+                              className="p-1.5 text-amber-400 hover:bg-amber-950/60 rounded-lg transition cursor-pointer"
+                              title="تعديل النشاط"
                             >
-                              <Edit3 className="w-4 h-4" />
+                              <Edit3 className="w-3.5 h-3.5" />
                             </button>
 
                             <button
                               onClick={() => handleDuplicate(act)}
-                              className="p-1 text-slate-300 hover:text-blue-400 hover:bg-slate-800 rounded transition cursor-pointer"
-                              title="نسخ"
+                              className="p-1.5 text-slate-300 hover:text-blue-400 hover:bg-slate-800 rounded-lg transition cursor-pointer"
+                              title="إنشاء نسخة (Duplicate)"
                             >
-                              <Copy className="w-4 h-4" />
+                              <Copy className="w-3.5 h-3.5" />
                             </button>
 
                             <button
@@ -985,17 +1293,12 @@ export const CabBusinessActivityView: React.FC<CabBusinessActivityViewProps> = (
                                   onDeleteActivity(act.id);
                                 }
                               }}
-                              className="p-1 text-rose-400 hover:bg-rose-950/60 rounded transition cursor-pointer"
-                              title="حذف"
+                              className="p-1.5 text-rose-400 hover:bg-rose-950/60 rounded-lg transition cursor-pointer"
+                              title="حذف النشاط"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
-
-                          <div className="w-px h-4 bg-slate-700"></div>
-
-                          {/* SIMPLE STATUS BADGE PLACED AFTER QUICK ACTIONS */}
-                          <ApprovalStatusToggleBadge activity={act} onUpdate={handleUpdateActivityWithAudit} onTriggerRollback={handleTriggerRollbackModal} size="sm" />
                         </div>
                       </td>
                     </tr>
@@ -1112,7 +1415,7 @@ export const CabBusinessActivityView: React.FC<CabBusinessActivityViewProps> = (
       ) : (
         /* MODE 3: FULL ITIL CARDS VIEW */
         <div className="space-y-6">
-          {filteredActivities.map((act) => {
+          {sortedAndFilteredActivities.map((act: CabBusinessActivity) => {
             const countdown = calculateWindowCountdown(act.date, act.startTime, act.endTime);
             return (
               <div
@@ -1194,7 +1497,7 @@ export const CabBusinessActivityView: React.FC<CabBusinessActivityViewProps> = (
 
                     {act.comments && act.comments.length > 0 && (
                       <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1 mb-2">
-                        {act.comments.map((c) => (
+                        {act.comments.map((c: any) => (
                           <div key={c.id} className="p-2 rounded-lg bg-slate-800/80 text-xs border border-slate-700">
                             <div className="flex justify-between items-center text-[10px] text-slate-400 mb-0.5">
                               <span className="font-bold text-amber-300">{c.author}</span>

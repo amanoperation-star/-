@@ -363,6 +363,7 @@ export const INITIAL_GENERAL_SETTINGS: GeneralSettings = {
   showFooterCopyright: true,
   customFooterNote: 'نظام إدارة البلاغات والتذاكر المؤسسي الموحد',
   badgeStyle: 'clean-arabic',
+  cabDesignStyle: 'dynamic_table',
 };
 
 export const INITIAL_CAB_ACTIVITIES: CabBusinessActivity[] = [

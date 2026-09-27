@@ -29,6 +29,7 @@ let state: {
   auditLogs: any[];
   externalVendors: any[];
   slaSettings: any;
+  cabActivities: any[];
 } = {
   issues: [],
   categories: [],
@@ -40,6 +41,7 @@ let state: {
   auditLogs: [],
   externalVendors: [],
   slaSettings: null,
+  cabActivities: [],
 };
 
 const DEFAULT_SLA_SETTINGS = {
@@ -288,8 +290,16 @@ app.post('/api/init-seed', (req, res) => {
       state.externalVendors = initialData.externalVendors;
     }
     if (initialData.slaSettings) state.slaSettings = initialData.slaSettings;
+    if (Array.isArray(initialData.cabActivities) && initialData.cabActivities.length > 0) {
+      state.cabActivities = initialData.cabActivities;
+    }
     saveDatabase();
-    console.log(`[Database] Seeded with ${state.issues.length} tickets from client.`);
+    console.log(`[Database] Seeded with ${state.issues.length} tickets, ${state.cabActivities?.length || 0} CAB activities from client.`);
+  } else if (!state.cabActivities || state.cabActivities.length === 0) {
+    if (Array.isArray(initialData.cabActivities) && initialData.cabActivities.length > 0) {
+      state.cabActivities = initialData.cabActivities;
+      saveDatabase();
+    }
   }
   res.json({ status: 'ok', state });
 });
@@ -559,6 +569,81 @@ app.post('/api/sla-settings', (req, res) => {
   res.json({ status: 'ok', slaSettings: state.slaSettings });
 });
 
+// API: CAB Activities CRUD
+app.get('/api/cab-activities', (_req, res) => {
+  res.json({ status: 'ok', cabActivities: state.cabActivities || [] });
+});
+
+app.post('/api/cab-activities', (req, res) => {
+  const { activity, author } = req.body;
+  if (!activity || !activity.id) {
+    res.status(400).json({ error: 'Missing CAB activity payload' });
+    return;
+  }
+
+  state.cabActivities = [activity, ...(state.cabActivities || []).filter((a) => a.id !== activity.id)];
+  saveDatabase();
+
+  broadcast({
+    type: 'cab:created',
+    activity,
+    author: author || 'فريق العمل',
+    timestamp: new Date().toISOString(),
+  });
+
+  res.json({ status: 'ok', activity, cabActivities: state.cabActivities });
+});
+
+app.put('/api/cab-activities/:id', (req, res) => {
+  const { id } = req.params;
+  const { activity, author, details } = req.body;
+  if (!activity) {
+    res.status(400).json({ error: 'Missing CAB activity payload' });
+    return;
+  }
+
+  let found = false;
+  state.cabActivities = (state.cabActivities || []).map((a) => {
+    if (a.id === id) {
+      found = true;
+      return { ...a, ...activity };
+    }
+    return a;
+  });
+
+  if (!found) {
+    state.cabActivities.unshift(activity);
+  }
+
+  saveDatabase();
+
+  broadcast({
+    type: 'cab:updated',
+    activity,
+    author: author || 'فريق العمل',
+    details,
+    timestamp: new Date().toISOString(),
+  });
+
+  res.json({ status: 'ok', activity, cabActivities: state.cabActivities });
+});
+
+app.delete('/api/cab-activities/:id', (req, res) => {
+  const { id } = req.params;
+  const { author } = req.query;
+
+  state.cabActivities = (state.cabActivities || []).filter((a) => a.id !== id);
+  saveDatabase();
+
+  broadcast({
+    type: 'cab:deleted',
+    activityId: id,
+    author: author || 'مدير النظام',
+  });
+
+  res.json({ status: 'ok', message: 'CAB activity deleted', cabActivities: state.cabActivities });
+});
+
 // Create HTTP server
 const server = http.createServer(app);
 
@@ -674,6 +759,60 @@ wss.on('connection', (ws, request) => {
             },
             ws
           );
+          break;
+        }
+
+        case 'cab:create': {
+          const { activity, author } = data;
+          if (activity && activity.id) {
+            state.cabActivities = [activity, ...(state.cabActivities || []).filter((a) => a.id !== activity.id)];
+            saveDatabase();
+            broadcast(
+              {
+                type: 'cab:created',
+                activity,
+                author: author || clientInfo.name || 'عضو في الفريق',
+                timestamp: new Date().toISOString(),
+              },
+              ws
+            );
+          }
+          break;
+        }
+
+        case 'cab:update': {
+          const { activity, author, details } = data;
+          if (activity && activity.id) {
+            state.cabActivities = (state.cabActivities || []).map((a) => (a.id === activity.id ? { ...a, ...activity } : a));
+            saveDatabase();
+            broadcast(
+              {
+                type: 'cab:updated',
+                activity,
+                author: author || clientInfo.name || 'عضو في الفريق',
+                details,
+                timestamp: new Date().toISOString(),
+              },
+              ws
+            );
+          }
+          break;
+        }
+
+        case 'cab:delete': {
+          const { activityId, author } = data;
+          if (activityId) {
+            state.cabActivities = (state.cabActivities || []).filter((a) => a.id !== activityId);
+            saveDatabase();
+            broadcast(
+              {
+                type: 'cab:deleted',
+                activityId,
+                author: author || clientInfo.name || 'مدير النظام',
+              },
+              ws
+            );
+          }
           break;
         }
 
