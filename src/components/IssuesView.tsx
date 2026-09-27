@@ -555,6 +555,7 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
                   const isBreached = isTicketSlaBreached(item.createdAt, item.dueDate, item.status);
                   const remaining = getRemainingTimeFormatted(item.dueDate, item.status);
                   const isSelected = selectedIds.includes(item.id);
+                  const hasCollision = collisionsMap[item.id] && collisionsMap[item.id].length > 0;
 
                   return (
                     <tr
@@ -564,12 +565,14 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
                         if (target.closest('input[type="checkbox"], button')) return;
                         onOpenDetails(item);
                       }}
-                      className={`cursor-pointer transition ${
-                        isBreached
-                          ? 'bg-rose-50/60 dark:bg-rose-950/20 hover:bg-rose-100/70 dark:hover:bg-rose-950/40'
+                      className={`cursor-pointer transition border-r-4 ${
+                        hasCollision
+                          ? 'border-r-amber-500 bg-amber-500/5 dark:bg-amber-500/10 hover:bg-amber-500/15'
+                          : isBreached
+                          ? 'border-r-rose-500 bg-rose-50/60 dark:bg-rose-950/20 hover:bg-rose-100/70 dark:hover:bg-rose-950/40'
                           : isSelected
-                          ? 'bg-indigo-50/80 dark:bg-indigo-950/30 hover:bg-indigo-100/70 dark:hover:bg-indigo-950/40'
-                          : 'hover:bg-slate-50 dark:hover:bg-slate-700/30'
+                          ? 'border-r-indigo-500 bg-indigo-50/80 dark:bg-indigo-950/30 hover:bg-indigo-100/70 dark:hover:bg-indigo-950/40'
+                          : 'border-r-transparent hover:bg-slate-50 dark:hover:bg-slate-700/30'
                       }`}
                     >
                       {/* Checkbox */}

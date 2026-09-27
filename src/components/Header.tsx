@@ -205,7 +205,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Navigation Tabs - Only show Dashboard & Admin for Admin users */}
+        {/* Navigation Tabs */}
         <div className="flex items-center bg-slate-100 dark:bg-slate-800/90 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700/80 gap-1">
           {currentUser.role === 'Admin' && (
             <button
@@ -233,23 +233,25 @@ export const Header: React.FC<HeaderProps> = ({
             <span>سجل المشاكل</span>
           </button>
 
-          {/* Dedicated SLA Management Tab */}
-          <button
-            onClick={() => setCurrentTab('sla')}
-            className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 ${
-              currentTab === 'sla'
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-700/60'
-            }`}
-          >
-            <Clock className="w-4 h-4 text-amber-500 dark:text-amber-400" />
-            <span>إدارة الـ SLA</span>
-            {breachedCount > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-rose-500 text-white font-mono font-bold animate-pulse">
-                {breachedCount}
-              </span>
-            )}
-          </button>
+          {/* Dedicated SLA Management Tab - Restrict to Admin only */}
+          {currentUser.role === 'Admin' && (
+            <button
+              onClick={() => setCurrentTab('sla')}
+              className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 ${
+                currentTab === 'sla'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-700/60'
+              }`}
+            >
+              <Clock className="w-4 h-4 text-amber-500 dark:text-amber-400" />
+              <span>إدارة الـ SLA</span>
+              {breachedCount > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-rose-500 text-white font-mono font-bold animate-pulse">
+                  {breachedCount}
+                </span>
+              )}
+            </button>
+          )}
 
           {/* Customer Portal / Tracking Tab */}
           <button
