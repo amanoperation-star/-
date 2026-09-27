@@ -26,6 +26,7 @@ import {
 import { Issue, AppUser } from '../types';
 import { formatSecondsToHMS, isTicketSlaBreached, getRemainingTimeFormatted, generateExternalTicketRef } from '../utils/sla';
 import { PriorityBadge, StatusBadge } from './Badges';
+import { CircularSlaGauge } from './CircularSlaGauge';
 import { collisionManager, useTicketCollision } from '../utils/collisionDetector';
 import { CollisionAlertBanner } from './CollisionAlertBanner';
 import { WhatsAppChatModal } from './WhatsAppChatModal';
@@ -105,6 +106,24 @@ export const DetailsModal: React.FC<DetailsModalProps> = ({
   const isBreached = isTicketSlaBreached(issue.createdAt, issue.dueDate, issue.status);
   const remaining = getRemainingTimeFormatted(issue.dueDate, issue.status);
 
+  const slaPercentage = (() => {
+    if (issue.status === 'Resolved' || issue.status === 'Closed') {
+      return isBreached ? 0 : 100;
+    }
+    try {
+      const createdTime = new Date(issue.createdAt).getTime();
+      const dueTime = new Date(issue.dueDate).getTime();
+      const nowTime = Date.now();
+      const totalAllowed = dueTime - createdTime;
+      if (totalAllowed <= 0) return 0;
+      const remainingTime = dueTime - nowTime;
+      const pct = Math.round((remainingTime / totalAllowed) * 100);
+      return Math.max(0, Math.min(100, pct));
+    } catch {
+      return 100;
+    }
+  })();
+
   const handlePrint = () => {
     window.print();
   };
@@ -160,7 +179,7 @@ export const DetailsModal: React.FC<DetailsModalProps> = ({
     <div className="fixed inset-0 z-50 bg-slate-900/50 dark:bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
       <div 
         id="printable-report"
-        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden my-auto flex flex-col max-h-[92vh]"
+        className="bg-white/90 dark:bg-slate-900/85 backdrop-blur-xl border border-slate-200/60 dark:border-slate-700/60 w-full max-w-3xl rounded-3xl shadow-[0_25px_60px_rgba(0,0,0,0.35)] overflow-hidden my-auto flex flex-col max-h-[92vh]"
       >
         {/* Modal Top Bar */}
         <div className="relative p-4 sm:p-5 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white border-b border-slate-700/60 flex flex-wrap justify-between items-center gap-3 overflow-hidden">
@@ -375,11 +394,23 @@ export const DetailsModal: React.FC<DetailsModalProps> = ({
                 )}
               </div>
             </div>
-            <div>
-              <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-semibold">موعد استحقاق الـ SLA</span>
-              <span className={`font-mono font-bold text-xs ${isBreached ? 'text-rose-600 dark:text-rose-400 animate-pulse' : 'text-slate-700 dark:text-slate-200'}`}>
-                {remaining.text}
-              </span>
+            <div className="flex items-center gap-2 justify-between">
+              <div>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-semibold">موعد استحقاق الـ SLA</span>
+                <span className={`font-mono font-bold text-xs ${isBreached ? 'text-rose-600 dark:text-rose-400 animate-pulse' : 'text-slate-700 dark:text-slate-200'}`}>
+                  {remaining.text}
+                </span>
+              </div>
+              <div className="shrink-0 scale-90 -my-3">
+                <CircularSlaGauge
+                  percentage={slaPercentage}
+                  size={52}
+                  strokeWidth={5}
+                  isBreached={isBreached}
+                  pulse={isBreached || slaPercentage < 30}
+                  showText={false}
+                />
+              </div>
             </div>
           </div>
 
@@ -663,36 +694,81 @@ export const DetailsModal: React.FC<DetailsModalProps> = ({
             </h4>
 
             {/* Comment List */}
-            <div className="space-y-2 max-h-44 overflow-y-auto">
+            <div className="space-y-4 max-h-[280px] overflow-y-auto p-4 bg-slate-100 dark:bg-slate-950/80 rounded-2xl border border-slate-200 dark:border-slate-800/80">
               {issue.comments?.length === 0 ? (
-                <p className="text-slate-400 text-center py-3">لا توجد تعليقات حتى الآن</p>
+                <p className="text-slate-400 text-center py-8 text-xs font-semibold">لا توجد تعليقات حتى الآن في هذه المحادثة 💬</p>
               ) : (
-                issue.comments?.map((c) => (
-                  <div
-                    key={c.id}
-                    className="p-3 bg-white dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-1 shadow-2xs"
-                  >
-                    <div className="flex justify-between items-center text-[10px]">
-                      <span className="font-bold text-indigo-600 dark:text-indigo-300">{c.user}</span>
-                      <span className="text-slate-400 font-mono">{c.time}</span>
-                    </div>
-                    <p className="text-slate-800 dark:text-slate-200 text-xs font-medium leading-relaxed">{c.text}</p>
-                    {c.attachment && (
-                      <div className="mt-1">
-                        <a
-                          href={c.attachment.url}
-                          download={c.attachment.name}
-                          className="text-indigo-600 dark:text-indigo-400 hover:underline text-[10px] flex items-center gap-1 font-semibold"
+                issue.comments?.map((c) => {
+                  const isClient = 
+                    c.user === issue.client || 
+                    c.user === 'العميل' || 
+                    c.user === 'Customer' || 
+                    c.user.toLowerCase().includes('client') ||
+                    (issue.clientEmail && c.user === issue.clientEmail);
+                  const isMe = c.user === currentUser.name;
+
+                    return (
+                      <div
+                        key={c.id}
+                        className={`flex flex-col ${isClient ? 'items-start' : 'items-end'} mb-2`}
+                      >
+                        <div
+                          className={`p-3.5 max-w-[82%] rounded-2xl shadow-sm text-xs font-medium leading-relaxed transition-all duration-150 ${
+                            isClient
+                              ? 'bg-emerald-100/80 dark:bg-emerald-950/40 text-slate-900 dark:text-slate-100 rounded-tr-none border border-emerald-200/60 dark:border-emerald-800/40'
+                              : isMe
+                              ? 'bg-indigo-600 text-white rounded-tl-none border border-indigo-500/20 shadow-indigo-500/10'
+                              : 'bg-slate-50 dark:bg-slate-800/90 text-slate-900 dark:text-slate-100 rounded-tl-none border border-slate-200/80 dark:border-slate-700/60'
+                          }`}
                         >
-                          <Paperclip className="w-3 h-3" />
-                          <span>{c.attachment.name}</span>
-                        </a>
+                          <div className="flex items-center justify-between gap-4 mb-1 text-[9px] opacity-75 font-bold">
+                            <span className={isClient ? 'text-emerald-700 dark:text-emerald-400 font-black' : isMe ? 'text-indigo-200 font-black' : 'text-slate-500 dark:text-slate-400 font-black'}>
+                              {isClient ? '👤 ' : '🛠️ '} {c.user} {isClient ? '(العميل)' : '(الدعم الفني)'}
+                            </span>
+                            <span className="font-mono">{c.time}</span>
+                          </div>
+                          <p className="whitespace-pre-wrap text-xs font-semibold">{c.text}</p>
+                          {c.attachment && (
+                            <div className="mt-2.5 pt-1.5 border-t border-slate-200/20 dark:border-slate-700/80">
+                              <a
+                                href={c.attachment.url}
+                                download={c.attachment.name}
+                                className={`text-[10px] flex items-center gap-1 font-bold ${
+                                  isMe ? 'text-indigo-200 hover:text-white' : 'text-indigo-600 dark:text-indigo-400 hover:underline'
+                                }`}
+                              >
+                                <Paperclip className="w-3 h-3" />
+                                <span>{c.attachment.name}</span>
+                              </a>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    )}
-                  </div>
-                ))
+                    );
+                })
               )}
             </div>
+
+            {/* Collaborative Typing Indicator */}
+            {(() => {
+              const otherViewersTyping = otherViewers.filter(v => v.userName !== currentUser.name);
+              const isTeammateWorking = issue.isWorkingNow && issue.activeWorker && issue.activeWorker !== currentUser.name;
+              
+              if (otherViewersTyping.length > 0 || isTeammateWorking) {
+                const typistName = otherViewersTyping.length > 0 ? otherViewersTyping[0].userName : issue.activeWorker;
+                return (
+                  <div className="flex items-center gap-2 px-3 py-2 bg-indigo-50/40 dark:bg-indigo-950/15 rounded-xl text-[11px] text-indigo-600 dark:text-indigo-400 font-bold border border-indigo-100/50 dark:border-indigo-950/30 w-fit animate-pulse">
+                    <span className="flex gap-1 items-center">
+                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-[bounce_1.4s_infinite_0s]"></span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-[bounce_1.4s_infinite_0.2s]"></span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-[bounce_1.4s_infinite_0.4s]"></span>
+                    </span>
+                    <span>الزميل {typistName} يكتب رداً الآن...</span>
+                  </div>
+                );
+              }
+              return null;
+            })()}
 
             {/* Add Comment Input */}
             <form onSubmit={handleSendComment} className="space-y-2">

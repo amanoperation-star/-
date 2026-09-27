@@ -215,3 +215,44 @@ export interface ScheduledReport {
   createdAt: string;
 }
 
+export interface CabComment {
+  id: string;
+  author: string;
+  content: string;
+  createdAt: string;
+  type?: 'general' | 'rollback_reason' | 'completion_note';
+}
+
+export interface CabAuditLog {
+  id: string;
+  timestamp: string;
+  actor: string;
+  action: string;
+  details: string;
+}
+
+export interface CabBusinessActivity {
+  id: string;
+  activityName: string; // Business Activity
+  scope: string; // Scope / Change Description
+  impactedServices: string; // Impacted Services
+  serviceImpact: string; // Brief description of expected impact
+  downtimeRequired: 'Yes' | 'No'; // Downtime Required
+  date: string; // Day, DD/MM/YYYY
+  startTime: string; // HH:MM AM/PM
+  endTime: string; // HH:MM AM/PM
+  maintenanceWindow: string; // [Start Time] - [End Time]
+  requestor: string; // Full Name
+  tpm: string; // Full Name
+  changeManagement: string; // IT Change Management
+  status?: 'Draft' | 'Pending Approval' | 'Approved' | 'Completed' | 'Rolled Back' | 'Rejected';
+  riskLevel?: 'Low' | 'Medium' | 'High' | 'Critical';
+  rollbackPlan?: string;
+  rollbackReason?: string;
+  stopServiceTargetSystem?: string; // اسم السيستم الذي سيتم إيقاف الخدمة عليه
+  stoppedSystemName?: string; // اسم السيستم الذي سيتوقف
+  comments?: CabComment[];
+  auditTrail?: CabAuditLog[];
+  createdAt?: string;
+}
+

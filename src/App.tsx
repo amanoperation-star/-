@@ -10,6 +10,8 @@ import { CustomerModal } from './components/CustomerModal';
 import { MergeTicketsModal } from './components/MergeTicketsModal';
 import { SlaManagementView } from './components/SlaManagementView';
 import { CustomerPortalView } from './components/CustomerPortalView';
+import { AgentScratchpad } from './components/AgentScratchpad';
+import { CabBusinessActivityView } from './components/CabBusinessActivityView';
 import { 
   Issue, 
   AppUser, 
@@ -23,7 +25,8 @@ import {
   GeneralSettings,
   SystemBackupData,
   ExternalVendor,
-  SlaSettings
+  SlaSettings,
+  CabBusinessActivity
 } from './types';
 import { realtimeSync, ActiveUserPresence, SyncConnectionStatus } from './utils/realtimeSync';
 import { 
@@ -34,7 +37,8 @@ import {
   INITIAL_CANNED_RESPONSES, 
   INITIAL_SOUND_SETTINGS,
   INITIAL_AUDIT_LOGS,
-  INITIAL_GENERAL_SETTINGS
+  INITIAL_GENERAL_SETTINGS,
+  INITIAL_CAB_ACTIVITIES
 } from './utils/mockData';
 import { isTicketSlaBreached, calculateDueDate, DEFAULT_SLA_SETTINGS } from './utils/sla';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
@@ -204,10 +208,53 @@ export default function App() {
     }
   });
 
+  const [appSkin, setAppSkin] = useState<'standard' | 'amethyst' | 'cyberpunk' | 'ocean'>(() => {
+    try {
+      const saved = localStorage.getItem('ENTERPRISE_SKIN');
+      return (saved === 'amethyst' || saved === 'cyberpunk' || saved === 'ocean') ? saved : 'standard';
+    } catch {
+      return 'standard';
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('ENTERPRISE_SKIN', appSkin);
+    } catch {}
+  }, [appSkin]);
+
   // Tab & Navigation: Default to 'issues' so ANY team member opening the link sees tickets immediately!
-  const [currentTab, setCurrentTab] = useState<'dashboard' | 'issues' | 'sla' | 'customer' | 'admin'>('issues');
+  const [currentTab, setCurrentTab] = useState<'dashboard' | 'issues' | 'sla' | 'customer' | 'admin' | 'cab'>('issues');
   const [adminSubTab, setAdminSubTab] = useState<'general' | 'backup' | 'users' | 'tags' | 'audio' | 'reports' | 'categories' | 'canned' | 'supabase' | 'csat' | 'audit'>('general');
   const [initialFilterStatus, setInitialFilterStatus] = useState<string>('Open');
+
+  // CAB Business Activities State
+  const [cabActivities, setCabActivities] = useState<CabBusinessActivity[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY + '_CAB_ACTIVITIES');
+      return saved ? JSON.parse(saved) : INITIAL_CAB_ACTIVITIES;
+    } catch {
+      return INITIAL_CAB_ACTIVITIES;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY + '_CAB_ACTIVITIES', JSON.stringify(cabActivities));
+    } catch {}
+  }, [cabActivities]);
+
+  const handleAddCabActivity = (act: CabBusinessActivity) => {
+    setCabActivities((prev) => [act, ...prev]);
+  };
+
+  const handleUpdateCabActivity = (act: CabBusinessActivity) => {
+    setCabActivities((prev) => prev.map((a) => (a.id === act.id ? act : a)));
+  };
+
+  const handleDeleteCabActivity = (id: string) => {
+    setCabActivities((prev) => prev.filter((a) => a.id !== id));
+  };
 
   // Enforce access control: non-admin users only see and access 'issues'
   useEffect(() => {
@@ -1964,7 +2011,26 @@ export default function App() {
 
   return (
     <BadgeStyleProvider style={generalSettings.badgeStyle || 'clean-arabic'}>
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-['Cairo',sans-serif] transition-colors duration-150">
+      <div className={`min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-['Cairo',sans-serif] transition-all duration-300 skin-${appSkin} relative overflow-x-hidden`}>
+      {/* Premium Glassmorphic Dynamic Animated Background Blobs */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+        <div className={`absolute top-[10%] left-[10%] w-[300px] sm:w-[450px] h-[300px] sm:h-[450px] rounded-full filter blur-[80px] sm:blur-[120px] opacity-25 dark:opacity-30 animate-blob transition-all duration-1000 ${
+          appSkin === 'amethyst' ? 'bg-purple-600 dark:bg-purple-800' :
+          appSkin === 'cyberpunk' ? 'bg-pink-600 dark:bg-pink-800' :
+          appSkin === 'ocean' ? 'bg-sky-500 dark:bg-cyan-700' : 'bg-indigo-300/40 dark:bg-indigo-950/20'
+        }`} />
+        <div className={`absolute bottom-[20%] right-[10%] w-[350px] sm:w-[500px] h-[350px] sm:h-[500px] rounded-full filter blur-[100px] sm:blur-[140px] opacity-20 dark:opacity-25 animate-blob animation-delay-2000 transition-all duration-1000 ${
+          appSkin === 'amethyst' ? 'bg-fuchsia-500 dark:bg-fuchsia-900' :
+          appSkin === 'cyberpunk' ? 'bg-rose-500 dark:bg-rose-950' :
+          appSkin === 'ocean' ? 'bg-blue-600 dark:bg-blue-900' : 'bg-emerald-300/40 dark:bg-emerald-950/20'
+        }`} />
+        <div className={`absolute top-[50%] left-[40%] w-[250px] sm:w-[350px] h-[250px] sm:h-[350px] rounded-full filter blur-[70px] sm:blur-[110px] opacity-15 dark:opacity-20 animate-blob animation-delay-4000 transition-all duration-1000 ${
+          appSkin === 'amethyst' ? 'bg-indigo-400 dark:bg-violet-900' :
+          appSkin === 'cyberpunk' ? 'bg-violet-500 dark:bg-purple-900' :
+          appSkin === 'ocean' ? 'bg-cyan-400 dark:bg-indigo-900' : 'bg-purple-200/40 dark:bg-purple-950/20'
+        }`} />
+      </div>
+
       {/* Audio element for SLA alert */}
       <audio ref={alarmAudioRef} src={soundSettings.alarmUrl} preload="auto" loop />
 
@@ -1994,6 +2060,8 @@ export default function App() {
         }}
         theme={theme}
         onToggleTheme={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
+        appSkin={appSkin}
+        onToggleSkin={setAppSkin}
         generalSettings={generalSettings}
         realtimeStatus={realtimeStatus}
         onlineUsers={onlineUsers}
@@ -2053,7 +2121,7 @@ export default function App() {
       )}
 
       {/* Main Content Area */}
-      <main className="max-w-7xl mx-auto px-4 py-6 flex-grow w-full space-y-6">
+      <main className="max-w-7xl mx-auto px-4 py-6 flex-grow w-full space-y-6 relative z-10">
         {currentUser.role === 'Admin' && currentTab === 'dashboard' && (
           <DashboardView
             issues={issues}
@@ -2092,6 +2160,7 @@ export default function App() {
             onOpenCustomerProfile={handleOpenCustomerProfile}
             onOpenMergeModal={handleOpenMergeModal}
             onUpdatePhone={handleUpdateIssuePhone}
+            appSkin={appSkin}
           />
         )}
 
@@ -2119,6 +2188,18 @@ export default function App() {
             onAddComment={handleAddComment}
             currentUser={currentUser}
             onOpenNewTicketModal={() => setShowIssueModal(true)}
+          />
+        )}
+
+        {/* Dedicated CAB Business Activity View */}
+        {currentTab === 'cab' && (
+          <CabBusinessActivityView
+            activities={cabActivities}
+            onAddActivity={handleAddCabActivity}
+            onUpdateActivity={handleUpdateCabActivity}
+            onDeleteActivity={handleDeleteCabActivity}
+            currentUser={currentUser}
+            appSkin={appSkin}
           />
         )}
 
@@ -2285,6 +2366,13 @@ export default function App() {
         currentUser={currentUser}
         onConfirmMerge={handleConfirmMerge}
       />
+
+      {isAuthenticated && currentUser && (
+        <AgentScratchpad
+          currentUser={currentUser}
+          appSkin={appSkin}
+        />
+      )}
     </div>
     </BadgeStyleProvider>
   );

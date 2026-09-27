@@ -41,8 +41,8 @@ import { AppUser, NotificationItem, SoundSettings, GeneralSettings } from '../ty
 import { ActiveUserPresence, SyncConnectionStatus } from '../utils/realtimeSync';
 
 interface HeaderProps {
-  currentTab: 'dashboard' | 'issues' | 'sla' | 'customer' | 'admin';
-  setCurrentTab: (tab: 'dashboard' | 'issues' | 'sla' | 'customer' | 'admin') => void;
+  currentTab: 'dashboard' | 'issues' | 'sla' | 'customer' | 'admin' | 'cab';
+  setCurrentTab: (tab: 'dashboard' | 'issues' | 'sla' | 'customer' | 'admin' | 'cab') => void;
   currentUser: AppUser;
   users: AppUser[];
   onSwitchUser: (user: AppUser) => void;
@@ -60,6 +60,8 @@ interface HeaderProps {
   onOpenNewTicketModal: () => void;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
+  appSkin?: 'standard' | 'amethyst' | 'cyberpunk' | 'ocean';
+  onToggleSkin?: (skin: 'standard' | 'amethyst' | 'cyberpunk' | 'ocean') => void;
   generalSettings?: GeneralSettings;
   realtimeStatus?: SyncConnectionStatus;
   onlineUsers?: ActiveUserPresence[];
@@ -87,6 +89,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenNewTicketModal,
   theme,
   onToggleTheme,
+  appSkin = 'standard',
+  onToggleSkin,
   generalSettings,
   realtimeStatus = 'connected',
   onlineUsers = [],
@@ -217,7 +221,7 @@ export const Header: React.FC<HeaderProps> = ({
               }`}
             >
               <LayoutDashboard className="w-4 h-4" />
-              <span>لوحة التحكم</span>
+              <span>لوحة الإحصائيات (Dashboard)</span>
             </button>
           )}
 
@@ -266,6 +270,19 @@ export const Header: React.FC<HeaderProps> = ({
             <span>بوابة متابعة العميل</span>
           </button>
 
+          {/* CAB Business Activity Tab */}
+          <button
+            onClick={() => setCurrentTab('cab')}
+            className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 ${
+              currentTab === 'cab'
+                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-700/60'
+            }`}
+          >
+            <Layers className="w-4 h-4 text-cyan-500 dark:text-cyan-400" />
+            <span>لوحة اعتماد التغييرات الفنية (CAB)</span>
+          </button>
+
           {currentUser.role === 'Admin' && (
             <button
               onClick={() => setCurrentTab('admin')}
@@ -303,6 +320,23 @@ export const Header: React.FC<HeaderProps> = ({
               </span>
               <span>{breachedCount} متأخرة</span>
             </button>
+          )}
+
+          {/* Skin Selector */}
+          {onToggleSkin && (
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
+              <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 px-1 hidden md:inline">🎭 المظهر:</span>
+              <select
+                value={appSkin}
+                onChange={(e) => onToggleSkin(e.target.value as any)}
+                className="bg-transparent text-slate-700 dark:text-slate-200 text-xs font-bold focus:outline-none cursor-pointer border-none"
+              >
+                <option value="standard" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">الكلاسيكي 🏢</option>
+                <option value="amethyst" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">الياقوت النيون 💎</option>
+                <option value="cyberpunk" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">السايبربانك 💖</option>
+                <option value="ocean" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">المحيط الهادئ 🌊</option>
+              </select>
+            </div>
           )}
 
           {/* Day / Night Theme Switcher */}

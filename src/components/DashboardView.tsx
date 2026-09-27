@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { CircularSlaGauge } from './CircularSlaGauge';
 import { 
   FolderOpen, 
   AlertCircle, 
@@ -656,27 +657,26 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         {/* SLA Compliance Rate Card */}
-        <div className="bg-white dark:bg-slate-800/90 p-5 rounded-3xl border border-slate-200 dark:border-slate-700/80 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="text-xs font-bold text-slate-500 dark:text-slate-400">نسبة الالتزام بالـ SLA</span>
-              <h3 className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">{complianceRate}%</h3>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-              <TrendingUp className="w-5 h-5" />
+        <div className="bg-white dark:bg-slate-800/90 p-5 rounded-3xl border border-slate-200 dark:border-slate-700/80 shadow-sm flex flex-row items-center justify-between gap-4">
+          <div className="space-y-2 flex-1">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 block">نسبة الالتزام بالـ SLA</span>
+            <h3 className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{complianceRate}%</h3>
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
+              <span>التذاكر المحلولة في وقتها:</span>
+              <span className="font-bold text-indigo-600 dark:text-indigo-400 font-mono block">
+                {total - breachedCount} من أصل {total} بلاغ
+              </span>
             </div>
           </div>
-          <div className="space-y-1.5 mt-3">
-            <div className="w-full bg-slate-100 dark:bg-slate-900 rounded-full h-2.5 overflow-hidden border border-slate-200 dark:border-slate-700">
-              <div
-                className="bg-gradient-to-r from-emerald-500 to-indigo-500 h-full rounded-full transition-all duration-500"
-                style={{ width: `${complianceRate}%` }}
-              ></div>
-            </div>
-            <div className="flex justify-between text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-              <span>التذاكر المحلولة في وقتها</span>
-              <span>{total - breachedCount} من أصل {total}</span>
-            </div>
+          <div className="flex-shrink-0">
+            <CircularSlaGauge 
+              percentage={complianceRate} 
+              size={90} 
+              strokeWidth={8} 
+              isBreached={complianceRate < 85}
+              pulse={complianceRate < 85}
+              label="الالتزام العام"
+            />
           </div>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import { Issue, AppUser, CategoryRule, AuditLog, SoundSettings, GeneralSettings } from '../types';
+import { Issue, AppUser, CategoryRule, AuditLog, SoundSettings, GeneralSettings, CabBusinessActivity } from '../types';
 import { calculateDueDate } from './sla';
 import { getDefaultPermissionsForRole } from './permissions';
 
@@ -364,4 +364,81 @@ export const INITIAL_GENERAL_SETTINGS: GeneralSettings = {
   customFooterNote: 'نظام إدارة البلاغات والتذاكر المؤسسي الموحد',
   badgeStyle: 'clean-arabic',
 };
+
+export const INITIAL_CAB_ACTIVITIES: CabBusinessActivity[] = [
+  {
+    id: 'CAB-2026-001',
+    activityName: 'Core Database Migration & Engine Patch',
+    scope: 'Upgrading primary PostgreSQL cluster to v16 with security patches and indexes optimization.',
+    impactedServices: 'Payment Gateway, User Authentication API, Client Portal',
+    serviceImpact: 'Brief intermittent latency during master node failover switch',
+    stopServiceTargetSystem: 'خادم قاعدة البيانات الرئيسي (Primary DB Cluster - Node 01)',
+    stoppedSystemName: 'نظام المعاملات الدفع والتوثيق (Payment & Auth Services)',
+    downtimeRequired: 'Yes',
+    date: 'Sunday, 28/09/2026',
+    startTime: '02:00 AM',
+    endTime: '04:00 AM',
+    maintenanceWindow: '02:00 AM - 04:00 AM',
+    requestor: 'أحمد العتيبي',
+    tpm: 'عمر اليافعي',
+    changeManagement: 'IT Change Management Team',
+    status: 'Approved',
+    riskLevel: 'High',
+    rollbackPlan: 'Restore snapshot from automated WAL archives and switch traffic back to replica cluster v15 within 10 minutes.',
+    comments: [
+      {
+        id: 'cb-1',
+        author: 'أحمد العتيبي',
+        content: 'تم اختبار الخطة على بيئة Staging والتأكد من توافق الجداول.',
+        createdAt: '2026-09-27 10:30',
+        type: 'general',
+      },
+    ],
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'CAB-2026-002',
+    activityName: 'Edge Router & Firewall Firmware Update',
+    scope: 'Applying zero-day vulnerability security patch on secondary core switch in HQ Data Center.',
+    impactedServices: 'Internal Corporate VPN, Local Network Shared Drives',
+    serviceImpact: 'No impact expected due to redundant HA traffic routing',
+    stopServiceTargetSystem: 'محبس الاتصال الشبكي الفرعي (Secondary Edge Router)',
+    stoppedSystemName: 'شبكة الـ VPN الداخلية للموظفين (Corporate VPN Network)',
+    downtimeRequired: 'No',
+    date: 'Tuesday, 30/09/2026',
+    startTime: '11:00 PM',
+    endTime: '11:45 PM',
+    maintenanceWindow: '11:00 PM - 11:45 PM',
+    requestor: 'سارة خالد',
+    tpm: 'محمد علي',
+    changeManagement: 'IT Change Management Team',
+    status: 'Pending Approval',
+    riskLevel: 'Medium',
+    rollbackPlan: 'Revert switch firmware to dual-boot secondary image via console CLI.',
+    comments: [],
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'CAB-2026-003',
+    activityName: 'Payment Gateway API SSL Certificate Renewal',
+    scope: 'Replacing expiring wildcard SSL/TLS certificate for payment endpoints.',
+    impactedServices: 'Payment Gateway, Merchant Portal',
+    serviceImpact: 'No downtime, seamless certificate hot-reload.',
+    stopServiceTargetSystem: 'خادم شهادات التشفير (SSL Reverse Proxy)',
+    stoppedSystemName: 'بوابة خوادم التجار والـ APIs (Merchant Gateway API)',
+    downtimeRequired: 'No',
+    date: 'Sunday, 28/09/2026',
+    startTime: '03:00 AM',
+    endTime: '03:30 AM',
+    maintenanceWindow: '03:00 AM - 03:30 AM',
+    requestor: 'محمد علي',
+    tpm: 'أحمد العتيبي',
+    changeManagement: 'IT Change Management Team',
+    status: 'Pending Approval',
+    riskLevel: 'Low',
+    rollbackPlan: 'Reload previous SSL certificate bundle in Nginx key store.',
+    comments: [],
+    createdAt: new Date().toISOString(),
+  },
+];
 
