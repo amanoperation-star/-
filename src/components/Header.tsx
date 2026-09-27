@@ -209,95 +209,6 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Navigation Tabs - Ultra Modern Glassmorphic Design */}
-        <div className="flex items-center bg-slate-900/95 dark:bg-slate-950/90 p-1.5 rounded-2xl border border-slate-700/60 dark:border-slate-800 shadow-xl shadow-slate-950/20 gap-1.5 overflow-x-auto max-w-full select-none">
-          {currentUser.role === 'Admin' && (
-            <button
-              onClick={() => setCurrentTab('dashboard')}
-              className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap ${
-                currentTab === 'dashboard'
-                  ? 'bg-gradient-to-r from-indigo-600 via-indigo-500 to-blue-600 text-white shadow-lg shadow-indigo-500/30 border border-indigo-400/40 ring-1 ring-white/20'
-                  : 'text-slate-300 dark:text-slate-300 hover:text-white hover:bg-slate-800/80 border border-transparent'
-              }`}
-            >
-              <LayoutDashboard className={`w-4 h-4 transition-transform ${currentTab === 'dashboard' ? 'scale-110 text-white' : 'text-indigo-400'}`} />
-              <span>لوحة الإحصائيات (Dashboard)</span>
-            </button>
-          )}
-
-          <button
-            onClick={() => setCurrentTab('issues')}
-            className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap ${
-              currentTab === 'issues'
-                ? 'bg-gradient-to-r from-indigo-600 via-indigo-500 to-blue-600 text-white shadow-lg shadow-indigo-500/30 border border-indigo-400/40 ring-1 ring-white/20'
-                : 'text-slate-300 dark:text-slate-300 hover:text-white hover:bg-slate-800/80 border border-transparent'
-            }`}
-          >
-            <ListTodo className={`w-4 h-4 transition-transform ${currentTab === 'issues' ? 'scale-110 text-white' : 'text-blue-400'}`} />
-            <span>سجل المشاكل</span>
-          </button>
-
-          {/* Dedicated SLA Management Tab - Restrict to Admin only */}
-          {currentUser.role === 'Admin' && (
-            <button
-              onClick={() => setCurrentTab('sla')}
-              className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap ${
-                currentTab === 'sla'
-                  ? 'bg-gradient-to-r from-indigo-600 via-indigo-500 to-blue-600 text-white shadow-lg shadow-indigo-500/30 border border-indigo-400/40 ring-1 ring-white/20'
-                  : 'text-slate-300 dark:text-slate-300 hover:text-white hover:bg-slate-800/80 border border-transparent'
-              }`}
-            >
-              <Clock className={`w-4 h-4 transition-transform ${currentTab === 'sla' ? 'scale-110 text-white' : 'text-amber-400'}`} />
-              <span>إدارة الـ SLA</span>
-              {breachedCount > 0 && (
-                <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-rose-500 text-white font-mono font-black animate-pulse shadow-xs">
-                  {breachedCount}
-                </span>
-              )}
-            </button>
-          )}
-
-          {/* Customer Portal / Tracking Tab */}
-          <button
-            onClick={() => setCurrentTab('customer')}
-            className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap ${
-              currentTab === 'customer'
-                ? 'bg-gradient-to-r from-indigo-600 via-indigo-500 to-blue-600 text-white shadow-lg shadow-indigo-500/30 border border-indigo-400/40 ring-1 ring-white/20'
-                : 'text-slate-300 dark:text-slate-300 hover:text-white hover:bg-slate-800/80 border border-transparent'
-            }`}
-          >
-            <Globe className={`w-4 h-4 transition-transform ${currentTab === 'customer' ? 'scale-110 text-white' : 'text-purple-400'}`} />
-            <span>بوابة متابعة العميل</span>
-          </button>
-
-          {/* CAB Business Activity Tab */}
-          <button
-            onClick={() => setCurrentTab('cab')}
-            className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap ${
-              currentTab === 'cab'
-                ? 'bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 text-white shadow-lg shadow-cyan-500/30 border border-cyan-400/40 ring-1 ring-white/20'
-                : 'text-slate-300 dark:text-slate-300 hover:text-white hover:bg-slate-800/80 border border-transparent'
-            }`}
-          >
-            <Layers className={`w-4 h-4 transition-transform ${currentTab === 'cab' ? 'scale-110 text-white' : 'text-cyan-400'}`} />
-            <span>لوحة اعتماد التغييرات الفنية (CAB)</span>
-          </button>
-
-          {currentUser.role === 'Admin' && (
-            <button
-              onClick={() => setCurrentTab('admin')}
-              className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap ${
-                currentTab === 'admin'
-                  ? 'bg-gradient-to-r from-indigo-600 via-indigo-500 to-blue-600 text-white shadow-lg shadow-indigo-500/30 border border-indigo-400/40 ring-1 ring-white/20'
-                  : 'text-slate-300 dark:text-slate-300 hover:text-white hover:bg-slate-800/80 border border-transparent'
-              }`}
-            >
-              <ShieldCheck className={`w-4 h-4 transition-transform ${currentTab === 'admin' ? 'scale-110 text-white' : 'text-emerald-400'}`} />
-              <span>لوحة الإدمن</span>
-            </button>
-          )}
-        </div>
-
         {/* Right Actions */}
         <div className="flex items-center gap-2">
           {/* SLA Compact Badge Button (Quick Access) */}
@@ -311,7 +222,7 @@ export const Header: React.FC<HeaderProps> = ({
                   setCurrentTab('sla');
                 }
               }}
-              className="px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 transition flex items-center gap-1.5 text-xs font-bold shadow-2xs"
+              className="px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 transition flex items-center gap-1.5 text-xs font-bold shadow-2xs cursor-pointer"
               title={bannerDismissed ? 'انقر لعرض تفاصيل تنبيه المتأخرات' : 'انقر للانتقال للتذاكر المتأخرة'}
             >
               <span className="relative flex h-2 w-2">
@@ -342,36 +253,36 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Day / Night Theme Switcher */}
           <button
             onClick={onToggleTheme}
-            className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition flex items-center gap-1.5 shadow-sm text-xs font-bold"
+            className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition flex items-center gap-1.5 shadow-xs text-xs font-bold cursor-pointer"
             title={theme === 'dark' ? 'التحويل إلى الوضع النهاري (Light Mode)' : 'التحويل إلى الوضع الليلي (Dark Mode)'}
             aria-label="تبديل مظهر العرض"
           >
             {theme === 'dark' ? (
               <>
                 <Sun className="w-4 h-4 text-amber-400 shrink-0" />
-                <span>الوضع النهاري</span>
+                <span className="hidden sm:inline">النهاري</span>
               </>
             ) : (
               <>
                 <Moon className="w-4 h-4 text-indigo-600 shrink-0" />
-                <span>الوضع الليلي</span>
+                <span className="hidden sm:inline">الليلي</span>
               </>
             )}
           </button>
 
-          {/* Cloud Connection Light Indicator (السحابة مسجلة ومتصلة تلقائياً) */}
+          {/* Cloud Connection Light Indicator */}
           <button
             onClick={currentUser.role === 'Admin' ? onNavigateToSupabaseSettings : undefined}
-            className="px-2.5 py-1.5 rounded-xl flex items-center gap-1.5 text-xs font-bold transition-all duration-300 bg-emerald-500/15 hover:bg-emerald-500/25 dark:bg-emerald-950/70 dark:hover:bg-emerald-900/80 border-2 border-emerald-500 dark:border-emerald-400 text-emerald-600 dark:text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.55)] ring-1 ring-emerald-400/50 cursor-pointer"
-            title="السحابة المركزية مسجلة ومتصلة تلقائياً 🟢 - المزامنة اللحظية مفعلة بين جميع الأجهزة والمتصفحات"
-            aria-label="حالة الاتصال السحابي: السحابة مسجلة ومتصلة (منورة)"
+            className="px-2.5 py-1.5 rounded-xl flex items-center gap-1.5 text-xs font-bold transition-all duration-300 bg-emerald-500/15 hover:bg-emerald-500/25 dark:bg-emerald-950/70 dark:hover:bg-emerald-900/80 border border-emerald-500 dark:border-emerald-400 text-emerald-600 dark:text-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.35)] ring-1 ring-emerald-400/40 cursor-pointer"
+            title="السحابة المركزية متصلة ومسجلة 🟢"
+            aria-label="حالة الاتصال السحابي: السحابة مسجلة ومتصلة"
           >
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-80"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            <Radio className="w-4 h-4 text-emerald-500 dark:text-emerald-400 drop-shadow-[0_0_6px_rgba(16,185,129,0.9)] animate-pulse" />
-            <span className="font-black text-[11px] text-emerald-600 dark:text-emerald-300">السحابة مسجلة 🟢</span>
+            <Radio className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400 animate-pulse" />
+            <span className="font-bold text-[11px] text-emerald-600 dark:text-emerald-300 hidden sm:inline">السحابة 🟢</span>
           </button>
 
           {/* Notifications */}
@@ -561,6 +472,96 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Secondary Dedicated Navigation Strip (شريط التنقل المخصص والمطور) */}
+      <div className="bg-slate-100/90 dark:bg-slate-950/80 border-t border-slate-200/80 dark:border-slate-800/80 px-4 py-1.5 shadow-inner">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 overflow-x-auto select-none no-scrollbar">
+          <nav className="flex items-center gap-1.5 sm:gap-2">
+            {currentUser.role === 'Admin' && (
+              <button
+                onClick={() => setCurrentTab('dashboard')}
+                className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-black transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap ${
+                  currentTab === 'dashboard'
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 ring-2 ring-indigo-400/40'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/80 dark:hover:bg-slate-800/80'
+                }`}
+              >
+                <LayoutDashboard className={`w-4 h-4 transition-transform ${currentTab === 'dashboard' ? 'scale-110 text-white' : 'text-indigo-500 dark:text-indigo-400'}`} />
+                <span>لوحة الإحصائيات (Dashboard)</span>
+              </button>
+            )}
+
+            <button
+              onClick={() => setCurrentTab('issues')}
+              className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-black transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap ${
+                currentTab === 'issues'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30 ring-2 ring-blue-400/40'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/80 dark:hover:bg-slate-800/80'
+              }`}
+            >
+              <ListTodo className={`w-4 h-4 transition-transform ${currentTab === 'issues' ? 'scale-110 text-white' : 'text-blue-500 dark:text-blue-400'}`} />
+              <span>سجل المشاكل</span>
+            </button>
+
+            {currentUser.role === 'Admin' && (
+              <button
+                onClick={() => setCurrentTab('sla')}
+                className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-black transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap ${
+                  currentTab === 'sla'
+                    ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30 ring-2 ring-amber-400/40'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/80 dark:hover:bg-slate-800/80'
+                }`}
+              >
+                <Clock className={`w-4 h-4 transition-transform ${currentTab === 'sla' ? 'scale-110 text-white' : 'text-amber-500 dark:text-amber-400'}`} />
+                <span>إدارة الـ SLA</span>
+                {breachedCount > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-rose-500 text-white font-mono font-black animate-pulse shadow-xs">
+                    {breachedCount}
+                  </span>
+                )}
+              </button>
+            )}
+
+            <button
+              onClick={() => setCurrentTab('customer')}
+              className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-black transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap ${
+                currentTab === 'customer'
+                  ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30 ring-2 ring-purple-400/40'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/80 dark:hover:bg-slate-800/80'
+              }`}
+            >
+              <Globe className={`w-4 h-4 transition-transform ${currentTab === 'customer' ? 'scale-110 text-white' : 'text-purple-500 dark:text-purple-400'}`} />
+              <span>بوابة متابعة العميل</span>
+            </button>
+
+            <button
+              onClick={() => setCurrentTab('cab')}
+              className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-black transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap ${
+                currentTab === 'cab'
+                  ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/30 ring-2 ring-cyan-400/40'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/80 dark:hover:bg-slate-800/80'
+              }`}
+            >
+              <Layers className={`w-4 h-4 transition-transform ${currentTab === 'cab' ? 'scale-110 text-white' : 'text-cyan-500 dark:text-cyan-400'}`} />
+              <span>لوحة اعتماد التغييرات الفنية (CAB)</span>
+            </button>
+
+            {currentUser.role === 'Admin' && (
+              <button
+                onClick={() => setCurrentTab('admin')}
+                className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-black transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap ${
+                  currentTab === 'admin'
+                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30 ring-2 ring-emerald-400/40'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/80 dark:hover:bg-slate-800/80'
+                }`}
+              >
+                <ShieldCheck className={`w-4 h-4 transition-transform ${currentTab === 'admin' ? 'scale-110 text-white' : 'text-emerald-500 dark:text-emerald-400'}`} />
+                <span>لوحة الإدمن</span>
+              </button>
+            )}
+          </nav>
         </div>
       </div>
 
