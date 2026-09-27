@@ -1362,120 +1362,480 @@ export const CabBusinessActivityView: React.FC<CabBusinessActivityViewProps> = (
         </div>
       )}
 
-      {/* Edit / Create Modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden text-right text-white max-h-[90vh] flex flex-col" dir="rtl">
+      {/* Viewing ITIL Standard Template Modal */}
+      {viewingCardActivity && (
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-slate-900 border border-slate-700 w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden text-right text-white max-h-[90vh] flex flex-col" dir="rtl">
             <div className="bg-[#0B192C] px-5 py-3.5 flex justify-between items-center border-b border-slate-800 shrink-0">
-              <h3 className="font-bold text-sm text-white">
-                {editingActivity ? `تعديل نشاط (${editingActivity.id})` : 'إضافة نشاط تغيير جديد (+CAB Activity)'}
-              </h3>
+              <div className="flex items-center gap-2">
+                <span className="font-mono font-bold text-xs text-cyan-400 bg-cyan-950 px-2 py-0.5 rounded border border-cyan-800">
+                  {viewingCardActivity.id}
+                </span>
+                <h3 className="font-bold text-sm text-white">
+                  معاينة نموذج الـ CAB المعتمد (ITIL Standard Template)
+                </h3>
+              </div>
+              <button onClick={() => setViewingCardActivity(null)} className="text-slate-400 hover:text-white cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 overflow-y-auto space-y-4 bg-slate-900" dir="ltr">
+              {/* 1 | ACTIVITY DETAILS */}
+              <div className="border border-slate-700 rounded-xl overflow-hidden shadow-sm">
+                <div className="bg-[#1B365D] text-white px-3.5 py-2 font-bold text-xs uppercase tracking-wider flex items-center justify-between">
+                  <span>1 | ACTIVITY DETAILS</span>
+                  <span className="text-[10px] text-cyan-300 font-normal">ITIL Change Spec</span>
+                </div>
+                <div className="divide-y divide-slate-800 bg-[#1E293B] text-xs text-white">
+                  <div className="grid grid-cols-1 md:grid-cols-4 p-2.5">
+                    <div className="font-bold text-slate-300">Business Activity</div>
+                    <div className="md:col-span-3 font-semibold text-white">{viewingCardActivity.activityName}</div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-4 p-2.5">
+                    <div className="font-bold text-slate-300">Scope</div>
+                    <div className="md:col-span-3 text-slate-200">{viewingCardActivity.scope || '—'}</div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-4 p-2.5">
+                    <div className="font-bold text-slate-300">Impacted Services</div>
+                    <div className="md:col-span-3 font-semibold text-cyan-300">{viewingCardActivity.impactedServices || '—'}</div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-4 p-2.5">
+                    <div className="font-bold text-slate-300">Service Impact</div>
+                    <div className="md:col-span-3 text-slate-300">{viewingCardActivity.serviceImpact || '—'}</div>
+                  </div>
+                  {(viewingCardActivity.stopServiceTargetSystem || viewingCardActivity.stoppedSystemName) && (
+                    <>
+                      <div className="grid grid-cols-1 md:grid-cols-4 p-2.5 bg-amber-950/20">
+                        <div className="font-bold text-amber-300">Target System (إيقاف الخدمة)</div>
+                        <div className="md:col-span-3 font-bold text-amber-200">{viewingCardActivity.stopServiceTargetSystem || '—'}</div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-4 p-2.5 bg-rose-950/20">
+                        <div className="font-bold text-rose-300">Stopped System (السيستم المتأثر)</div>
+                        <div className="md:col-span-3 font-bold text-rose-200">{viewingCardActivity.stoppedSystemName || '—'}</div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* 2 | SCHEDULE */}
+              <div className="border border-slate-700 rounded-xl overflow-hidden shadow-sm">
+                <div className="bg-[#1B365D] text-white px-3.5 py-2 font-bold text-xs uppercase tracking-wider">
+                  2 | SCHEDULE
+                </div>
+                <div className="divide-y divide-slate-800 bg-[#1E293B] text-xs text-white">
+                  <div className="grid grid-cols-1 md:grid-cols-4 p-2.5">
+                    <div className="font-bold text-slate-300">Downtime Required</div>
+                    <div className="md:col-span-3">
+                      <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                        viewingCardActivity.downtimeRequired === 'Yes' ? 'bg-rose-950 text-rose-300 border border-rose-800' : 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                      }`}>
+                        {viewingCardActivity.downtimeRequired}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-4 p-2.5">
+                    <div className="font-bold text-slate-300">Date</div>
+                    <div className="md:col-span-3 font-mono font-bold text-emerald-400">{viewingCardActivity.date}</div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-4 p-2.5">
+                    <div className="font-bold text-slate-300">Start Time</div>
+                    <div className="md:col-span-3 font-mono text-sky-300">{viewingCardActivity.startTime}</div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-4 p-2.5">
+                    <div className="font-bold text-slate-300">End Time</div>
+                    <div className="md:col-span-3 font-mono text-sky-300">{viewingCardActivity.endTime}</div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-4 p-2.5">
+                    <div className="font-bold text-slate-300">Maintenance Window</div>
+                    <div className="md:col-span-3 font-mono font-bold text-cyan-300">{viewingCardActivity.maintenanceWindow}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3 | OWNERSHIP */}
+              <div className="border border-slate-700 rounded-xl overflow-hidden shadow-sm">
+                <div className="bg-[#1B365D] text-white px-3.5 py-2 font-bold text-xs uppercase tracking-wider">
+                  3 | OWNERSHIP
+                </div>
+                <div className="divide-y divide-slate-800 bg-[#1E293B] text-xs text-white">
+                  <div className="grid grid-cols-1 md:grid-cols-4 p-2.5">
+                    <div className="font-bold text-slate-300">Requestor</div>
+                    <div className="md:col-span-3 font-bold text-amber-300">{viewingCardActivity.requestor}</div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-4 p-2.5">
+                    <div className="font-bold text-slate-300">TPM</div>
+                    <div className="md:col-span-3 font-semibold text-slate-200">{viewingCardActivity.tpm || '—'}</div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-4 p-2.5">
+                    <div className="font-bold text-slate-300">Change Management</div>
+                    <div className="md:col-span-3 font-semibold text-slate-200">{viewingCardActivity.changeManagement || 'IT Change Management'}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 4 | RISK & ROLLBACK */}
+              {(viewingCardActivity.riskLevel || viewingCardActivity.rollbackPlan) && (
+                <div className="border border-slate-700 rounded-xl overflow-hidden shadow-sm">
+                  <div className="bg-[#1B365D] text-white px-3.5 py-2 font-bold text-xs uppercase tracking-wider">
+                    4 | RISK ASSESSMENT & ROLLBACK
+                  </div>
+                  <div className="divide-y divide-slate-800 bg-[#1E293B] text-xs text-white">
+                    <div className="grid grid-cols-1 md:grid-cols-4 p-2.5">
+                      <div className="font-bold text-slate-300">Risk Level</div>
+                      <div className="md:col-span-3 font-bold text-amber-400">{viewingCardActivity.riskLevel || 'Low'}</div>
+                    </div>
+                    {viewingCardActivity.rollbackPlan && (
+                      <div className="grid grid-cols-1 md:grid-cols-4 p-2.5">
+                        <div className="font-bold text-slate-300">Rollback Plan</div>
+                        <div className="md:col-span-3 text-purple-300">{viewingCardActivity.rollbackPlan}</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-3.5 bg-[#0B192C] border-t border-slate-800 flex justify-end shrink-0" dir="rtl">
+              <button
+                onClick={() => setViewingCardActivity(null)}
+                className="px-5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition cursor-pointer"
+              >
+                إغلاق المعاينة
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit / Create Modal with full 3-section ITIL standard template + additional fields */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-slate-900 border border-slate-800 w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden text-right text-white max-h-[92vh] flex flex-col" dir="rtl">
+            <div className="bg-[#0B192C] px-5 py-3.5 flex justify-between items-center border-b border-slate-800 shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="bg-blue-600 text-white p-1.5 rounded-lg">
+                  <Layers className="w-4 h-4" />
+                </span>
+                <div>
+                  <h3 className="font-bold text-sm text-white">
+                    {editingActivity ? `تعديل نشاط اعتماد التغيير (${editingActivity.id})` : 'إضافة نشاط تغيير جديد (+CAB Activity)'}
+                  </h3>
+                  <p className="text-[10px] text-cyan-300 font-mono">Standard ITIL Service Management Template</p>
+                </div>
+              </div>
               <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-white cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-y-auto flex-1">
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">اسم النشاط (Business Activity):</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.activityName || ''}
-                  onChange={(e) => setFormData({ ...formData, activityName: e.target.value })}
-                  className="w-full p-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white"
-                  placeholder="مثال: Core Database Migration"
-                />
+            <form onSubmit={handleSubmit} className="p-5 space-y-5 overflow-y-auto flex-1">
+              {/* SECTION 1: ACTIVITY DETAILS */}
+              <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 bg-blue-600 text-white rounded text-[11px] font-black font-mono">1</span>
+                    <h4 className="text-xs font-extrabold text-blue-300 uppercase tracking-wide">
+                      ACTIVITY DETAILS (تفاصيل النشاط)
+                    </h4>
+                  </div>
+                  <span className="text-[10px] text-slate-400">البيانات الأساسية للتغيير</span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">
+                    Business Activity <span className="text-rose-400">*</span> (اسم النشاط):
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.activityName || ''}
+                    onChange={(e) => setFormData({ ...formData, activityName: e.target.value })}
+                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none"
+                    placeholder="مثال: Core Database Migration & Index Optimization"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">
+                    Scope (وصف ونطاق التغيير):
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={formData.scope || ''}
+                    onChange={(e) => setFormData({ ...formData, scope: e.target.value })}
+                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none"
+                    placeholder="اكتب وصفاً دقيقاً لنطاق التغيير الفني والخطوات المنفذة..."
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">
+                      Impacted Services (الخدمات المتأثرة):
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.impactedServices || ''}
+                      onChange={(e) => setFormData({ ...formData, impactedServices: e.target.value })}
+                      className="w-full p-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500"
+                      placeholder="مثال: API Gateway, User Auth, Billing"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">
+                      Service Impact (تأثير الخدمة المتوقع):
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.serviceImpact || ''}
+                      onChange={(e) => setFormData({ ...formData, serviceImpact: e.target.value })}
+                      className="w-full p-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500"
+                      placeholder="مثال: بطء لحظي لمدة دقيقتين أو توقف كامل"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="block text-xs font-bold text-amber-300 mb-1">
+                      🎯 السيستم المراد إيقاف الخدمة عليه (Target System):
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.stopServiceTargetSystem || ''}
+                      onChange={(e) => setFormData({ ...formData, stopServiceTargetSystem: e.target.value })}
+                      className="w-full p-2 bg-slate-900 border border-amber-800/60 rounded-xl text-xs text-white placeholder-slate-500"
+                      placeholder="مثل: خادم قاعدة البيانات الرئيسية DB-01"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-rose-300 mb-1">
+                      🛑 السيستم المتأثر بالإنقطاع (Stopped System):
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.stoppedSystemName || ''}
+                      onChange={(e) => setFormData({ ...formData, stoppedSystemName: e.target.value })}
+                      className="w-full p-2 bg-slate-900 border border-rose-800/60 rounded-xl text-xs text-white placeholder-slate-500"
+                      placeholder="مثل: بوابة الدفع الإلكتروني والفوترة"
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Scope (وصف ونطاق التغيير):</label>
-                <textarea
-                  rows={2}
-                  value={formData.scope || ''}
-                  onChange={(e) => setFormData({ ...formData, scope: e.target.value })}
-                  className="w-full p-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white"
-                />
+              {/* SECTION 2: SCHEDULE */}
+              <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 bg-cyan-600 text-white rounded text-[11px] font-black font-mono">2</span>
+                    <h4 className="text-xs font-extrabold text-cyan-300 uppercase tracking-wide">
+                      SCHEDULE (الجدول الزمني ونافذة الصيانة)
+                    </h4>
+                  </div>
+                  <span className="text-[10px] text-slate-400">مواعيد التوقف والتنفيذ</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">
+                      Downtime Required (هل يتطلب توقف الخدمة؟):
+                    </label>
+                    <select
+                      value={formData.downtimeRequired || 'No'}
+                      onChange={(e) => setFormData({ ...formData, downtimeRequired: e.target.value as any })}
+                      className="w-full p-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white font-bold"
+                    >
+                      <option value="No">No (بدون توقف الخدمة)</option>
+                      <option value="Yes">Yes (يتطلب توقف الخدمة)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">
+                      Date (اليوم والتاريخ):
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.date || ''}
+                      onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                      className="w-full p-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white font-mono"
+                      placeholder="Sunday, 28/09/2026"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">
+                      Start Time (وقت البدء):
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.startTime || ''}
+                      onChange={(e) => {
+                        const newStart = e.target.value;
+                        setFormData({
+                          ...formData,
+                          startTime: newStart,
+                          maintenanceWindow: `${newStart} - ${formData.endTime || ''}`,
+                        });
+                      }}
+                      className="w-full p-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white font-mono"
+                      placeholder="01:00 AM"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">
+                      End Time (وقت الانتهاء):
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.endTime || ''}
+                      onChange={(e) => {
+                        const newEnd = e.target.value;
+                        setFormData({
+                          ...formData,
+                          endTime: newEnd,
+                          maintenanceWindow: `${formData.startTime || ''} - ${newEnd}`,
+                        });
+                      }}
+                      className="w-full p-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white font-mono"
+                      placeholder="03:00 AM"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-cyan-300 mb-1">
+                      Maintenance Window (نافذة الصيانة):
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.maintenanceWindow || ''}
+                      onChange={(e) => setFormData({ ...formData, maintenanceWindow: e.target.value })}
+                      className="w-full p-2 bg-slate-900 border border-cyan-800/80 rounded-xl text-xs text-cyan-300 font-mono font-bold"
+                      placeholder="01:00 AM - 03:00 AM"
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">اسم السيستم المراد إيقاف الخدمة عليه:</label>
-                  <input
-                    type="text"
-                    value={formData.stopServiceTargetSystem || ''}
-                    onChange={(e) => setFormData({ ...formData, stopServiceTargetSystem: e.target.value })}
-                    className="w-full p-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white"
-                    placeholder="مثل: خادم قاعدة البيانات الرئيسية"
-                  />
+              {/* SECTION 3: OWNERSHIP */}
+              <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 bg-amber-600 text-white rounded text-[11px] font-black font-mono">3</span>
+                    <h4 className="text-xs font-extrabold text-amber-300 uppercase tracking-wide">
+                      OWNERSHIP (المسؤوليات وفرق العمل)
+                    </h4>
+                  </div>
+                  <span className="text-[10px] text-slate-400">طالب التغيير والمسؤول التقني</span>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">اسم السيستم الذي سيتوقف:</label>
-                  <input
-                    type="text"
-                    value={formData.stoppedSystemName || ''}
-                    onChange={(e) => setFormData({ ...formData, stoppedSystemName: e.target.value })}
-                    className="w-full p-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white"
-                    placeholder="مثل: بوابة المعاملات المالية"
-                  />
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">
+                      Requestor (طالب التغيير):
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.requestor || ''}
+                      onChange={(e) => setFormData({ ...formData, requestor: e.target.value })}
+                      className="w-full p-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white"
+                      placeholder="الاسم الكامل"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">
+                      TPM (المسؤول التقني):
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.tpm || ''}
+                      onChange={(e) => setFormData({ ...formData, tpm: e.target.value })}
+                      className="w-full p-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white"
+                      placeholder="الاسم الكامل"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">
+                      Change Management (إدارة التغيير):
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.changeManagement || 'IT Change Management'}
+                      onChange={(e) => setFormData({ ...formData, changeManagement: e.target.value })}
+                      className="w-full p-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white"
+                      placeholder="IT Change Management"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">التاريخ:</label>
-                  <input
-                    type="text"
-                    value={formData.date || ''}
-                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                    className="w-full p-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">وقت البدء:</label>
-                  <input
-                    type="text"
-                    value={formData.startTime || ''}
-                    onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                    className="w-full p-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">وقت الانتهاء:</label>
-                  <input
-                    type="text"
-                    value={formData.endTime || ''}
-                    onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                    className="w-full p-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">درجة الخطورة:</label>
-                  <select
-                    value={formData.riskLevel || 'Low'}
-                    onChange={(e) => setFormData({ ...formData, riskLevel: e.target.value as any })}
-                    className="w-full p-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white"
-                  >
-                    <option value="Low">🟢 منخفض (Low Risk)</option>
-                    <option value="Medium">🟡 متوسط (Medium Risk)</option>
-                    <option value="High">🔴 مرتفع (High Risk)</option>
-                    <option value="Critical">🟣 حرج (Critical Risk)</option>
-                  </select>
+              {/* SECTION 4: RISK & ROLLBACK */}
+              <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 bg-purple-600 text-white rounded text-[11px] font-black font-mono">4</span>
+                    <h4 className="text-xs font-extrabold text-purple-300 uppercase tracking-wide">
+                      RISK ASSESSMENT & ROLLBACK (تقييم المخاطر وخطة التراجع)
+                    </h4>
+                  </div>
+                  <span className="text-[10px] text-slate-400">معايير الأمان والاستقرار</span>
                 </div>
 
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">
+                      Risk Level (درجة الخطورة):
+                    </label>
+                    <select
+                      value={formData.riskLevel || 'Low'}
+                      onChange={(e) => setFormData({ ...formData, riskLevel: e.target.value as any })}
+                      className="w-full p-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white font-bold"
+                    >
+                      <option value="Low">🟢 منخفض (Low Risk)</option>
+                      <option value="Medium">🟡 متوسط (Medium Risk)</option>
+                      <option value="High">🔴 مرتفع (High Risk)</option>
+                      <option value="Critical">🟣 حرج (Critical Risk)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">
+                      Status (حالة الاعتماد المبدئية):
+                    </label>
+                    <select
+                      value={formData.status || 'Pending Approval'}
+                      onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+                      className="w-full p-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white font-bold"
+                    >
+                      <option value="Pending Approval">قيد الاعتماد (Pending Approval)</option>
+                      <option value="Approved">معتمد (Approved)</option>
+                      <option value="Draft">مسودة (Draft)</option>
+                      <option value="Completed">مكتمل (Completed)</option>
+                      <option value="Rolled Back">تراجع (Rolled Back)</option>
+                      <option value="Rejected">مرفوض (Rejected)</option>
+                    </select>
+                  </div>
+                </div>
+
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">تطلب توقف الخدمة:</label>
-                  <select
-                    value={formData.downtimeRequired || 'No'}
-                    onChange={(e) => setFormData({ ...formData, downtimeRequired: e.target.value as any })}
-                    className="w-full p-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white"
-                  >
-                    <option value="No">No (بدون توقف)</option>
-                    <option value="Yes">Yes (يتطلب توقف)</option>
-                  </select>
+                  <label className="block text-xs font-bold text-purple-300 mb-1">
+                    Rollback Plan (خطة التراجع الفنية في حال حدوث أي خطأ):
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={formData.rollbackPlan || ''}
+                    onChange={(e) => setFormData({ ...formData, rollbackPlan: e.target.value })}
+                    className="w-full p-2 bg-slate-900 border border-purple-800/70 rounded-xl text-xs text-white placeholder-slate-500"
+                    placeholder="خطوات الرجوع للنسخة السابقة وإلغاء التغيير الفني في حال فشل التنفيذ..."
+                  />
                 </div>
               </div>
 
@@ -1483,15 +1843,16 @@ export const CabBusinessActivityView: React.FC<CabBusinessActivityViewProps> = (
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-1.5 bg-slate-800 text-slate-300 rounded-xl text-xs font-bold"
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition cursor-pointer"
                 >
                   إلغاء
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold cursor-pointer"
+                  className="px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold cursor-pointer shadow-lg shadow-blue-600/30 flex items-center gap-1.5 transition"
                 >
-                  حفظ النشاط
+                  <Check className="w-4 h-4" />
+                  <span>{editingActivity ? 'حفظ التعديلات' : 'إضافة النشاط المعتمد'}</span>
                 </button>
               </div>
             </form>
