@@ -209,31 +209,31 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Navigation Tabs */}
-        <div className="flex items-center bg-slate-100 dark:bg-slate-800/90 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700/80 gap-1">
+        {/* Navigation Tabs - Ultra Modern Glassmorphic Design */}
+        <div className="flex items-center bg-slate-900/95 dark:bg-slate-950/90 p-1.5 rounded-2xl border border-slate-700/60 dark:border-slate-800 shadow-xl shadow-slate-950/20 gap-1.5 overflow-x-auto max-w-full select-none">
           {currentUser.role === 'Admin' && (
             <button
               onClick={() => setCurrentTab('dashboard')}
-              className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 ${
+              className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap ${
                 currentTab === 'dashboard'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-700/60'
+                  ? 'bg-gradient-to-r from-indigo-600 via-indigo-500 to-blue-600 text-white shadow-lg shadow-indigo-500/30 border border-indigo-400/40 ring-1 ring-white/20'
+                  : 'text-slate-300 dark:text-slate-300 hover:text-white hover:bg-slate-800/80 border border-transparent'
               }`}
             >
-              <LayoutDashboard className="w-4 h-4" />
+              <LayoutDashboard className={`w-4 h-4 transition-transform ${currentTab === 'dashboard' ? 'scale-110 text-white' : 'text-indigo-400'}`} />
               <span>لوحة الإحصائيات (Dashboard)</span>
             </button>
           )}
 
           <button
             onClick={() => setCurrentTab('issues')}
-            className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 ${
+            className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap ${
               currentTab === 'issues'
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-700/60'
+                ? 'bg-gradient-to-r from-indigo-600 via-indigo-500 to-blue-600 text-white shadow-lg shadow-indigo-500/30 border border-indigo-400/40 ring-1 ring-white/20'
+                : 'text-slate-300 dark:text-slate-300 hover:text-white hover:bg-slate-800/80 border border-transparent'
             }`}
           >
-            <ListTodo className="w-4 h-4" />
+            <ListTodo className={`w-4 h-4 transition-transform ${currentTab === 'issues' ? 'scale-110 text-white' : 'text-blue-400'}`} />
             <span>سجل المشاكل</span>
           </button>
 
@@ -241,16 +241,16 @@ export const Header: React.FC<HeaderProps> = ({
           {currentUser.role === 'Admin' && (
             <button
               onClick={() => setCurrentTab('sla')}
-              className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 ${
+              className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap ${
                 currentTab === 'sla'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-700/60'
+                  ? 'bg-gradient-to-r from-indigo-600 via-indigo-500 to-blue-600 text-white shadow-lg shadow-indigo-500/30 border border-indigo-400/40 ring-1 ring-white/20'
+                  : 'text-slate-300 dark:text-slate-300 hover:text-white hover:bg-slate-800/80 border border-transparent'
               }`}
             >
-              <Clock className="w-4 h-4 text-amber-500 dark:text-amber-400" />
+              <Clock className={`w-4 h-4 transition-transform ${currentTab === 'sla' ? 'scale-110 text-white' : 'text-amber-400'}`} />
               <span>إدارة الـ SLA</span>
               {breachedCount > 0 && (
-                <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-rose-500 text-white font-mono font-bold animate-pulse">
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-rose-500 text-white font-mono font-black animate-pulse shadow-xs">
                   {breachedCount}
                 </span>
               )}
@@ -260,39 +260,39 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Customer Portal / Tracking Tab */}
           <button
             onClick={() => setCurrentTab('customer')}
-            className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 ${
+            className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap ${
               currentTab === 'customer'
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-700/60'
+                ? 'bg-gradient-to-r from-indigo-600 via-indigo-500 to-blue-600 text-white shadow-lg shadow-indigo-500/30 border border-indigo-400/40 ring-1 ring-white/20'
+                : 'text-slate-300 dark:text-slate-300 hover:text-white hover:bg-slate-800/80 border border-transparent'
             }`}
           >
-            <Globe className="w-4 h-4 text-purple-500 dark:text-purple-400" />
+            <Globe className={`w-4 h-4 transition-transform ${currentTab === 'customer' ? 'scale-110 text-white' : 'text-purple-400'}`} />
             <span>بوابة متابعة العميل</span>
           </button>
 
           {/* CAB Business Activity Tab */}
           <button
             onClick={() => setCurrentTab('cab')}
-            className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 ${
+            className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap ${
               currentTab === 'cab'
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-700/60'
+                ? 'bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 text-white shadow-lg shadow-cyan-500/30 border border-cyan-400/40 ring-1 ring-white/20'
+                : 'text-slate-300 dark:text-slate-300 hover:text-white hover:bg-slate-800/80 border border-transparent'
             }`}
           >
-            <Layers className="w-4 h-4 text-cyan-500 dark:text-cyan-400" />
+            <Layers className={`w-4 h-4 transition-transform ${currentTab === 'cab' ? 'scale-110 text-white' : 'text-cyan-400'}`} />
             <span>لوحة اعتماد التغييرات الفنية (CAB)</span>
           </button>
 
           {currentUser.role === 'Admin' && (
             <button
               onClick={() => setCurrentTab('admin')}
-              className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 ${
+              className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap ${
                 currentTab === 'admin'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-700/60'
+                  ? 'bg-gradient-to-r from-indigo-600 via-indigo-500 to-blue-600 text-white shadow-lg shadow-indigo-500/30 border border-indigo-400/40 ring-1 ring-white/20'
+                  : 'text-slate-300 dark:text-slate-300 hover:text-white hover:bg-slate-800/80 border border-transparent'
               }`}
             >
-              <ShieldCheck className="w-4 h-4 text-amber-500 dark:text-amber-400" />
+              <ShieldCheck className={`w-4 h-4 transition-transform ${currentTab === 'admin' ? 'scale-110 text-white' : 'text-emerald-400'}`} />
               <span>لوحة الإدمن</span>
             </button>
           )}
