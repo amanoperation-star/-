@@ -9,6 +9,7 @@ import { ResolveModal } from './components/ResolveModal';
 import { CustomerModal } from './components/CustomerModal';
 import { MergeTicketsModal } from './components/MergeTicketsModal';
 import { SlaManagementView } from './components/SlaManagementView';
+import { CustomerPortalView } from './components/CustomerPortalView';
 import { 
   Issue, 
   AppUser, 
@@ -204,7 +205,7 @@ export default function App() {
   });
 
   // Tab & Navigation: Default to 'issues' so ANY team member opening the link sees tickets immediately!
-  const [currentTab, setCurrentTab] = useState<'dashboard' | 'issues' | 'sla' | 'admin'>('issues');
+  const [currentTab, setCurrentTab] = useState<'dashboard' | 'issues' | 'sla' | 'customer' | 'admin'>('issues');
   const [adminSubTab, setAdminSubTab] = useState<'general' | 'backup' | 'users' | 'tags' | 'audio' | 'reports' | 'categories' | 'canned' | 'supabase' | 'csat' | 'audit'>('general');
   const [initialFilterStatus, setInitialFilterStatus] = useState<string>('Open');
 
@@ -218,6 +219,8 @@ export default function App() {
   // Modals state
   const [showIssueModal, setShowIssueModal] = useState(false);
   const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
+  const [isClientSubmission, setIsClientSubmission] = useState(false);
+  const [showPublicCustomerPortalModal, setShowPublicCustomerPortalModal] = useState(false);
 
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [detailIssue, setDetailIssue] = useState<Issue | null>(null);
@@ -832,6 +835,7 @@ export default function App() {
         isWorkingNow: isWorking,
         activeWorker: isWorking ? currentUser.name : null,
         csat: 5,
+        submittedByClient: isClientSubmission,
         attachment: data.attachment,
         comments: [],
         timeline: [
@@ -1876,11 +1880,84 @@ export default function App() {
   };
 
   if (!isAuthenticated) {
+    if (showPublicCustomerPortalModal) {
+      return (
+        <div className="min-h-screen bg-slate-950 text-white flex flex-col font-['Cairo',sans-serif]" dir="rtl">
+          <div className="bg-slate-900 border-b border-slate-800 p-4 flex items-center justify-between">
+            <div className="flex items-center gap-2 font-black text-sm">
+              <span>🌐 بوابة العملاء ومتابعة التذاكر</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowPublicCustomerPortalModal(false)}
+              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+            >
+              <span>العودة لصفحة تسجيل الدخول</span>
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            <CustomerPortalView
+              issues={issues}
+              onSelectTicket={handleSelectTicketById}
+              onUpdateIssue={handleUpdateIssue}
+              onAddComment={handleAddComment}
+              currentUser={currentUser}
+              onOpenNewTicketModal={() => {
+                setIsClientSubmission(true);
+                setEditingIssue(null);
+                setShowIssueModal(true);
+              }}
+            />
+          </div>
+
+          <IssueModal
+            isOpen={showIssueModal}
+            onClose={() => {
+              setShowIssueModal(false);
+              setEditingIssue(null);
+            }}
+            onSave={handleSaveIssue}
+            initialData={editingIssue}
+            categories={categories}
+            tags={tags}
+            users={users}
+            currentUser={currentUser}
+            externalVendors={externalVendors}
+            onSaveVendor={handleAddExternalVendor}
+            issues={issues}
+          />
+
+          <DetailsModal
+            isOpen={showDetailsModal}
+            onClose={() => {
+              setShowDetailsModal(false);
+              setDetailIssue(null);
+            }}
+            issue={detailIssue}
+            currentUser={currentUser}
+            cannedResponses={cannedResponses}
+            onToggleTimer={handleToggleTimer}
+            onStartTimer={handleStartTimer}
+            onPauseTimer={handlePauseTimer}
+            onUpdateCsat={handleUpdateCsat}
+            onAddComment={handleAddComment}
+            onOpenCustomerProfile={handleOpenCustomerProfile}
+            onOpenMergeModal={handleOpenMergeModal}
+            onNavigateToTicket={handleSelectTicketById}
+            onUpdatePhone={handleUpdateIssuePhone}
+            onUpdateIssue={handleUpdateIssue}
+            issues={issues}
+          />
+        </div>
+      );
+    }
+
     return (
       <LoginScreen
         users={users}
         generalSettings={generalSettings}
         onLogin={handleLogin}
+        onOpenCustomerPortal={() => setShowPublicCustomerPortalModal(true)}
       />
     );
   }
@@ -2030,6 +2107,18 @@ export default function App() {
             onSelectTicket={handleSelectTicketById}
             currentUser={currentUser}
             externalVendors={externalVendors}
+          />
+        )}
+
+        {/* Dedicated Customer Portal View */}
+        {currentTab === 'customer' && (
+          <CustomerPortalView
+            issues={issues}
+            onSelectTicket={handleSelectTicketById}
+            onUpdateIssue={handleUpdateIssue}
+            onAddComment={handleAddComment}
+            currentUser={currentUser}
+            onOpenNewTicketModal={() => setShowIssueModal(true)}
           />
         )}
 

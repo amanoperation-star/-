@@ -82,6 +82,7 @@ export interface Issue {
   slaPausedAt?: string; // توقيت تجميد العداد
   slaExtendedHours?: number; // ساعات التمديد الإضافية المعتمدة
   slaExtensionReason?: string; // سبب التمديد الاستثنائي
+  submittedByClient?: boolean; // هل تم فتح التذكرة بواسطة العميل مباشرة من بوابة العملاء
 }
 
 export interface AppUser {

@@ -71,6 +71,7 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
   const [filterStatus, setFilterStatus] = useState(initialFilterStatus);
   const [filterPriority, setFilterPriority] = useState('ALL');
   const [filterOwner, setFilterOwner] = useState('ALL');
+  const [ticketSourceFilter, setTicketSourceFilter] = useState<'ALL' | 'CLIENT' | 'INTERNAL'>('ALL');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   // Status Counts for fast status switching
@@ -79,12 +80,18 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
   const breachedCount = issues.filter((i) => isTicketSlaBreached(i.createdAt, i.dueDate, i.status)).length;
   const resolvedCount = issues.filter((i) => i.status === 'Resolved' || i.status === 'Closed').length;
   const externalCount = issues.filter((i) => i.isExternalOwner).length;
+  const clientTicketsCount = issues.filter((i) => i.submittedByClient).length;
+  const internalTicketsCount = issues.filter((i) => !i.submittedByClient).length;
   const totalCount = issues.length;
 
   // Filtering
   const filteredIssues = issues.filter((item) => {
     const breached = isTicketSlaBreached(item.createdAt, item.dueDate, item.status);
     
+    // Ticket source filter
+    if (ticketSourceFilter === 'CLIENT' && !item.submittedByClient) return false;
+    if (ticketSourceFilter === 'INTERNAL' && item.submittedByClient) return false;
+
     // Status filter
     if (filterStatus === 'Breached') {
       if (!breached) return false;
@@ -150,6 +157,52 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
     <div className="space-y-4">
       {/* Top Filter and Controls Bar */}
       <div className="bg-white dark:bg-slate-800/90 p-4 rounded-3xl border border-slate-200 dark:border-slate-700/80 shadow-sm space-y-3">
+        {/* Ticket Source Filter Tab Bar (الفرق بين تذاكر العملاء والتذاكر الداخلية) */}
+        <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100 dark:border-slate-700/60 text-xs font-bold overflow-x-auto no-scrollbar">
+          <button
+            type="button"
+            onClick={() => setTicketSourceFilter('ALL')}
+            className={`px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
+              ticketSourceFilter === 'ALL'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+            }`}
+          >
+            <span>📁 كل التذاكر ({totalCount})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setTicketSourceFilter('CLIENT')}
+            className={`px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
+              ticketSourceFilter === 'CLIENT'
+                ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
+                : 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 hover:bg-purple-100'
+            }`}
+          >
+            <Globe className="w-3.5 h-3.5" />
+            <span>🌐 بلاغات العملاء الواردة</span>
+            <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${ticketSourceFilter === 'CLIENT' ? 'bg-purple-700 text-white' : 'bg-purple-200 dark:bg-purple-900 text-purple-800 dark:text-purple-200'}`}>
+              {clientTicketsCount}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setTicketSourceFilter('INTERNAL')}
+            className={`px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
+              ticketSourceFilter === 'INTERNAL'
+                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+            }`}
+          >
+            <span>💼 التذاكر الداخلية (فريق العمل)</span>
+            <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${ticketSourceFilter === 'INTERNAL' ? 'bg-blue-700 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'}`}>
+              {internalTicketsCount}
+            </span>
+          </button>
+        </div>
+
         {/* Fast Status Switcher Bar (عرض فوري للتذاكر المفتوحة) */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs font-bold no-scrollbar">
           <button

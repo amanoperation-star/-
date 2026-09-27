@@ -51,6 +51,7 @@ import {
   Clock,
   ArrowLeft,
   Calendar,
+  Paperclip,
 } from 'lucide-react';
 import { AppUser, CategoryRule, SoundSettings, SupabaseConfig, AuditLog, Issue, Priority, GeneralSettings, SystemBackupData, ExternalVendor } from '../types';
 import { SyncConnectionStatus, ActiveUserPresence } from '../utils/realtimeSync';
@@ -60,6 +61,7 @@ import { CategoriesManagementView } from './CategoriesManagementView';
 import { GeneralSettingsTab } from './GeneralSettingsTab';
 import { BackupRestoreTab } from './BackupRestoreTab';
 import { ScheduledReportsView } from './ScheduledReportsView';
+import { AttachmentCenterTab } from './AttachmentCenterTab';
 
 interface AdminViewProps {
   users: AppUser[];
@@ -95,7 +97,7 @@ interface AdminViewProps {
   onUpdateGeneralSettings?: (settings: GeneralSettings) => void;
   onRestoreBackup?: (backup: SystemBackupData, mode: 'overwrite' | 'merge') => void;
   onResetSystemToDefault?: () => void;
-  initialTab?: 'general' | 'backup' | 'users' | 'tags' | 'audio' | 'reports' | 'categories' | 'canned' | 'supabase' | 'csat' | 'audit' | 'vendors' | 'sla_page';
+  initialTab?: 'general' | 'backup' | 'users' | 'tags' | 'audio' | 'reports' | 'categories' | 'canned' | 'supabase' | 'csat' | 'audit' | 'vendors' | 'sla_page' | 'attachments';
   realtimeStatus?: SyncConnectionStatus;
   onlineUsers?: ActiveUserPresence[];
   totalConnections?: number;
@@ -154,7 +156,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   onDeleteExternalVendor,
   onNavigateToSla,
 }) => {
-  const [adminTab, setAdminTab] = useState<'general' | 'backup' | 'users' | 'tags' | 'audio' | 'reports' | 'categories' | 'canned' | 'supabase' | 'csat' | 'audit' | 'vendors' | 'sla_page'>(
+  const [adminTab, setAdminTab] = useState<'general' | 'backup' | 'users' | 'tags' | 'audio' | 'reports' | 'categories' | 'canned' | 'supabase' | 'csat' | 'audit' | 'vendors' | 'sla_page' | 'attachments'>(
     initialTab || 'general'
   );
 
@@ -495,6 +497,14 @@ export const AdminView: React.FC<AdminViewProps> = ({
           icon: Star,
           badge: `${avgCsat} ★`,
           badgeColor: 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300',
+        },
+        {
+          id: 'attachments',
+          label: 'مركز الملفات والمرفقات (Attachment Center)',
+          desc: 'استعراض وتحميل كافة الصور والمرفقات المركزية',
+          icon: Paperclip,
+          badge: 'ملفات 📎',
+          badgeColor: 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300',
         },
       ],
     },
@@ -1488,6 +1498,13 @@ export const AdminView: React.FC<AdminViewProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* ATTACHMENT CENTER TAB */}
+      {adminTab === 'attachments' && (
+        <AttachmentCenterTab
+          issues={issues}
+        />
       )}
 
       {/* 4. CATEGORIES & SLA RULES */}

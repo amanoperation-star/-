@@ -13,7 +13,8 @@ import {
   Cpu,
   LifeBuoy,
   Sparkles,
-  Users
+  Users,
+  Globe
 } from 'lucide-react';
 import { AppUser, GeneralSettings } from '../types';
 
@@ -21,6 +22,7 @@ interface LoginScreenProps {
   users: AppUser[];
   generalSettings: GeneralSettings;
   onLogin: (user: AppUser) => void;
+  onOpenCustomerPortal?: () => void;
 }
 
 const BRAND_ICONS: Record<string, React.FC<{ className?: string }>> = {
@@ -36,6 +38,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   users,
   generalSettings,
   onLogin,
+  onOpenCustomerPortal,
 }) => {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
@@ -139,20 +142,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             </h2>
           </div>
 
-          {/* Instant 1-Click Access for Team (دخول فوري مباشر للتيم) */}
-          <button
-            type="button"
-            onClick={() => {
-              const defaultUser = users[0];
-              if (defaultUser) {
-                onLogin(defaultUser);
-              }
-            }}
-            className="w-full py-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 hover:from-emerald-500 hover:to-indigo-500 text-white rounded-2xl font-black text-xs sm:text-sm shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 transition active:scale-[0.98] border border-emerald-400/30"
-          >
-            <LogIn className="w-4 h-4" />
-            <span>الدخول الفوري المباشر للفريق 🚀 (استعراض التذاكر)</span>
-          </button>
+          {/* Customer Portal Button on Login Screen */}
+          {onOpenCustomerPortal && (
+            <button
+              type="button"
+              onClick={onOpenCustomerPortal}
+              className="w-full py-3 bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-2xl font-black text-xs sm:text-sm shadow-lg shadow-purple-600/30 flex items-center justify-center gap-2 transition active:scale-[0.98] border border-purple-400/30 cursor-pointer"
+            >
+              <Globe className="w-4 h-4" />
+              <span>🌐 بوابة العملاء وتتبع البلاغات (بدون تسجيل دخول)</span>
+            </button>
+          )}
 
           {errorMessage && (
             <div className="p-3 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-bold flex items-center gap-2 animate-fadeIn">

@@ -41,8 +41,8 @@ import { AppUser, NotificationItem, SoundSettings, GeneralSettings } from '../ty
 import { ActiveUserPresence, SyncConnectionStatus } from '../utils/realtimeSync';
 
 interface HeaderProps {
-  currentTab: 'dashboard' | 'issues' | 'sla' | 'admin';
-  setCurrentTab: (tab: 'dashboard' | 'issues' | 'sla' | 'admin') => void;
+  currentTab: 'dashboard' | 'issues' | 'sla' | 'customer' | 'admin';
+  setCurrentTab: (tab: 'dashboard' | 'issues' | 'sla' | 'customer' | 'admin') => void;
   currentUser: AppUser;
   users: AppUser[];
   onSwitchUser: (user: AppUser) => void;
@@ -249,6 +249,19 @@ export const Header: React.FC<HeaderProps> = ({
                 {breachedCount}
               </span>
             )}
+          </button>
+
+          {/* Customer Portal / Tracking Tab */}
+          <button
+            onClick={() => setCurrentTab('customer')}
+            className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 ${
+              currentTab === 'customer'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-700/60'
+            }`}
+          >
+            <Globe className="w-4 h-4 text-purple-500 dark:text-purple-400" />
+            <span>بوابة متابعة العميل</span>
           </button>
 
           {currentUser.role === 'Admin' && (
