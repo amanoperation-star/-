@@ -7,10 +7,15 @@ export function exportTicketsToCSV(issues: Issue[], filename?: string) {
   }
 
   let csvContent = '\uFEFF'; // UTF-8 BOM for Excel Arabic support
-  csvContent += 'كود المشكلة,اسم العميل,البريد الإلكتروني,الوسم,نوع المشكلة,الوصف,الفريق المستلم,المسؤول الحالي,الأولوية,الحالة,وقت العمل (دقائق),تقييم CSAT,تاريخ الإنشاء,موعد SLA\n';
+  csvContent += 'كود المشكلة,اسم العميل,البريد الإلكتروني,الوسم,نوع المشكلة,الوصف,الفريق المستلم,المسؤول الحالي,نوع المسؤول,الجهة الخارجية,رقم بلاغ المورد,هاتف المسؤول الخارجي,الأولوية,الحالة,وقت العمل (دقائق),تقييم CSAT,تاريخ الإنشاء,موعد SLA\n';
 
   issues.forEach((item) => {
     const workMin = Math.round((item.workTime || 0) / 60);
+    const ownerType = item.isExternalOwner ? 'طرف خارجي (External)' : 'داخلي (Internal)';
+    const extCompany = item.externalOwnerDetails?.company || '';
+    const extTicketId = item.externalOwnerDetails?.externalTicketId || '';
+    const extPhone = item.externalOwnerDetails?.phone || '';
+
     const row = [
       `"${item.id}"`,
       `"${(item.client || '').replace(/"/g, '""')}"`,
@@ -20,6 +25,10 @@ export function exportTicketsToCSV(issues: Issue[], filename?: string) {
       `"${(item.desc || '').replace(/"/g, '""')}"`,
       `"${(item.assigned || '').replace(/"/g, '""')}"`,
       `"${(item.owner || '').replace(/"/g, '""')}"`,
+      `"${ownerType}"`,
+      `"${extCompany.replace(/"/g, '""')}"`,
+      `"${extTicketId.replace(/"/g, '""')}"`,
+      `"${extPhone.replace(/"/g, '""')}"`,
       `"${item.priority}"`,
       `"${item.status}"`,
       `"${workMin}"`,

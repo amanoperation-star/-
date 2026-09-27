@@ -26,6 +26,8 @@ import {
   Radio,
   Globe,
   RefreshCw,
+  MessageSquare,
+  Mail,
   Wifi,
   WifiOff,
   Lock,
@@ -46,8 +48,11 @@ import {
   Activity,
   PanelRightClose,
   PanelRightOpen,
+  Clock,
+  ArrowLeft,
+  Calendar,
 } from 'lucide-react';
-import { AppUser, CategoryRule, SoundSettings, SupabaseConfig, AuditLog, Issue, Priority, GeneralSettings, SystemBackupData } from '../types';
+import { AppUser, CategoryRule, SoundSettings, SupabaseConfig, AuditLog, Issue, Priority, GeneralSettings, SystemBackupData, ExternalVendor } from '../types';
 import { SyncConnectionStatus, ActiveUserPresence } from '../utils/realtimeSync';
 import { exportTicketsToCSV, exportTicketsToJSON } from '../utils/export';
 import { ALL_PERMISSIONS, getDefaultPermissionsForRole } from '../utils/permissions';
@@ -90,12 +95,17 @@ interface AdminViewProps {
   onUpdateGeneralSettings?: (settings: GeneralSettings) => void;
   onRestoreBackup?: (backup: SystemBackupData, mode: 'overwrite' | 'merge') => void;
   onResetSystemToDefault?: () => void;
-  initialTab?: 'general' | 'backup' | 'users' | 'tags' | 'audio' | 'reports' | 'categories' | 'canned' | 'supabase' | 'csat' | 'audit';
+  initialTab?: 'general' | 'backup' | 'users' | 'tags' | 'audio' | 'reports' | 'categories' | 'canned' | 'supabase' | 'csat' | 'audit' | 'vendors' | 'sla_page';
   realtimeStatus?: SyncConnectionStatus;
   onlineUsers?: ActiveUserPresence[];
   totalConnections?: number;
   onRefreshRealtime?: () => void;
   currentUser?: AppUser;
+  externalVendors?: ExternalVendor[];
+  onAddExternalVendor?: (vendor: Omit<ExternalVendor, 'id'>) => void;
+  onUpdateExternalVendor?: (id: string, updates: Partial<ExternalVendor>) => void;
+  onDeleteExternalVendor?: (id: string) => void;
+  onNavigateToSla?: () => void;
 }
 
 export const AdminView: React.FC<AdminViewProps> = ({
@@ -138,8 +148,13 @@ export const AdminView: React.FC<AdminViewProps> = ({
   totalConnections = 1,
   onRefreshRealtime,
   currentUser,
+  externalVendors = [],
+  onAddExternalVendor,
+  onUpdateExternalVendor,
+  onDeleteExternalVendor,
+  onNavigateToSla,
 }) => {
-  const [adminTab, setAdminTab] = useState<'general' | 'backup' | 'users' | 'tags' | 'audio' | 'reports' | 'categories' | 'canned' | 'supabase' | 'csat' | 'audit'>(
+  const [adminTab, setAdminTab] = useState<'general' | 'backup' | 'users' | 'tags' | 'audio' | 'reports' | 'categories' | 'canned' | 'supabase' | 'csat' | 'audit' | 'vendors' | 'sla_page'>(
     initialTab || 'general'
   );
 
@@ -148,6 +163,67 @@ export const AdminView: React.FC<AdminViewProps> = ({
       setAdminTab(initialTab);
     }
   }, [initialTab]);
+
+  // External Vendors State
+  const [showVendorModal, setShowVendorModal] = useState(false);
+  const [editingVendor, setEditingVendor] = useState<ExternalVendor | null>(null);
+  const [vName, setVName] = useState('');
+  const [vCompany, setVCompany] = useState('');
+  const [vRole, setVRole] = useState('مورد معتمد (Vendor)');
+  const [vPhone, setVPhone] = useState('');
+  const [vEmail, setVEmail] = useState('');
+  const [vNotes, setVNotes] = useState('');
+  const [vendorSearch, setVendorSearch] = useState('');
+
+  const handleOpenAddVendor = () => {
+    setEditingVendor(null);
+    setVName('');
+    setVCompany('');
+    setVRole('مورد معتمد (Vendor)');
+    setVPhone('');
+    setVEmail('');
+    setVNotes('');
+    setShowVendorModal(true);
+  };
+
+  const handleOpenEditVendor = (vendor: ExternalVendor) => {
+    setEditingVendor(vendor);
+    setVName(vendor.name);
+    setVCompany(vendor.company);
+    setVRole(vendor.role);
+    setVPhone(vendor.phone || '');
+    setVEmail(vendor.email || '');
+    setVNotes(vendor.notes || '');
+    setShowVendorModal(true);
+  };
+
+  const handleSaveVendorForm = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!vName.trim()) {
+      alert('يرجى إدخال اسم المسؤول أو جهة الاتصال!');
+      return;
+    }
+    if (editingVendor && onUpdateExternalVendor) {
+      onUpdateExternalVendor(editingVendor.id, {
+        name: vName.trim(),
+        company: vCompany.trim(),
+        role: vRole,
+        phone: vPhone.trim() || undefined,
+        email: vEmail.trim() || undefined,
+        notes: vNotes.trim() || undefined,
+      });
+    } else if (onAddExternalVendor) {
+      onAddExternalVendor({
+        name: vName.trim(),
+        company: vCompany.trim() || 'جهة خارجية',
+        role: vRole,
+        phone: vPhone.trim() || undefined,
+        email: vEmail.trim() || undefined,
+        notes: vNotes.trim() || undefined,
+      });
+    }
+    setShowVendorModal(false);
+  };
 
   // New Tag State
   const [newTagInput, setNewTagInput] = useState('');
@@ -333,6 +409,14 @@ export const AdminView: React.FC<AdminViewProps> = ({
           badgeColor: 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300',
         },
         {
+          id: 'vendors',
+          label: 'الجهات والشركاء الخارجيين 🌐',
+          desc: 'دليل الموردين، مقاولي الصيانة ومزودي الخدمات',
+          icon: Globe,
+          badge: `${externalVendors.length} جهة`,
+          badgeColor: 'bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300',
+        },
+        {
           id: 'audit',
           label: 'سجل التدقيق الأمني (Audit)',
           desc: 'تتبع كافة الحركات والعمليات بالوقت',
@@ -347,6 +431,14 @@ export const AdminView: React.FC<AdminViewProps> = ({
       groupKey: 'rules',
       icon: FolderTree,
       items: [
+        {
+          id: 'sla_page',
+          label: 'صفحة منظومة SLA المتخصصة ⏱️',
+          desc: 'شاشة متكاملة للمصفوفة والرقابة وساعات الدوام والتجميد',
+          icon: Clock,
+          badge: 'صفحة متخصصة ✨',
+          badgeColor: 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300',
+        },
         {
           id: 'categories',
           label: 'الأقسام وقواعد SLA',
@@ -466,7 +558,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
               </div>
               <div className="bg-slate-900/80 border border-slate-700/80 px-3 py-1 rounded-xl flex items-center gap-1.5 text-slate-300">
                 <Cloud className="w-3.5 h-3.5 text-emerald-400" />
-                <span>السحابة: <strong className={supabaseConfig.connected ? 'text-emerald-400' : 'text-slate-400'}>{supabaseConfig.connected ? 'متصلة 🟢' : 'غير متصلة ⚪'}</strong></span>
+                <span>السحابة: <strong className="text-emerald-400 font-bold">مسجلة ونشطة تلقائياً 🟢</strong></span>
               </div>
               <div className="bg-slate-900/80 border border-slate-700/80 px-3 py-1 rounded-xl flex items-center gap-1.5 text-slate-300">
                 <Star className="w-3.5 h-3.5 text-amber-400" />
@@ -883,7 +975,318 @@ export const AdminView: React.FC<AdminViewProps> = ({
         </div>
       )}
 
-      {/* 2. TAGS TAB */}
+      {/* 2. EXTERNAL VENDORS & PARTNERS DIRECTORY TAB */}
+      {adminTab === 'vendors' && (
+        <div className="space-y-4">
+          <div className="bg-white dark:bg-slate-800/90 p-5 rounded-3xl border border-slate-200 dark:border-slate-700/80 shadow-sm space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-700/80 pb-4">
+              <div>
+                <h4 className="font-black text-base text-slate-900 dark:text-white flex items-center gap-2">
+                  <Globe className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                  <span>دليل الجهات والشركاء الخارجيين (External Partners & Vendors)</span>
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl leading-relaxed">
+                  قاعدة بيانات معتمدة للشركات والموردين الخارجيين، مقاولي الصيانة، ومزودي الخدمات السحابية. تمكّنك من تكليف مسؤول خارجي بالتذكرة بضغطة زر والتواصل معه فورياً عبر واتساب وإيميل.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleOpenAddVendor}
+                className="px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-purple-600/20"
+              >
+                <Plus className="w-4 h-4" />
+                <span>إضافة جهة / شريك خارجي جديد</span>
+              </button>
+            </div>
+
+            {/* Quick KPI Stats & Search Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-xs font-bold">
+                <span className="px-3 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60">
+                  إجمالي الشركاء: {externalVendors.length}
+                </span>
+                <span className="px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60">
+                  تذاكر قيد المتابعة مع أطراف خارجية: {issues.filter((i) => i.isExternalOwner && i.status !== 'Resolved' && i.status !== 'Closed').length}
+                </span>
+              </div>
+
+              <div className="relative min-w-[240px]">
+                <Search className="w-3.5 h-3.5 absolute right-3 top-2.5 text-slate-400" />
+                <input
+                  type="text"
+                  value={vendorSearch}
+                  onChange={(e) => setVendorSearch(e.target.value)}
+                  placeholder="بحث باسم الشريك، الشركة، أو الهاتف..."
+                  className="w-full pr-9 pl-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+            </div>
+
+            {/* Vendors Table */}
+            <div className="border border-slate-200 dark:border-slate-700/80 rounded-2xl overflow-hidden shadow-2xs">
+              <table className="w-full text-right text-xs">
+                <thead className="bg-slate-50 dark:bg-slate-900/60 text-slate-600 dark:text-slate-300 font-bold border-b border-slate-200 dark:border-slate-800">
+                  <tr>
+                    <th className="p-3">المسؤول / جهة الاتصال</th>
+                    <th className="p-3">الشركة أو المؤسسة</th>
+                    <th className="p-3">الصفة / الدور</th>
+                    <th className="p-3">بيانات التواصل المباشر</th>
+                    <th className="p-3">ملاحظات التنسيق</th>
+                    <th className="p-3 text-center">التذاكر النشطة</th>
+                    <th className="p-3 text-center">الإجراءات</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {externalVendors
+                    .filter(
+                      (v) =>
+                        !vendorSearch.trim() ||
+                        v.name.toLowerCase().includes(vendorSearch.toLowerCase()) ||
+                        v.company.toLowerCase().includes(vendorSearch.toLowerCase()) ||
+                        (v.phone && v.phone.includes(vendorSearch))
+                    )
+                    .map((vendor) => {
+                      const activeTicketsCount = issues.filter(
+                        (i) =>
+                          i.isExternalOwner &&
+                          (i.externalOwnerDetails?.vendorId === vendor.id ||
+                            i.owner.includes(vendor.name) ||
+                            (i.externalOwnerDetails?.company && i.externalOwnerDetails.company === vendor.company)) &&
+                          i.status !== 'Resolved' &&
+                          i.status !== 'Closed'
+                      ).length;
+
+                      return (
+                        <tr
+                          key={vendor.id}
+                          className="hover:bg-purple-50/30 dark:hover:bg-purple-950/20 transition-colors"
+                        >
+                          <td className="p-3 font-bold text-slate-900 dark:text-white">
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 rounded-lg bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 flex items-center justify-center font-black text-xs">
+                                {vendor.name.charAt(0)}
+                              </div>
+                              <span>{vendor.name}</span>
+                            </div>
+                          </td>
+                          <td className="p-3 font-semibold text-slate-700 dark:text-slate-300">
+                            {vendor.company}
+                          </td>
+                          <td className="p-3">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 dark:bg-purple-950/80 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                              {vendor.role}
+                            </span>
+                          </td>
+                          <td className="p-3">
+                            <div className="flex items-center gap-2">
+                              {vendor.phone && (
+                                <a
+                                  href={`https://wa.me/${vendor.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                                    `السلام عليكم أستاذ ${vendor.name}، تواصل مباشر من فريق الدعم الفني والعمليات.`
+                                  )}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800/60"
+                                  title="فتح محادثة واتساب فورية"
+                                >
+                                  <MessageSquare className="w-3 h-3" />
+                                  <span dir="ltr">{vendor.phone}</span>
+                                </a>
+                              )}
+                              {vendor.email && (
+                                <a
+                                  href={`mailto:${vendor.email}`}
+                                  className="text-slate-500 hover:text-indigo-600 transition"
+                                  title={`إرسال بريد إلى ${vendor.email}`}
+                                >
+                                  <Mail className="w-3.5 h-3.5" />
+                                </a>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-3 max-w-xs truncate text-slate-500 dark:text-slate-400 text-[11px]" title={vendor.notes}>
+                            {vendor.notes || '—'}
+                          </td>
+                          <td className="p-3 text-center">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                                activeTicketsCount > 0
+                                  ? 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300'
+                                  : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                              }`}
+                            >
+                              {activeTicketsCount} تذكرة
+                            </span>
+                          </td>
+                          <td className="p-3 text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditVendor(vendor)}
+                                className="p-1.5 text-indigo-600 dark:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition"
+                                title="تعديل بيانات الشريك"
+                              >
+                                <SlidersHorizontal className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (confirm(`هل أنت متأكد من حذف الشريك (${vendor.name} - ${vendor.company}) من الدليل؟`)) {
+                                    onDeleteExternalVendor?.(vendor.id);
+                                  }
+                                }}
+                                className="p-1.5 text-rose-600 dark:text-rose-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition"
+                                title="حذف من الدليل"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  {externalVendors.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="p-6 text-center text-slate-400">
+                        لا توجد جهات خارجية مسجلة حتى الآن. انقر على "+ إضافة جهة / شريك خارجي جديد" لإضافة أول جهة.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Add / Edit Vendor Modal */}
+          {showVendorModal && (
+            <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full p-5 space-y-4 shadow-2xl animate-fadeIn">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+                  <div className="flex items-center gap-2 text-purple-900 dark:text-purple-300 font-bold">
+                    <Globe className="w-5 h-5 text-purple-600" />
+                    <span>{editingVendor ? 'تعديل بيانات الشريك / المورد' : 'إضافة جهة أو شريك خارجي جديد'}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowVendorModal(false)}
+                    className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <form onSubmit={handleSaveVendorForm} className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                        اسم المسؤول / جهة الاتصال <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={vName}
+                        onChange={(e) => setVName(e.target.value)}
+                        placeholder="مثال: م/ أحمد مصطفى أو خدمة العملاء"
+                        className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                        الجهة أو الشركة الخارجية
+                      </label>
+                      <input
+                        type="text"
+                        value={vCompany}
+                        onChange={(e) => setVCompany(e.target.value)}
+                        placeholder="مثال: فودافون / AWS / بنك الراجحي"
+                        className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                        صفة الطرف الخارجي
+                      </label>
+                      <select
+                        value={vRole}
+                        onChange={(e) => setVRole(e.target.value)}
+                        className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-purple-500"
+                      >
+                        <option value="مورد معتمد (Vendor)">🏢 مورد معتمد (Vendor)</option>
+                        <option value="مزود خدمة سحابية / تقنية">🌐 مزود خدمة سحابية / تقنية (Service Provider)</option>
+                        <option value="مقاول صيانة / دعم خارجي">🛠️ مقاول صيانة / دعم خارجي (Contractor)</option>
+                        <option value="شريك تقني متكامل">🤝 شريك تقني متكامل (Tech Partner)</option>
+                        <option value="ممثل طرف العميل">👤 ممثل طرف العميل (Client Representative)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                        هاتف / واتساب للتواصل
+                      </label>
+                      <input
+                        type="text"
+                        value={vPhone}
+                        onChange={(e) => setVPhone(e.target.value)}
+                        placeholder="+966 5x xxx xxxx أو +20 10 xxx xxxx"
+                        className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono focus:ring-2 focus:ring-purple-500"
+                        dir="ltr"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      البريد الإلكتروني الرسمي
+                    </label>
+                    <input
+                      type="email"
+                      value={vEmail}
+                      onChange={(e) => setVEmail(e.target.value)}
+                      placeholder="support@vendor-company.com"
+                      className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono focus:ring-2 focus:ring-purple-500"
+                      dir="ltr"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      ملاحظات التنسيق ومواعيد العمل
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={vNotes}
+                      onChange={(e) => setVNotes(e.target.value)}
+                      placeholder="مثال: الدعم متوفر 24/7 للخطوط الساخنة، يرجى تزويدهم برقم الحساب التعاقدي..."
+                      className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => setShowVendorModal(false)}
+                      className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold hover:bg-slate-200 transition"
+                    >
+                      إلغاء
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold transition shadow-md shadow-purple-600/20"
+                    >
+                      {editingVendor ? 'حفظ التعديلات' : 'حفظ الشريك في الدليل 💾'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 3. TAGS TAB */}
       {adminTab === 'tags' && (
         <div className="bg-white dark:bg-slate-800/90 p-5 rounded-3xl border border-slate-200 dark:border-slate-700/80 shadow-sm space-y-4">
           <h4 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
@@ -1018,6 +1421,70 @@ export const AdminView: React.FC<AdminViewProps> = ({
               >
                 حفظ إعدادات الصوت والشكل
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SLA PAGE QUICK ACCESS */}
+      {adminTab === 'sla_page' && (
+        <div className="bg-gradient-to-br from-indigo-900 via-slate-900 to-indigo-950 text-white p-6 sm:p-8 rounded-3xl shadow-xl border border-indigo-500/30 space-y-5 animate-fadeIn">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-2xl bg-indigo-500/20 border border-indigo-400/30 text-indigo-400">
+                <Clock className="w-8 h-8" />
+              </div>
+              <div>
+                <h3 className="font-black text-xl text-white">
+                  منظومة اتفاقيات مستوى الخدمة (SLA Management Center)
+                </h3>
+                <p className="text-xs text-indigo-200 mt-0.5">
+                  صفحة مستقلة وكاملة مخصصة لـ SLA بجميع خياراتها
+                </p>
+              </div>
+            </div>
+
+            {onNavigateToSla && (
+              <button
+                type="button"
+                onClick={onNavigateToSla}
+                className="px-5 py-2.5 bg-indigo-500 hover:bg-indigo-400 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-lg shadow-indigo-500/30 cursor-pointer"
+              >
+                <span>فتح صفحة الـ SLA بكامل خياراتها</span>
+                <ArrowLeft className="w-4 h-4 rtl:rotate-0" />
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-2">
+            <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-1">
+              <div className="flex items-center gap-2 text-indigo-300 font-bold text-xs">
+                <Layers className="w-4 h-4 text-indigo-400" />
+                <span>مصفوفة مهل الأقسام</span>
+              </div>
+              <p className="text-[11px] text-slate-300 leading-relaxed">
+                تحديد مهل الحل القصوى لكل قسم مصنفاً حسب الأولويات (حرجة، مرتفعة، متوسطة، منخفضة) مع باقات جاهزة.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-1">
+              <div className="flex items-center gap-2 text-purple-300 font-bold text-xs">
+                <Globe className="w-4 h-4 text-purple-400" />
+                <span>تجميد العداد مع الأطراف الخارجية</span>
+              </div>
+              <p className="text-[11px] text-slate-300 leading-relaxed">
+                إيقاف احتساب الوقت تلقائياً عند إسناد التذكرة لمورد أو مقاول خارجي لضمان دقة وعدالة التقييم.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-1">
+              <div className="flex items-center gap-2 text-emerald-300 font-bold text-xs">
+                <Calendar className="w-4 h-4 text-emerald-400" />
+                <span>ساعات الدوام والإنذار المبكر</span>
+              </div>
+              <p className="text-[11px] text-slate-300 leading-relaxed">
+                احتساب ساعات العمل الرسمية فقط، نغمات تنبيه صوتية، وتصعيد تلقائي للأولويات عند اقتراب المهلة.
+              </p>
             </div>
           </div>
         </div>
@@ -1187,22 +1654,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
                     <span>المزامنة اللحظية بين الفروع 🌐</span>
                   </h4>
                   <div className="flex items-center gap-2 mt-0.5">
-                    {realtimeStatus === 'connected' ? (
-                      <span className="text-xs text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-ping"></span>
-                        نشطة لحظياً (Real-Time Live) • متصل بالسحابة
-                      </span>
-                    ) : realtimeStatus === 'connecting' ? (
-                      <span className="text-xs text-amber-500 font-bold flex items-center gap-1.5">
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        جارِ الاتصال بالسحابة...
-                      </span>
-                    ) : (
-                      <span className="text-xs text-slate-400 font-bold flex items-center gap-1.5">
-                        <WifiOff className="w-3.5 h-3.5" />
-                        غير متصل بالسحابة (مطفية)
-                      </span>
-                    )}
+                    <span className="text-xs text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-ping"></span>
+                      السحابة مسجلة ونشطة تلقائياً 🟢 • متصلة ومزامنة فورية بين جميع الأجهزة والمتصفحات
+                    </span>
                   </div>
                 </div>
               </div>

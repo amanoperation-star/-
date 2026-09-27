@@ -25,12 +25,16 @@ import {
   UploadCloud,
   Trash2,
   Building,
+  Building2,
+  Globe,
+  Briefcase,
+  ExternalLink,
   ShieldAlert,
   ArrowDown,
   Info,
 } from 'lucide-react';
-import { Issue, CategoryRule, Priority, IssueStatus, AppUser } from '../types';
-import { calculateDueDate, formatArabicDate } from '../utils/sla';
+import { Issue, CategoryRule, Priority, IssueStatus, AppUser, ExternalVendor } from '../types';
+import { calculateDueDate, formatArabicDate, generateExternalTicketRef } from '../utils/sla';
 import { collisionManager, useTicketCollision } from '../utils/collisionDetector';
 import { CollisionAlertBanner } from './CollisionAlertBanner';
 
@@ -45,6 +49,9 @@ interface IssueModalProps {
   tags: string[];
   users: AppUser[];
   currentUser?: AppUser;
+  externalVendors?: ExternalVendor[];
+  onSaveVendor?: (vendor: Omit<ExternalVendor, 'id'>) => void;
+  issues?: Issue[];
 }
 
 export const IssueModal: React.FC<IssueModalProps> = ({
@@ -56,6 +63,9 @@ export const IssueModal: React.FC<IssueModalProps> = ({
   tags,
   users,
   currentUser,
+  externalVendors = [],
+  onSaveVendor,
+  issues = [],
 }) => {
   // Design Layout Selection (Saved in LocalStorage)
   const [modalDesign, setModalDesign] = useState<ModalDesignType>(() => {
@@ -80,6 +90,16 @@ export const IssueModal: React.FC<IssueModalProps> = ({
   const [desc, setDesc] = useState('');
   const [assigned, setAssigned] = useState(categories[0]?.assignedTeam || 'فريق الدعم البرمجي');
   const [owner, setOwner] = useState(categories[0]?.defaultOwner || 'محمد علي');
+  const [isExternalOwner, setIsExternalOwner] = useState(false);
+  const [selectedVendorId, setSelectedVendorId] = useState<string>('');
+  const [saveToDirectory, setSaveToDirectory] = useState<boolean>(false);
+  const [extName, setExtName] = useState('');
+  const [extCompany, setExtCompany] = useState('');
+  const [extRole, setExtRole] = useState('مورد معتمد (Vendor)');
+  const [extPhone, setExtPhone] = useState('');
+  const [extEmail, setExtEmail] = useState('');
+  const [extTicketId, setExtTicketId] = useState('');
+  const [extNotes, setExtNotes] = useState('');
   const [priority, setPriority] = useState<Priority>('Medium');
   const [status, setStatus] = useState<IssueStatus>('Open');
   const [attachment, setAttachment] = useState<{ name: string; url: string; size?: string } | undefined>(undefined);
@@ -91,6 +111,28 @@ export const IssueModal: React.FC<IssueModalProps> = ({
     initialData?.id,
     currentUser || ({ id: 'guest', name: 'مستخدم', role: 'Agent' } as any)
   );
+
+  // Quick select from existing external vendors
+  const handleSelectVendor = (vendorId: string) => {
+    setSelectedVendorId(vendorId);
+    if (!vendorId || vendorId === 'new') {
+      if (!extTicketId.trim()) {
+        setExtTicketId(generateExternalTicketRef(extCompany, extName, issues));
+      }
+      return;
+    }
+    const found = externalVendors.find((v) => v.id === vendorId);
+    if (found) {
+      setExtName(found.name);
+      setExtCompany(found.company);
+      setExtRole(found.role || 'مورد معتمد (Vendor)');
+      setExtPhone(found.phone || '');
+      setExtEmail(found.email || '');
+      setExtNotes(found.notes || '');
+      // Automatically generate sequential external case reference like INC-1006 ("يتكتب لوحده ويمشي بالترتيب")
+      setExtTicketId(generateExternalTicketRef(found.company, found.name, issues));
+    }
+  };
 
   // Notify team presence when editing an existing ticket
   useEffect(() => {
@@ -113,6 +155,16 @@ export const IssueModal: React.FC<IssueModalProps> = ({
       setDesc(initialData.desc || '');
       setAssigned(initialData.assigned || categories[0]?.assignedTeam || 'فريق الدعم البرمجي');
       setOwner(initialData.owner || categories[0]?.defaultOwner || 'محمد علي');
+      setIsExternalOwner(Boolean(initialData.isExternalOwner));
+      setSelectedVendorId(initialData.externalOwnerDetails?.vendorId || '');
+      setSaveToDirectory(false);
+      setExtName(initialData.externalOwnerDetails?.name || (initialData.isExternalOwner ? initialData.owner : ''));
+      setExtCompany(initialData.externalOwnerDetails?.company || '');
+      setExtRole(initialData.externalOwnerDetails?.role || 'مورد معتمد (Vendor)');
+      setExtPhone(initialData.externalOwnerDetails?.phone || '');
+      setExtEmail(initialData.externalOwnerDetails?.email || '');
+      setExtTicketId(initialData.externalOwnerDetails?.externalTicketId || '');
+      setExtNotes(initialData.externalOwnerDetails?.notes || '');
       setPriority(initialData.priority || 'Medium');
       setStatus(initialData.status || 'Open');
       setAttachment(initialData.attachment);
@@ -125,6 +177,16 @@ export const IssueModal: React.FC<IssueModalProps> = ({
       setType(firstCat?.name || 'تقني / Technical');
       setAssigned(firstCat?.assignedTeam || 'فريق الدعم البرمجي');
       setOwner(firstCat?.defaultOwner || 'محمد علي');
+      setIsExternalOwner(false);
+      setSelectedVendorId('');
+      setSaveToDirectory(false);
+      setExtName('');
+      setExtCompany('');
+      setExtRole('مورد معتمد (Vendor)');
+      setExtPhone('');
+      setExtEmail('');
+      setExtTicketId('');
+      setExtNotes('');
       setDesc('');
       setPriority('Medium');
       setStatus('Open');
@@ -180,6 +242,26 @@ export const IssueModal: React.FC<IssueModalProps> = ({
       return;
     }
 
+    if (isExternalOwner && !extName.trim()) {
+      alert('يرجى كتابة اسم المسؤول أو الجهة الخارجية المعينة!');
+      return;
+    }
+
+    const finalOwner = isExternalOwner
+      ? (extName.trim() ? (extCompany.trim() ? `${extName.trim()} (${extCompany.trim()})` : extName.trim()) : 'طرف خارجي')
+      : owner;
+
+    if (isExternalOwner && saveToDirectory && extName.trim() && onSaveVendor) {
+      onSaveVendor({
+        name: extName.trim(),
+        company: extCompany.trim() || 'جهة خارجية',
+        role: extRole || 'مورد معتمد (Vendor)',
+        phone: extPhone.trim() || undefined,
+        email: extEmail.trim() || undefined,
+        notes: extNotes.trim() || undefined,
+      });
+    }
+
     onSave({
       client,
       clientEmail,
@@ -187,8 +269,21 @@ export const IssueModal: React.FC<IssueModalProps> = ({
       tag,
       type,
       desc,
-      assigned,
-      owner,
+      assigned: isExternalOwner ? (assigned || 'جهات خارجية / شركاء') : assigned,
+      owner: finalOwner,
+      isExternalOwner,
+      externalOwnerDetails: isExternalOwner
+        ? {
+            name: extName.trim() || 'مسؤول خارجي',
+            company: extCompany.trim() || undefined,
+            role: extRole || 'مورد معتمد (Vendor)',
+            phone: extPhone.trim() || undefined,
+            email: extEmail.trim() || undefined,
+            externalTicketId: extTicketId.trim() || undefined,
+            notes: extNotes.trim() || undefined,
+            vendorId: selectedVendorId && selectedVendorId !== 'new' ? selectedVendorId : undefined,
+          }
+        : undefined,
       priority,
       status,
       attachment,
@@ -272,6 +367,277 @@ export const IssueModal: React.FC<IssueModalProps> = ({
       icon: ArrowDown,
     },
   ];
+
+  // Reusable Professional Owner Selector (Internal vs. External / Third-party)
+  const renderOwnerSelector = () => (
+    <div className="space-y-3 bg-white dark:bg-slate-900/90 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700/80 shadow-xs">
+      {/* Switcher Toggle: داخلي vs خارجي */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-800 pb-2.5">
+        <label className="block font-bold text-slate-700 dark:text-slate-200 text-xs flex items-center gap-1.5">
+          <User className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+          <span>المسؤول عن التذكرة (Owner):</span>
+        </label>
+        <div className="inline-flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 gap-1 text-[11px] font-bold">
+          <button
+            type="button"
+            onClick={() => setIsExternalOwner(false)}
+            className={`px-2.5 py-1 rounded-lg transition flex items-center gap-1.5 cursor-pointer ${
+              !isExternalOwner
+                ? 'bg-indigo-600 text-white shadow-xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <Building className="w-3 h-3" />
+            <span>فريق داخلي 🏢</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setIsExternalOwner(true);
+              if (!extTicketId.trim()) {
+                setExtTicketId(generateExternalTicketRef(extCompany, extName, issues));
+              }
+            }}
+            className={`px-2.5 py-1 rounded-lg transition flex items-center gap-1.5 cursor-pointer ${
+              isExternalOwner
+                ? 'bg-purple-600 text-white shadow-xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <Globe className="w-3 h-3" />
+            <span>طرف خارجي 🌐</span>
+          </button>
+        </div>
+      </div>
+
+      {!isExternalOwner ? (
+        /* Internal User Selection */
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+          <div>
+            <label className="block font-medium text-slate-600 dark:text-slate-400 text-[11px] mb-1">
+              الفريق المستلم للبلاغ
+            </label>
+            <input
+              type="text"
+              value={assigned}
+              onChange={(e) => setAssigned(e.target.value)}
+              placeholder="مثال: فريق الدعم البرمجي"
+              className="w-full bg-slate-50 dark:bg-slate-900/60 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-slate-800 dark:text-slate-200 font-semibold text-xs focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+
+          <div>
+            <label className="block font-medium text-slate-600 dark:text-slate-400 text-[11px] mb-1">
+              الموظف / الفني المعين
+            </label>
+            <select
+              value={owner}
+              onChange={(e) => setOwner(e.target.value)}
+              className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-slate-900 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs"
+            >
+              {users.map((u) => (
+                <option key={u.id} value={u.name}>
+                  {u.name} ({u.role}) • {u.department || 'الدعم'}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      ) : (
+        /* External Partner / Vendor Fields */
+        <div className="space-y-3 pt-1 bg-purple-50/50 dark:bg-purple-950/20 p-3.5 rounded-2xl border border-purple-200 dark:border-purple-900/50">
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-purple-200 dark:border-purple-800/40">
+            <div className="flex items-center gap-1.5 text-purple-900 dark:text-purple-300 font-bold text-xs">
+              <Globe className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+              <span>بيانات المسؤول والجهة الخارجية (External Vendor / Partner)</span>
+            </div>
+            <span className="text-[10px] bg-purple-200/70 dark:bg-purple-900/60 text-purple-800 dark:text-purple-300 px-2 py-0.5 rounded-md font-bold">
+              تتبع سحابي مباشر
+            </span>
+          </div>
+
+          {/* Quick Predefined Vendor Picker */}
+          {externalVendors.length > 0 && (
+            <div className="bg-white/80 dark:bg-slate-900/80 p-2.5 rounded-xl border border-purple-200/80 dark:border-purple-800/60 space-y-1">
+              <label className="block font-bold text-purple-900 dark:text-purple-300 text-[11px] flex items-center justify-between">
+                <span>⚡ اختيار سريع من دليل الشركاء والموردين المسجلين:</span>
+                {selectedVendorId && selectedVendorId !== 'new' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedVendorId('new');
+                      setExtName('');
+                      setExtCompany('');
+                      setExtPhone('');
+                      setExtEmail('');
+                      setExtNotes('');
+                    }}
+                    className="text-[10px] text-purple-600 dark:text-purple-400 hover:underline font-semibold"
+                  >
+                    + كتابة طرف جديد
+                  </button>
+                )}
+              </label>
+              <select
+                value={selectedVendorId}
+                onChange={(e) => handleSelectVendor(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-900 border border-purple-300 dark:border-purple-700/80 rounded-xl px-3 py-1.5 text-slate-900 dark:text-white font-semibold text-xs focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="">— اختيار جهة أو شركة خارجية من الدليل —</option>
+                {externalVendors.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    🏢 {v.company} • {v.name} ({v.role})
+                  </option>
+                ))}
+                <option value="new">✏️ + إدخال جهة / مسؤول خارجي جديد يدويًا</option>
+              </select>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div>
+              <label className="block font-semibold text-slate-700 dark:text-slate-300 text-[11px] mb-1">
+                اسم المسؤول / الشخص الخارجي <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={extName}
+                onChange={(e) => {
+                  setExtName(e.target.value);
+                  if (selectedVendorId && selectedVendorId !== 'new') setSelectedVendorId('new');
+                }}
+                placeholder="مثال: م/ أحمد مصطفى أو خدمة عملاء AWS"
+                className="w-full bg-white dark:bg-slate-900 border border-purple-300 dark:border-purple-700/80 rounded-xl px-3 py-1.5 text-slate-900 dark:text-white font-semibold text-xs focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+
+            <div>
+              <label className="block font-semibold text-slate-700 dark:text-slate-300 text-[11px] mb-1">
+                الجهة أو الشركة الخارجية
+              </label>
+              <input
+                type="text"
+                value={extCompany}
+                onChange={(e) => setExtCompany(e.target.value)}
+                placeholder="مثال: فودافون / AWS / بنك الراجحي / مزود SMS"
+                className="w-full bg-white dark:bg-slate-900 border border-purple-300 dark:border-purple-700/80 rounded-xl px-3 py-1.5 text-slate-900 dark:text-white font-semibold text-xs focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+
+            <div>
+              <label className="block font-semibold text-slate-700 dark:text-slate-300 text-[11px] mb-1">
+                صفة الطرف الخارجي
+              </label>
+              <select
+                value={extRole}
+                onChange={(e) => setExtRole(e.target.value)}
+                className="w-full bg-white dark:bg-slate-900 border border-purple-300 dark:border-purple-700 rounded-xl px-3 py-1.5 text-slate-900 dark:text-white font-semibold text-xs focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="مورد معتمد (Vendor)">🏢 مورد معتمد (Vendor)</option>
+                <option value="مزود خدمة سحابية / تقنية">🌐 مزود خدمة سحابية / تقنية (Service Provider)</option>
+                <option value="مقاول صيانة / دعم خارجي">🛠️ مقاول صيانة / دعم خارجي (Contractor)</option>
+                <option value="شريك تقني متكامل">🤝 شريك تقني متكامل (Tech Partner)</option>
+                <option value="ممثل طرف العميل">👤 ممثل طرف العميل (Client Representative)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block font-semibold text-slate-700 dark:text-slate-300 text-[11px] mb-1 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <span>رقم البلاغ لدى الطرف الخارجي</span>
+                  <span className="text-[10px] bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 font-bold px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                    <Sparkles className="w-2.5 h-2.5" />
+                    <span>يُكتب تلقائيًا</span>
+                  </span>
+                </span>
+                <span className="text-[10px] text-purple-600 dark:text-purple-400 font-normal">Vendor Ref #</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={extTicketId}
+                  onChange={(e) => setExtTicketId(e.target.value)}
+                  placeholder="مثال: INC-1006 / INC-1007"
+                  className="w-full bg-white dark:bg-slate-900 border border-purple-300 dark:border-purple-700/80 rounded-xl px-3 py-1.5 pl-24 text-slate-900 dark:text-white font-mono font-bold text-xs focus:ring-2 focus:ring-purple-500 shadow-2xs"
+                />
+                <button
+                  type="button"
+                  onClick={() => setExtTicketId(generateExternalTicketRef(extCompany, extName, issues))}
+                  className="absolute left-1.5 top-1/2 -translate-y-1/2 px-2 py-0.5 bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/70 dark:hover:bg-purple-800 text-purple-700 dark:text-purple-300 rounded-lg text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
+                  title="إعادة توليد رقم بلاغ جديد تلقائيًا"
+                >
+                  <Sparkles className="w-3 h-3 text-purple-600 dark:text-purple-400" />
+                  <span>توليد جديد</span>
+                </button>
+              </div>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1">
+                <span>💡 يتم توليد وكتابة رقم البلاغ تلقائياً بالتسلسل (مثل INC-1006)، ويمكنك تعديله بحرية.</span>
+              </p>
+            </div>
+
+            <div>
+              <label className="block font-semibold text-slate-700 dark:text-slate-300 text-[11px] mb-1 flex items-center justify-between">
+                <span>هاتف / واتساب الطرف الخارجي</span>
+                {extPhone.trim() && (
+                  <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-1">
+                    <span>🟢 مفعل للمراسلة</span>
+                  </span>
+                )}
+              </label>
+              <input
+                type="text"
+                value={extPhone}
+                onChange={(e) => setExtPhone(e.target.value)}
+                placeholder="+966 5x xxx xxxx أو +20 10 xxx xxxx"
+                className="w-full bg-white dark:bg-slate-900 border border-purple-300 dark:border-purple-700 rounded-xl px-3 py-1.5 text-slate-900 dark:text-white font-mono text-xs focus:ring-2 focus:ring-purple-500"
+                dir="ltr"
+              />
+            </div>
+
+            <div>
+              <label className="block font-semibold text-slate-700 dark:text-slate-300 text-[11px] mb-1">
+                البريد الإلكتروني للطرف الخارجي
+              </label>
+              <input
+                type="email"
+                value={extEmail}
+                onChange={(e) => setExtEmail(e.target.value)}
+                placeholder="support@vendor-company.com"
+                className="w-full bg-white dark:bg-slate-900 border border-purple-300 dark:border-purple-700 rounded-xl px-3 py-1.5 text-slate-900 dark:text-white font-mono text-xs focus:ring-2 focus:ring-purple-500"
+                dir="ltr"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block font-semibold text-slate-700 dark:text-slate-300 text-[11px] mb-1">
+              ملاحظات المتابعة والتنسيق مع الطرف الخارجي
+            </label>
+            <input
+              type="text"
+              value={extNotes}
+              onChange={(e) => setExtNotes(e.target.value)}
+              placeholder="مثال: تم فتح البلاغ مع الدعم الفني، والمتابعة مجدولة كل 4 ساعات."
+              className="w-full bg-white dark:bg-slate-900 border border-purple-300 dark:border-purple-700 rounded-xl px-3 py-1.5 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+
+          {/* Option to Save to Directory if custom */}
+          {(!selectedVendorId || selectedVendorId === 'new') && extName.trim() && (
+            <label className="flex items-center gap-2 pt-1 text-xs text-purple-900 dark:text-purple-300 font-semibold cursor-pointer">
+              <input
+                type="checkbox"
+                checked={saveToDirectory}
+                onChange={(e) => setSaveToDirectory(e.target.checked)}
+                className="w-4 h-4 text-purple-600 rounded-md border-purple-300 focus:ring-purple-500 cursor-pointer"
+              />
+              <span>حفظ هذا الطرف في دليل الشركاء والموردين الدائمين للرجوع إليه بضغطة زر لاحقاً 💾</span>
+            </label>
+          )}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div
@@ -599,36 +965,7 @@ export const IssueModal: React.FC<IssueModalProps> = ({
                     </select>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                    <div>
-                      <label className="block font-medium text-slate-600 dark:text-slate-400 mb-1">
-                        الفريق المستلم للبلاغ
-                      </label>
-                      <input
-                        type="text"
-                        value={assigned}
-                        onChange={(e) => setAssigned(e.target.value)}
-                        className="w-full bg-slate-100 dark:bg-slate-900/60 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-slate-800 dark:text-slate-200 font-semibold text-xs"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block font-medium text-slate-600 dark:text-slate-400 mb-1">
-                        الفني / المسؤول المعين
-                      </label>
-                      <select
-                        value={owner}
-                        onChange={(e) => setOwner(e.target.value)}
-                        className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-slate-900 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs"
-                      >
-                        {users.map((u) => (
-                          <option key={u.id} value={u.name}>
-                            {u.name} ({u.role})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
+                  {renderOwnerSelector()}
                 </div>
               </div>
 
@@ -929,31 +1266,7 @@ export const IssueModal: React.FC<IssueModalProps> = ({
                       </select>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div>
-                        <label className="block text-[10px] text-slate-500 mb-0.5">الفريق</label>
-                        <input
-                          type="text"
-                          value={assigned}
-                          onChange={(e) => setAssigned(e.target.value)}
-                          className="w-full bg-slate-100 dark:bg-slate-900/60 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 text-slate-700 dark:text-slate-300 text-[11px]"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] text-slate-500 mb-0.5">المسؤول</label>
-                        <select
-                          value={owner}
-                          onChange={(e) => setOwner(e.target.value)}
-                          className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 text-slate-900 dark:text-white text-[11px]"
-                        >
-                          {users.map((u) => (
-                            <option key={u.id} value={u.name}>
-                              {u.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
+                    {renderOwnerSelector()}
 
                     <div>
                       <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
@@ -1252,38 +1565,21 @@ export const IssueModal: React.FC<IssueModalProps> = ({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
-                        الفريق والفني المعين
-                      </label>
-                      <select
-                        value={owner}
-                        onChange={(e) => setOwner(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-slate-900 dark:text-white text-xs font-semibold"
-                      >
-                        {users.map((u) => (
-                          <option key={u.id} value={u.name}>
-                            {u.name} ({u.role})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                  {renderOwnerSelector()}
 
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
-                        حالة البداية
-                      </label>
-                      <select
-                        value={status}
-                        onChange={(e) => setStatus(e.target.value as IssueStatus)}
-                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-slate-900 dark:text-white text-xs font-semibold"
-                      >
-                        <option value="Open">مفتوحة (Open)</option>
-                        <option value="In Progress">قيد المعالجة (In Progress)</option>
-                        <option value="Pending">معلقة (Pending)</option>
-                      </select>
-                    </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                      حالة البداية
+                    </label>
+                    <select
+                      value={status}
+                      onChange={(e) => setStatus(e.target.value as IssueStatus)}
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-slate-900 dark:text-white text-xs font-semibold"
+                    >
+                      <option value="Open">مفتوحة (Open)</option>
+                      <option value="In Progress">قيد المعالجة (In Progress)</option>
+                      <option value="Pending">معلقة (Pending)</option>
+                    </select>
                   </div>
 
                   {/* Summary Card before confirmation */}
@@ -1444,21 +1740,8 @@ export const IssueModal: React.FC<IssueModalProps> = ({
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-0.5">
-                    المسؤول
-                  </label>
-                  <select
-                    value={owner}
-                    onChange={(e) => setOwner(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-2 py-1.5 text-slate-900 dark:text-white text-xs font-semibold"
-                  >
-                    {users.map((u) => (
-                      <option key={u.id} value={u.name}>
-                        {u.name}
-                      </option>
-                    ))}
-                  </select>
+                <div className="col-span-2">
+                  {renderOwnerSelector()}
                 </div>
               </div>
 

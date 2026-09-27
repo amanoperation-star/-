@@ -139,6 +139,21 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             </h2>
           </div>
 
+          {/* Instant 1-Click Access for Team (دخول فوري مباشر للتيم) */}
+          <button
+            type="button"
+            onClick={() => {
+              const defaultUser = users[0];
+              if (defaultUser) {
+                onLogin(defaultUser);
+              }
+            }}
+            className="w-full py-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 hover:from-emerald-500 hover:to-indigo-500 text-white rounded-2xl font-black text-xs sm:text-sm shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 transition active:scale-[0.98] border border-emerald-400/30"
+          >
+            <LogIn className="w-4 h-4" />
+            <span>الدخول الفوري المباشر للفريق 🚀 (استعراض التذاكر)</span>
+          </button>
+
           {errorMessage && (
             <div className="p-3 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-bold flex items-center gap-2 animate-fadeIn">
               <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />

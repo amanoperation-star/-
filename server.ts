@@ -27,6 +27,8 @@ let state: {
   soundSettings: any;
   generalSettings: any;
   auditLogs: any[];
+  externalVendors: any[];
+  slaSettings: any;
 } = {
   issues: [],
   categories: [],
@@ -36,7 +38,61 @@ let state: {
   soundSettings: null,
   generalSettings: null,
   auditLogs: [],
+  externalVendors: [],
+  slaSettings: null,
 };
+
+const DEFAULT_SLA_SETTINGS = {
+  businessHoursOnly: false,
+  workStartHour: 9,
+  workEndHour: 17,
+  workDays: [0, 1, 2, 3, 4],
+  pauseOnExternalPending: true,
+  pauseOnCustomerPending: true,
+  warningThresholdMinutes: 120,
+  autoEscalateOnBreach: true,
+  soundAlertOnRisk: true,
+  activePreset: 'standard',
+};
+
+const DEFAULT_EXTERNAL_VENDORS = [
+  {
+    id: 'ext-1',
+    name: 'م/ أحمد مصطفى',
+    company: 'فودافون مصر / الاتصالات والبنية التحتية',
+    role: 'مزود خدمة اتصالات وإنترنت',
+    phone: '+20 10 1234 5678',
+    email: 'noc-support@vodafone.com',
+    notes: 'الدعم الفني للخطوط الساخنة والألياف الضوئية والإنترنت المركزي',
+  },
+  {
+    id: 'ext-2',
+    name: 'فريق الدعم الفني',
+    company: 'AWS / Cloud Infrastructure',
+    role: 'مزود خدمة سحابية / تقنية (Service Provider)',
+    phone: '+1 206 555 0100',
+    email: 'aws-enterprise-support@amazon.com',
+    notes: 'بلاغات خوادم EC2 وقواعد بيانات RDS السحابية. اذكر رقم الحساب المؤسسي',
+  },
+  {
+    id: 'ext-3',
+    name: 'م/ كريم الشريف',
+    company: 'الرواد لصيانة الشبكات والسيرفرات',
+    role: 'مقاول صيانة / دعم خارجي (Contractor)',
+    phone: '+966 54 888 9911',
+    email: 'support@alrowad-networks.com',
+    notes: 'صيانة كبائن السيرفرات والراوترات وتمديدات الكابلات الميدانية',
+  },
+  {
+    id: 'ext-4',
+    name: 'دعم المعاملات والتسويات',
+    company: 'Paymob / بوابة الدفع الإلكتروني',
+    role: 'شريك تقني متكامل (Tech Partner)',
+    phone: '+20 2 2588 0000',
+    email: 'merchants-support@paymob.com',
+    notes: 'الاستعلام عن تعليق العمليات المالية والربط مع بوابات الدفع',
+  },
+];
 
 // Load initial database from file if exists
 const loadDatabase = () => {
@@ -45,10 +101,25 @@ const loadDatabase = () => {
       const raw = fs.readFileSync(DB_FILE, 'utf-8');
       const parsed = JSON.parse(raw);
       state = { ...state, ...parsed };
-      console.log(`[Database] Loaded ${state.issues?.length || 0} tickets from disk.`);
+      if (!Array.isArray(state.externalVendors) || state.externalVendors.length === 0) {
+        state.externalVendors = DEFAULT_EXTERNAL_VENDORS;
+      }
+      if (!state.slaSettings) {
+        state.slaSettings = DEFAULT_SLA_SETTINGS;
+      }
+      console.log(`[Database] Loaded ${state.issues?.length || 0} tickets, ${state.externalVendors?.length || 0} external vendors from disk.`);
+    } else {
+      state.externalVendors = DEFAULT_EXTERNAL_VENDORS;
+      state.slaSettings = DEFAULT_SLA_SETTINGS;
     }
   } catch (err) {
     console.error('[Database] Failed to read database file:', err);
+    if (!Array.isArray(state.externalVendors) || state.externalVendors.length === 0) {
+      state.externalVendors = DEFAULT_EXTERNAL_VENDORS;
+    }
+    if (!state.slaSettings) {
+      state.slaSettings = DEFAULT_SLA_SETTINGS;
+    }
   }
 };
 
@@ -169,7 +240,10 @@ app.get('/api/health', (_req, res) => {
 });
 
 // API: Get complete state
-app.get('/api/state', (_req, res) => {
+app.get('/api/state', (req, res) => {
+  if (req.query.fresh === '1' || !state.issues || state.issues.length === 0) {
+    loadDatabase();
+  }
   res.json({
     status: 'ok',
     state,
@@ -177,6 +251,11 @@ app.get('/api/state', (_req, res) => {
     totalConnections: connectedClients.size,
     collisions: getCollisionsMap(),
   });
+});
+
+app.get('/api/reload-db', (_req, res) => {
+  loadDatabase();
+  res.json({ status: 'ok', count: state.issues?.length || 0, state });
 });
 
 // API: Get active ticket collisions
@@ -205,6 +284,10 @@ app.post('/api/init-seed', (req, res) => {
     if (initialData.generalSettings) state.generalSettings = initialData.generalSettings;
     if (initialData.soundSettings) state.soundSettings = initialData.soundSettings;
     if (initialData.auditLogs) state.auditLogs = initialData.auditLogs;
+    if (Array.isArray(initialData.externalVendors) && initialData.externalVendors.length > 0) {
+      state.externalVendors = initialData.externalVendors;
+    }
+    if (initialData.slaSettings) state.slaSettings = initialData.slaSettings;
     saveDatabase();
     console.log(`[Database] Seeded with ${state.issues.length} tickets from client.`);
   }
@@ -381,6 +464,8 @@ app.post('/api/sync-all', (req, res) => {
   if (payload.generalSettings) state.generalSettings = payload.generalSettings;
   if (payload.soundSettings) state.soundSettings = payload.soundSettings;
   if (Array.isArray(payload.auditLogs)) state.auditLogs = payload.auditLogs;
+  if (Array.isArray(payload.externalVendors)) state.externalVendors = payload.externalVendors;
+  if (payload.slaSettings) state.slaSettings = payload.slaSettings;
 
   saveDatabase();
 
@@ -391,6 +476,87 @@ app.post('/api/sync-all', (req, res) => {
   });
 
   res.json({ status: 'ok', message: 'All data synchronized across all devices' });
+});
+
+// API: External Vendors CRUD
+app.get('/api/external-vendors', (_req, res) => {
+  res.json({ status: 'ok', externalVendors: state.externalVendors || [] });
+});
+
+app.post('/api/external-vendors', (req, res) => {
+  const vendor = req.body;
+  if (!vendor || !vendor.name) {
+    res.status(400).json({ error: 'Name is required' });
+    return;
+  }
+  const newVendor = {
+    id: vendor.id || `ext-${Date.now()}`,
+    name: vendor.name.trim(),
+    company: (vendor.company || '').trim(),
+    role: vendor.role || 'مورد معتمد (Vendor)',
+    phone: (vendor.phone || '').trim(),
+    email: (vendor.email || '').trim(),
+    notes: (vendor.notes || '').trim(),
+  };
+
+  state.externalVendors = [...(state.externalVendors || []), newVendor];
+  saveDatabase();
+
+  broadcast({
+    type: 'external_vendors:updated',
+    externalVendors: state.externalVendors,
+    vendor: newVendor,
+    action: 'add',
+  });
+
+  res.json({ status: 'ok', vendor: newVendor, externalVendors: state.externalVendors });
+});
+
+app.put('/api/external-vendors/:id', (req, res) => {
+  const { id } = req.params;
+  const updates = req.body;
+  state.externalVendors = (state.externalVendors || []).map((v) => (v.id === id ? { ...v, ...updates } : v));
+  saveDatabase();
+
+  broadcast({
+    type: 'external_vendors:updated',
+    externalVendors: state.externalVendors,
+    action: 'update',
+  });
+
+  res.json({ status: 'ok', externalVendors: state.externalVendors });
+});
+
+app.delete('/api/external-vendors/:id', (req, res) => {
+  const { id } = req.params;
+  state.externalVendors = (state.externalVendors || []).filter((v) => v.id !== id);
+  saveDatabase();
+
+  broadcast({
+    type: 'external_vendors:updated',
+    externalVendors: state.externalVendors,
+    action: 'delete',
+  });
+
+  res.json({ status: 'ok', externalVendors: state.externalVendors });
+});
+
+// API: SLA Settings
+app.get('/api/sla-settings', (_req, res) => {
+  res.json({ status: 'ok', slaSettings: state.slaSettings || DEFAULT_SLA_SETTINGS });
+});
+
+app.post('/api/sla-settings', (req, res) => {
+  const newSettings = req.body;
+  state.slaSettings = { ...DEFAULT_SLA_SETTINGS, ...newSettings };
+  saveDatabase();
+
+  broadcast({
+    type: 'sla_settings:updated',
+    slaSettings: state.slaSettings,
+  });
+
+  res.json({ status: 'ok', slaSettings: state.slaSettings });
 });
 
 // Create HTTP server

@@ -1,4 +1,4 @@
-import { Priority } from '../types';
+import { Priority, SlaSettings, Issue } from '../types';
 
 export const DEFAULT_SLA_HOURS: Record<Priority, number> = {
   Critical: 4,
@@ -7,15 +7,131 @@ export const DEFAULT_SLA_HOURS: Record<Priority, number> = {
   Low: 48,
 };
 
-export function calculateDueDate(createdAtIso: string, priority: Priority, customHours?: number): string {
+export const DEFAULT_SLA_SETTINGS: SlaSettings = {
+  businessHoursOnly: false,
+  workStartHour: 9,
+  workEndHour: 17,
+  workDays: [0, 1, 2, 3, 4], // Sun - Thu
+  pauseOnExternalPending: true,
+  pauseOnCustomerPending: true,
+  warningThresholdMinutes: 120, // 2 hours
+  autoEscalateOnBreach: true,
+  soundAlertOnRisk: true,
+  activePreset: 'standard',
+};
+
+const EXTERNAL_TICKET_SEQ_KEY = 'EXT_TICKET_SEQ_COUNTER';
+
+/**
+ * توليد رقم البلاغ أو التذكرة لدى الطرف الخارجي تلقائياً بالتسلسل المطلوب
+ * بصيغة مثل: INC-1006 ويمشي بالترتيب
+ */
+export function generateExternalTicketRef(
+  _company?: string,
+  _vendorName?: string,
+  existingIssues?: Issue[]
+): string {
+  let highestNum = 1005; // البداية لتكون التذكرة القادمة 1006 فما فوق
+
+  // فحص أرقام التذاكر الخارجية والداخلية الموجودة مسبقاً لاستخراج أعلى تسلسل
+  if (Array.isArray(existingIssues) && existingIssues.length > 0) {
+    existingIssues.forEach((issue) => {
+      // فحص رقم التذكرة الخارجي
+      const extId = issue.externalOwnerDetails?.externalTicketId;
+      if (extId) {
+        const m = extId.match(/INC-(\d+)/i);
+        if (m && m[1]) {
+          const val = parseInt(m[1], 10);
+          if (!isNaN(val) && val > highestNum) highestNum = val;
+        }
+      }
+      // فحص معرّف التذكرة الداخلي أيضاً
+      if (issue.id) {
+        const m = issue.id.match(/INC-(\d+)/i);
+        if (m && m[1]) {
+          const val = parseInt(m[1], 10);
+          if (!isNaN(val) && val > highestNum) highestNum = val;
+        }
+      }
+    });
+  }
+
+  // فحص العداد المحفوظ محلياً أيضاً لضمان الترتيب التراكمي الدائم
+  try {
+    const saved = localStorage.getItem(EXTERNAL_TICKET_SEQ_KEY);
+    if (saved) {
+      const savedNum = parseInt(saved, 10);
+      if (!isNaN(savedNum) && savedNum > highestNum) {
+        highestNum = savedNum;
+      }
+    }
+  } catch {}
+
+  const nextSeq = highestNum + 1;
+
+  // حفظ الرقم الأحدث للتسلسل التالي
+  try {
+    localStorage.setItem(EXTERNAL_TICKET_SEQ_KEY, nextSeq.toString());
+  } catch {}
+
+  return `INC-${nextSeq}`;
+}
+
+export function calculateDueDate(
+  createdAtIso: string,
+  priority: Priority,
+  customHours?: number,
+  options?: { businessHoursOnly?: boolean; workStartHour?: number; workEndHour?: number; workDays?: number[] }
+): string {
   const created = new Date(createdAtIso);
   const hours = customHours || DEFAULT_SLA_HOURS[priority] || 24;
+
+  if (options?.businessHoursOnly) {
+    // حساب الموعد وفقاً لساعات وأيام العمل الرسمية
+    const startH = options.workStartHour ?? 9;
+    const endH = options.workEndHour ?? 17;
+    const workHoursPerDay = Math.max(1, endH - startH);
+    const workDays = options.workDays ?? [0, 1, 2, 3, 4];
+
+    let remainingHours = hours;
+    let current = new Date(created);
+
+    while (remainingHours > 0) {
+      const day = current.getDay();
+      const currentH = current.getHours();
+
+      if (workDays.includes(day)) {
+        if (currentH >= startH && currentH < endH) {
+          const hoursLeftToday = endH - currentH;
+          if (remainingHours <= hoursLeftToday) {
+            current.setHours(currentH + remainingHours);
+            remainingHours = 0;
+            break;
+          } else {
+            remainingHours -= hoursLeftToday;
+            current.setDate(current.getDate() + 1);
+            current.setHours(startH, 0, 0, 0);
+          }
+        } else if (currentH < startH) {
+          current.setHours(startH, 0, 0, 0);
+        } else {
+          current.setDate(current.getDate() + 1);
+          current.setHours(startH, 0, 0, 0);
+        }
+      } else {
+        current.setDate(current.getDate() + 1);
+        current.setHours(startH, 0, 0, 0);
+      }
+    }
+    return current.toISOString();
+  }
+
   const due = new Date(created.getTime() + hours * 60 * 60 * 1000);
   return due.toISOString();
 }
 
-export function isTicketSlaBreached(createdAt: string, dueDate: string, status: string): boolean {
-  if (status === 'Resolved' || status === 'Closed') {
+export function isTicketSlaBreached(createdAt: string, dueDate: string, status: string, slaPaused?: boolean): boolean {
+  if (status === 'Resolved' || status === 'Closed' || slaPaused) {
     return false;
   }
   const now = new Date();
@@ -23,9 +139,26 @@ export function isTicketSlaBreached(createdAt: string, dueDate: string, status: 
   return now.getTime() > due.getTime();
 }
 
-export function getRemainingTimeFormatted(dueDate: string, status: string): { text: string; isOverdue: boolean } {
+export function isTicketSlaAtRisk(dueDate: string, status: string, warningThresholdMinutes = 120, slaPaused?: boolean): boolean {
+  if (status === 'Resolved' || status === 'Closed' || slaPaused) {
+    return false;
+  }
+  const now = new Date().getTime();
+  const due = new Date(dueDate).getTime();
+  const diff = due - now;
+  return diff > 0 && diff <= warningThresholdMinutes * 60 * 1000;
+}
+
+export function getRemainingTimeFormatted(dueDate: string, status: string, slaPaused?: boolean, pausedReason?: string): { text: string; isOverdue: boolean; isPaused?: boolean } {
   if (status === 'Resolved' || status === 'Closed') {
     return { text: 'مكتملة', isOverdue: false };
+  }
+  if (slaPaused) {
+    return { 
+      text: pausedReason ? `⏸️ العداد مجمّد (${pausedReason})` : '⏸️ العداد مجمّد (طرف خارجي)', 
+      isOverdue: false, 
+      isPaused: true 
+    };
   }
   const now = new Date().getTime();
   const due = new Date(dueDate).getTime();

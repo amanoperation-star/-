@@ -14,7 +14,9 @@ import {
   User,
   GitMerge,
   MessageSquare,
-  Phone
+  Phone,
+  Globe,
+  Building
 } from 'lucide-react';
 import { Issue, AppUser, Priority, IssueStatus } from '../types';
 import { isTicketSlaBreached, getRemainingTimeFormatted, formatSecondsToHMS } from '../utils/sla';
@@ -71,6 +73,14 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
   const [filterOwner, setFilterOwner] = useState('ALL');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
+  // Status Counts for fast status switching
+  const openCount = issues.filter((i) => i.status === 'Open').length;
+  const inProgressCount = issues.filter((i) => i.status === 'In Progress').length;
+  const breachedCount = issues.filter((i) => isTicketSlaBreached(i.createdAt, i.dueDate, i.status)).length;
+  const resolvedCount = issues.filter((i) => i.status === 'Resolved' || i.status === 'Closed').length;
+  const externalCount = issues.filter((i) => i.isExternalOwner).length;
+  const totalCount = issues.length;
+
   // Filtering
   const filteredIssues = issues.filter((item) => {
     const breached = isTicketSlaBreached(item.createdAt, item.dueDate, item.status);
@@ -89,7 +99,13 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
     if (filterPriority !== 'ALL' && item.priority !== filterPriority) return false;
 
     // Owner filter
-    if (filterOwner !== 'ALL' && !item.owner.includes(filterOwner)) return false;
+    if (filterOwner === 'EXTERNAL_ALL') {
+      if (!item.isExternalOwner) return false;
+    } else if (filterOwner === 'INTERNAL_ALL') {
+      if (item.isExternalOwner) return false;
+    } else if (filterOwner !== 'ALL' && !item.owner.includes(filterOwner)) {
+      return false;
+    }
 
     // Search query
     if (search.trim()) {
@@ -100,7 +116,10 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
         (item.tag && item.tag.toLowerCase().includes(q)) ||
         item.desc.toLowerCase().includes(q) ||
         item.owner.toLowerCase().includes(q) ||
-        item.type.toLowerCase().includes(q);
+        item.type.toLowerCase().includes(q) ||
+        (item.externalOwnerDetails?.company && item.externalOwnerDetails.company.toLowerCase().includes(q)) ||
+        (item.externalOwnerDetails?.name && item.externalOwnerDetails.name.toLowerCase().includes(q)) ||
+        (item.externalOwnerDetails?.externalTicketId && item.externalOwnerDetails.externalTicketId.toLowerCase().includes(q));
       if (!match) return false;
     }
 
@@ -131,6 +150,142 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
     <div className="space-y-4">
       {/* Top Filter and Controls Bar */}
       <div className="bg-white dark:bg-slate-800/90 p-4 rounded-3xl border border-slate-200 dark:border-slate-700/80 shadow-sm space-y-3">
+        {/* Fast Status Switcher Bar (عرض فوري للتذاكر المفتوحة) */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs font-bold no-scrollbar">
+          <button
+            type="button"
+            onClick={() => setFilterStatus('Open')}
+            className={`px-3.5 py-2 rounded-xl flex items-center gap-2 transition shrink-0 ${
+              filterStatus === 'Open'
+                ? 'bg-rose-600 text-white shadow-md shadow-rose-600/30'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+            }`}
+          >
+            <span className="w-2.5 h-2.5 rounded-full bg-rose-400"></span>
+            <span>التذاكر المفتوحة (Open)</span>
+            <span
+              className={`px-1.5 py-0.5 rounded-md text-[10px] ${
+                filterStatus === 'Open'
+                  ? 'bg-rose-700 text-white'
+                  : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+              }`}
+            >
+              {openCount}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFilterStatus('In Progress')}
+            className={`px-3.5 py-2 rounded-xl flex items-center gap-2 transition shrink-0 ${
+              filterStatus === 'In Progress'
+                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+            }`}
+          >
+            <span className="w-2.5 h-2.5 rounded-full bg-blue-400"></span>
+            <span>قيد العمل (In Progress)</span>
+            <span
+              className={`px-1.5 py-0.5 rounded-md text-[10px] ${
+                filterStatus === 'In Progress'
+                  ? 'bg-blue-700 text-white'
+                  : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+              }`}
+            >
+              {inProgressCount}
+            </span>
+          </button>
+
+          {breachedCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setFilterStatus('Breached')}
+              className={`px-3.5 py-2 rounded-xl flex items-center gap-2 transition shrink-0 ${
+                filterStatus === 'Breached'
+                  ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30'
+                  : 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 hover:bg-amber-100'
+              }`}
+            >
+              <AlertTriangle className="w-3.5 h-3.5" />
+              <span>متأخرة SLA</span>
+              <span className="px-1.5 py-0.5 rounded-md text-[10px] bg-amber-700 text-white">
+                {breachedCount}
+              </span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setFilterStatus('Resolved')}
+            className={`px-3.5 py-2 rounded-xl flex items-center gap-2 transition shrink-0 ${
+              filterStatus === 'Resolved'
+                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+            }`}
+          >
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span>تم الحل والإغلاق</span>
+            <span
+              className={`px-1.5 py-0.5 rounded-md text-[10px] ${
+                filterStatus === 'Resolved'
+                  ? 'bg-emerald-700 text-white'
+                  : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+              }`}
+            >
+              {resolvedCount}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setFilterOwner('EXTERNAL_ALL');
+              setFilterStatus('ALL');
+            }}
+            className={`px-3.5 py-2 rounded-xl flex items-center gap-2 transition shrink-0 ${
+              filterOwner === 'EXTERNAL_ALL'
+                ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
+                : 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50 border border-purple-200 dark:border-purple-800/60'
+            }`}
+          >
+            <Globe className="w-3.5 h-3.5" />
+            <span>أطراف خارجية (External)</span>
+            <span
+              className={`px-1.5 py-0.5 rounded-md text-[10px] ${
+                filterOwner === 'EXTERNAL_ALL'
+                  ? 'bg-purple-700 text-white'
+                  : 'bg-purple-200 dark:bg-purple-900 text-purple-800 dark:text-purple-200'
+              }`}
+            >
+              {externalCount}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setFilterStatus('ALL');
+              setFilterOwner('ALL');
+            }}
+            className={`px-3.5 py-2 rounded-xl flex items-center gap-2 transition shrink-0 ${
+              filterStatus === 'ALL' && filterOwner === 'ALL'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+            }`}
+          >
+            <span>جميع التذاكر (الكل)</span>
+            <span
+              className={`px-1.5 py-0.5 rounded-md text-[10px] ${
+                filterStatus === 'ALL' && filterOwner === 'ALL'
+                  ? 'bg-indigo-700 text-white'
+                  : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+              }`}
+            >
+              {totalCount}
+            </span>
+          </button>
+        </div>
+
         <div className="flex flex-wrap gap-3 items-center justify-between">
           {/* Search Bar */}
           <div className="flex-1 min-w-[260px] relative">
@@ -194,7 +349,9 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
               onChange={(e) => setFilterOwner(e.target.value)}
               className="bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
-              <option value="ALL">جميع الموظفين</option>
+              <option value="ALL">جميع المسؤولين (داخلي وخارجي)</option>
+              <option value="EXTERNAL_ALL">🌐 جميع الأطراف الخارجية (External)</option>
+              <option value="INTERNAL_ALL">🏢 فريق العمل الداخلي فقط (Internal)</option>
               {users.map((u) => (
                 <option key={u.id} value={u.name}>
                   {u.name}
@@ -297,8 +454,47 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
               {filteredIssues.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="text-center py-12 text-slate-500 dark:text-slate-400">
-                    <p className="text-sm font-bold text-slate-700 dark:text-slate-300">لا توجد تذاكر تطابق معايير البحث والفلترة المحددة</p>
-                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">جرب تغيير شروط الفلترة أو إضافة تذكرة جديدة</p>
+                    <div className="max-w-md mx-auto space-y-3">
+                      <p className="text-base font-bold text-slate-800 dark:text-slate-200">
+                        {filterStatus === 'Open'
+                          ? 'لا توجد تذاكر جديدة بحالة مفتوحة حالياً (تم حل أو معالجة كافة البلاغات السابقة) 🟢'
+                          : 'لا توجد تذاكر تطابق معايير البحث والفلترة المحددة'}
+                      </p>
+                      <p className="text-xs text-slate-400 dark:text-slate-500">
+                        {filterStatus === 'Open'
+                          ? 'يمكنك استعراض التذاكر قيد العمل أو جميع التذاكر من الأزرار السريعة أدناه:'
+                          : 'جرب تغيير شروط الفلترة أو إنشاء تذكرة جديدة'}
+                      </p>
+                      <div className="flex flex-wrap justify-center gap-2 pt-2">
+                        {filterStatus !== 'ALL' && (
+                          <button
+                            type="button"
+                            onClick={() => setFilterStatus('ALL')}
+                            className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition shadow"
+                          >
+                            عرض جميع التذاكر ({totalCount}) 📋
+                          </button>
+                        )}
+                        {inProgressCount > 0 && filterStatus !== 'In Progress' && (
+                          <button
+                            type="button"
+                            onClick={() => setFilterStatus('In Progress')}
+                            className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition shadow"
+                          >
+                            عرض قيد العمل ({inProgressCount}) 🔵
+                          </button>
+                        )}
+                        {resolvedCount > 0 && filterStatus !== 'Resolved' && (
+                          <button
+                            type="button"
+                            onClick={() => setFilterStatus('Resolved')}
+                            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow"
+                          >
+                            عرض التذاكر المحلولة ({resolvedCount}) 🟢
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -414,8 +610,32 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
 
                       {/* Assignee & Team */}
                       <td className="p-3.5">
-                        <span className="font-bold text-amber-700 dark:text-amber-400 block">{item.owner}</span>
-                        <span className="text-[10px] text-slate-500 dark:text-slate-400 block">{item.assigned}</span>
+                        {item.isExternalOwner ? (
+                          <div className="space-y-0.5">
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-100 dark:bg-purple-950/70 border border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 font-bold text-[10px]">
+                              <Globe className="w-2.5 h-2.5" />
+                              <span>طرف خارجي</span>
+                            </span>
+                            <span className="font-bold text-purple-950 dark:text-purple-200 block text-xs truncate max-w-[150px]" title={item.externalOwnerDetails?.name || item.owner}>
+                              {item.owner}
+                            </span>
+                            {item.externalOwnerDetails?.company && (
+                              <span className="text-[10px] text-slate-500 dark:text-slate-400 block truncate max-w-[140px]" title={item.externalOwnerDetails.company}>
+                                🏢 {item.externalOwnerDetails.company}
+                              </span>
+                            )}
+                            {item.externalOwnerDetails?.externalTicketId && (
+                              <span className="text-[9px] font-mono text-purple-600 dark:text-purple-400 block">
+                                #{item.externalOwnerDetails.externalTicketId}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <>
+                            <span className="font-bold text-amber-700 dark:text-amber-400 block">{item.owner}</span>
+                            <span className="text-[10px] text-slate-500 dark:text-slate-400 block">{item.assigned}</span>
+                          </>
+                        )}
                       </td>
 
                       {/* Work Timer */}
@@ -470,7 +690,7 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
                       {/* Actions */}
                       <td className="p-3.5 text-center">
                         <div className="flex items-center justify-center gap-1">
-                          {/* 1-Click WhatsApp Direct Chat */}
+                          {/* 1-Click WhatsApp Direct Chat with Client */}
                           <button
                             type="button"
                             onClick={(e) => {
@@ -478,10 +698,26 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
                               setWhatsAppIssue(item);
                             }}
                             className="p-1.5 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/60 rounded-lg transition"
-                            title={`مراسلة العميل عبر واتساب`}
+                            title={`مراسلة العميل (${item.client}) عبر واتساب`}
                           >
                             <MessageSquare className="w-4 h-4 fill-emerald-600/20" />
                           </button>
+
+                          {/* 1-Click WhatsApp Direct Chat with External Owner */}
+                          {item.isExternalOwner && item.externalOwnerDetails?.phone && (
+                            <a
+                              href={`https://wa.me/${item.externalOwnerDetails.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                                `السلام عليكم أستاذ ${item.externalOwnerDetails.name || ''}، بخصوص البلاغ رقم ${item.id} لدى شركتكم الموقرة.`
+                              )}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="p-1.5 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/60 rounded-lg transition"
+                              title={`مراسلة المسؤول الخارجي (${item.externalOwnerDetails.name || item.owner}) مباشرة عبر واتساب`}
+                            >
+                              <Globe className="w-4 h-4" />
+                            </a>
+                          )}
                           <button
                             onClick={() => onOpenDetails(item)}
                             className="p-1.5 text-indigo-600 dark:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition"

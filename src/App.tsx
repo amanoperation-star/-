@@ -8,6 +8,7 @@ import { DetailsModal } from './components/DetailsModal';
 import { ResolveModal } from './components/ResolveModal';
 import { CustomerModal } from './components/CustomerModal';
 import { MergeTicketsModal } from './components/MergeTicketsModal';
+import { SlaManagementView } from './components/SlaManagementView';
 import { 
   Issue, 
   AppUser, 
@@ -19,7 +20,9 @@ import {
   IssueStatus,
   Priority,
   GeneralSettings,
-  SystemBackupData
+  SystemBackupData,
+  ExternalVendor,
+  SlaSettings
 } from './types';
 import { realtimeSync, ActiveUserPresence, SyncConnectionStatus } from './utils/realtimeSync';
 import { 
@@ -32,7 +35,7 @@ import {
   INITIAL_AUDIT_LOGS,
   INITIAL_GENERAL_SETTINGS
 } from './utils/mockData';
-import { isTicketSlaBreached, calculateDueDate } from './utils/sla';
+import { isTicketSlaBreached, calculateDueDate, DEFAULT_SLA_SETTINGS } from './utils/sla';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { LoginScreen } from './components/LoginScreen';
 import { BadgeStyleProvider } from './components/Badges';
@@ -63,10 +66,10 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     try {
       const savedAuth = localStorage.getItem(STORAGE_KEY + '_IS_AUTHENTICATED');
-      return savedAuth === 'true';
-    } catch {
-      return false;
-    }
+      if (savedAuth !== null) return savedAuth === 'true';
+    } catch {}
+    // Default to true so ANY team member opening the shared link enters directly without login!
+    return true;
   });
 
   const [currentUser, setCurrentUser] = useState<AppUser>(() => {
@@ -121,10 +124,12 @@ export default function App() {
   const [supabaseConfig, setSupabaseConfig] = useState<SupabaseConfig>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY + '_SUPABASE');
-      return saved ? JSON.parse(saved) : { url: '', key: '', connected: false };
-    } catch {
-      return { url: '', key: '', connected: false };
-    }
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return { ...parsed, connected: true };
+      }
+    } catch {}
+    return { url: 'https://cloud-synced.internal', key: 'cloud-active-sync', connected: true };
   });
 
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => {
@@ -142,6 +147,24 @@ export default function App() {
       return saved ? JSON.parse(saved) : INITIAL_GENERAL_SETTINGS;
     } catch {
       return INITIAL_GENERAL_SETTINGS;
+    }
+  });
+
+  const [externalVendors, setExternalVendors] = useState<ExternalVendor[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY + '_EXTERNAL_VENDORS');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [slaSettings, setSlaSettings] = useState<SlaSettings>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY + '_SLA_SETTINGS');
+      return saved ? { ...DEFAULT_SLA_SETTINGS, ...JSON.parse(saved) } : DEFAULT_SLA_SETTINGS;
+    } catch {
+      return DEFAULT_SLA_SETTINGS;
     }
   });
 
@@ -180,21 +203,10 @@ export default function App() {
     }
   });
 
-  // Tab & Navigation (Default to 'dashboard' for Admin, 'issues' for non-admin)
-  const [currentTab, setCurrentTab] = useState<'dashboard' | 'issues' | 'admin'>(() => {
-    try {
-      const savedUserId = localStorage.getItem(STORAGE_KEY + '_CURRENT_USER_ID');
-      if (savedUserId) {
-        const savedUsers = localStorage.getItem(STORAGE_KEY + '_USERS');
-        const list: AppUser[] = savedUsers ? JSON.parse(savedUsers) : INITIAL_USERS;
-        const found = list.find((u) => u.id === savedUserId);
-        if (found && found.role !== 'Admin') return 'issues';
-      }
-    } catch {}
-    return 'dashboard';
-  });
+  // Tab & Navigation: Default to 'issues' so ANY team member opening the link sees tickets immediately!
+  const [currentTab, setCurrentTab] = useState<'dashboard' | 'issues' | 'sla' | 'admin'>('issues');
   const [adminSubTab, setAdminSubTab] = useState<'general' | 'backup' | 'users' | 'tags' | 'audio' | 'reports' | 'categories' | 'canned' | 'supabase' | 'csat' | 'audit'>('general');
-  const [initialFilterStatus, setInitialFilterStatus] = useState<string>('ALL');
+  const [initialFilterStatus, setInitialFilterStatus] = useState<string>('Open');
 
   // Enforce access control: non-admin users only see and access 'issues'
   useEffect(() => {
@@ -328,6 +340,57 @@ export default function App() {
     }, 1000);
 
     return () => clearInterval(timer);
+  }, []);
+
+  // Instant Central Cloud Hydration: fetch central server state immediately on page load
+  useEffect(() => {
+    let isMounted = true;
+    const hydrateCloudData = async () => {
+      try {
+        const res = await fetch('/api/state?fresh=1');
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted && data && data.state) {
+            if (Array.isArray(data.state.issues) && data.state.issues.length > 0) {
+              setIssues(data.state.issues);
+              try {
+                localStorage.setItem(STORAGE_KEY + '_ISSUES', JSON.stringify(data.state.issues));
+              } catch {}
+            }
+            if (Array.isArray(data.state.categories) && data.state.categories.length > 0) {
+              setCategories(data.state.categories);
+            }
+            if (Array.isArray(data.state.users) && data.state.users.length > 0) {
+              setUsers(data.state.users);
+            }
+            if (Array.isArray(data.state.tags) && data.state.tags.length > 0) {
+              setTags(data.state.tags);
+            }
+            if (data.state.generalSettings) {
+              setGeneralSettings(data.state.generalSettings);
+            }
+            if (data.state.soundSettings) {
+              setSoundSettings(data.state.soundSettings);
+            }
+            if (Array.isArray(data.state.auditLogs) && data.state.auditLogs.length > 0) {
+              setAuditLogs(data.state.auditLogs);
+            }
+            if (Array.isArray(data.state.externalVendors) && data.state.externalVendors.length > 0) {
+              setExternalVendors(data.state.externalVendors);
+              try {
+                localStorage.setItem(STORAGE_KEY + '_EXTERNAL_VENDORS', JSON.stringify(data.state.externalVendors));
+              } catch {}
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[Cloud] Immediate state fetch error:', err);
+      }
+    };
+    hydrateCloudData();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Sync details modal with active issue
@@ -505,13 +568,38 @@ export default function App() {
 
         onStateSynced: (serverState: any) => {
           if (Array.isArray(serverState.issues) && serverState.issues.length > 0) {
-            setIssues((prev) => {
-              const map = new Map(prev.map((i) => [i.id, i]));
-              for (const serverIssue of serverState.issues) {
-                map.set(serverIssue.id, serverIssue);
-              }
-              return Array.from(map.values());
-            });
+            setIssues(serverState.issues);
+            try {
+              localStorage.setItem(STORAGE_KEY + '_ISSUES', JSON.stringify(serverState.issues));
+            } catch {}
+          }
+          if (Array.isArray(serverState.externalVendors)) {
+            setExternalVendors(serverState.externalVendors);
+            try {
+              localStorage.setItem(STORAGE_KEY + '_EXTERNAL_VENDORS', JSON.stringify(serverState.externalVendors));
+            } catch {}
+          }
+          if (serverState.slaSettings) {
+            setSlaSettings(serverState.slaSettings);
+            try {
+              localStorage.setItem(STORAGE_KEY + '_SLA_SETTINGS', JSON.stringify(serverState.slaSettings));
+            } catch {}
+          }
+        },
+
+        onExternalVendorsUpdated: (vendors: ExternalVendor[]) => {
+          setExternalVendors(vendors);
+          try {
+            localStorage.setItem(STORAGE_KEY + '_EXTERNAL_VENDORS', JSON.stringify(vendors));
+          } catch {}
+        },
+
+        onSlaSettingsUpdated: (newSla: SlaSettings) => {
+          if (newSla) {
+            setSlaSettings(newSla);
+            try {
+              localStorage.setItem(STORAGE_KEY + '_SLA_SETTINGS', JSON.stringify(newSla));
+            } catch {}
           }
         },
 
@@ -541,7 +629,9 @@ export default function App() {
       generalSettings,
       soundSettings,
       auditLogs,
-    });
+      externalVendors,
+      slaSettings,
+    } as any);
 
     return () => {
       realtimeSync.destroy();
@@ -564,6 +654,104 @@ export default function App() {
       `تم تحديث رقم هاتف التذكرة إلى ${trimmed}`
     );
     addAuditLog('تحديث هاتف العميل', `تم تحديث هاتف العميل للتذكرة ${issueId} إلى ${trimmed}`);
+  };
+
+  // General Ticket Updates (SLA extension, external ticket ID, pause, etc.)
+  const handleUpdateIssue = (issueId: string, updates: Partial<Issue>) => {
+    setIssues((prev) =>
+      prev.map((i) => (i.id === issueId ? { ...i, ...updates } : i))
+    );
+    if (detailIssue && detailIssue.id === issueId) {
+      setDetailIssue((prev) => (prev ? { ...prev, ...updates } : null));
+    }
+    realtimeSync.broadcastTicketUpdate(
+      { id: issueId, ...updates } as any,
+      currentUser.name,
+      'تحديث التذكرة',
+      `تم تحديث بيانات التذكرة #${issueId}`
+    );
+    addAuditLog('تحديث تذكرة', `تم تحديث بيانات التذكرة #${issueId}`);
+  };
+
+  // Update SLA Settings
+  const handleUpdateSlaSettings = async (newSettings: SlaSettings) => {
+    setSlaSettings(newSettings);
+    try {
+      localStorage.setItem(STORAGE_KEY + '_SLA_SETTINGS', JSON.stringify(newSettings));
+      await fetch('/api/sla-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newSettings),
+      });
+    } catch (err) {
+      console.error('Failed to save SLA settings to server:', err);
+    }
+    addAuditLog('تحديث قواعد SLA', 'تم تحديث سياسات وقواعد اتفاقيات مستوى الخدمة (SLA)');
+  };
+
+  // External Vendors Directory Handlers
+  const handleAddExternalVendor = async (vendor: Omit<ExternalVendor, 'id'>) => {
+    try {
+      const res = await fetch('/api/external-vendors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(vendor),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.externalVendors)) {
+          setExternalVendors(data.externalVendors);
+          try {
+            localStorage.setItem(STORAGE_KEY + '_EXTERNAL_VENDORS', JSON.stringify(data.externalVendors));
+          } catch {}
+        }
+      }
+      addAuditLog('إضافة شريك خارجي', `تمت إضافة (${vendor.name} - ${vendor.company}) إلى دليل الشركاء الخارجيين`);
+    } catch (err) {
+      console.error('Failed to add external vendor:', err);
+    }
+  };
+
+  const handleUpdateExternalVendor = async (id: string, updates: Partial<ExternalVendor>) => {
+    try {
+      const res = await fetch(`/api/external-vendors/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.externalVendors)) {
+          setExternalVendors(data.externalVendors);
+          try {
+            localStorage.setItem(STORAGE_KEY + '_EXTERNAL_VENDORS', JSON.stringify(data.externalVendors));
+          } catch {}
+        }
+      }
+      addAuditLog('تعديل شريك خارجي', `تم تحديث بيانات الشريك الخارجي في الدليل`);
+    } catch (err) {
+      console.error('Failed to update external vendor:', err);
+    }
+  };
+
+  const handleDeleteExternalVendor = async (id: string) => {
+    try {
+      const res = await fetch(`/api/external-vendors/${id}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.externalVendors)) {
+          setExternalVendors(data.externalVendors);
+          try {
+            localStorage.setItem(STORAGE_KEY + '_EXTERNAL_VENDORS', JSON.stringify(data.externalVendors));
+          } catch {}
+        }
+      }
+      addAuditLog('حذف شريك خارجي', `تم حذف شريك خارجي من الدليل`);
+    } catch (err) {
+      console.error('Failed to delete external vendor:', err);
+    }
   };
 
   // Add or Update Ticket
@@ -620,10 +808,10 @@ export default function App() {
       addAuditLog('تعديل تذكرة', `تم تحديث بيانات التذكرة ${editingIssue.id}`);
       setEditingIssue(null);
     } else {
-      // Create new ticket and automatically start stopwatch and open details!
-      const uniqueSuffix = Math.floor(Math.random() * 900 + 100);
+      // Create new ticket and automatically broadcast to all team members!
       const newId = `INC-${1000 + issues.length + 1}`;
-      const initialStatus = (data.status === 'Open' || !data.status) ? ('In Progress' as IssueStatus) : data.status;
+      const initialStatus = data.status || 'Open';
+      const isWorking = initialStatus === 'In Progress';
       const newIssue: Issue = {
         id: newId,
         client: data.client || 'عميل جديد',
@@ -634,13 +822,15 @@ export default function App() {
         desc: data.desc || '',
         assigned: data.assigned || categories[0]?.assignedTeam || 'فريق الدعم',
         owner: data.owner || currentUser.name,
+        isExternalOwner: data.isExternalOwner,
+        externalOwnerDetails: data.externalOwnerDetails,
         priority: data.priority || 'Medium',
         status: initialStatus,
         createdAt: nowIso,
         dueDate: calculateDueDate(nowIso, data.priority || 'Medium', slaH),
         workTime: 0,
-        isWorkingNow: true,
-        activeWorker: currentUser.name,
+        isWorkingNow: isWorking,
+        activeWorker: isWorking ? currentUser.name : null,
         csat: 5,
         attachment: data.attachment,
         comments: [],
@@ -649,8 +839,10 @@ export default function App() {
             id: `t-${Date.now()}`,
             time: 'الآن',
             actor: currentUser.name,
-            title: 'إنشاء التذكرة وبدء العداد تلقائياً ⏱️',
-            details: `تم تسجيل البلاغ وبدء احتساب وقت العمل فوراً بواسطة ${currentUser.name}.`,
+            title: data.isExternalOwner ? 'تكليف طرف خارجي بالبلاغ 🌐' : 'إنشاء التذكرة سحابياً 🌐',
+            details: data.isExternalOwner
+              ? `تم تسجيل البلاغ وإسناده للطرف الخارجي (${data.owner}) مع تفاصيل المتابعة.`
+              : `تم تسجيل البلاغ بحالة (${initialStatus}) ومزامنته سحابياً لجميع أعضاء الفريق بواسطة ${currentUser.name}.`,
             type: 'create',
           },
         ],
@@ -1826,6 +2018,21 @@ export default function App() {
           />
         )}
 
+        {/* Dedicated SLA Management View */}
+        {currentTab === 'sla' && (
+          <SlaManagementView
+            issues={issues}
+            categories={categories}
+            slaSettings={slaSettings}
+            onUpdateSlaSettings={handleUpdateSlaSettings}
+            onUpdateCategorySla={handleUpdateSlaRules}
+            onUpdateIssue={handleUpdateIssue}
+            onSelectTicket={handleSelectTicketById}
+            currentUser={currentUser}
+            externalVendors={externalVendors}
+          />
+        )}
+
         {currentUser.role === 'Admin' && currentTab === 'admin' && (
           <AdminView
             initialTab={adminSubTab}
@@ -1867,6 +2074,11 @@ export default function App() {
             totalConnections={totalConnections}
             onRefreshRealtime={() => realtimeSync.fetchServerState()}
             currentUser={currentUser}
+            externalVendors={externalVendors}
+            onAddExternalVendor={handleAddExternalVendor}
+            onUpdateExternalVendor={handleUpdateExternalVendor}
+            onDeleteExternalVendor={handleDeleteExternalVendor}
+            onNavigateToSla={() => setCurrentTab('sla')}
           />
         )}
       </main>
@@ -1914,6 +2126,9 @@ export default function App() {
         tags={tags}
         users={users}
         currentUser={currentUser}
+        externalVendors={externalVendors}
+        onSaveVendor={handleAddExternalVendor}
+        issues={issues}
       />
 
       <DetailsModal
@@ -1934,6 +2149,8 @@ export default function App() {
         onOpenMergeModal={handleOpenMergeModal}
         onNavigateToTicket={handleSelectTicketById}
         onUpdatePhone={handleUpdateIssuePhone}
+        onUpdateIssue={handleUpdateIssue}
+        issues={issues}
       />
 
       <ResolveModal

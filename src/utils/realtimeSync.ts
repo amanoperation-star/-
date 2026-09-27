@@ -1,4 +1,4 @@
-import { Issue, AppUser, CategoryRule, GeneralSettings, SoundSettings, AuditLog } from '../types';
+import { Issue, AppUser, CategoryRule, GeneralSettings, SoundSettings, AuditLog, ExternalVendor } from '../types';
 
 export type SyncConnectionStatus = 'connected' | 'connecting' | 'disconnected' | 'offline';
 
@@ -19,6 +19,8 @@ export interface RealtimeEventHandlers {
   onPresenceUpdated: (users: ActiveUserPresence[], totalConnections: number) => void;
   onStatusChanged: (status: SyncConnectionStatus) => void;
   onCollisionsUpdated?: (collisions: any) => void;
+  onExternalVendorsUpdated?: (vendors: ExternalVendor[]) => void;
+  onSlaSettingsUpdated?: (slaSettings: any) => void;
 }
 
 class RealtimeSyncManager {
@@ -204,6 +206,20 @@ class RealtimeSyncManager {
         break;
       }
 
+      case 'external_vendors:updated': {
+        if (Array.isArray(data.externalVendors)) {
+          this.handlers?.onExternalVendorsUpdated?.(data.externalVendors);
+        }
+        break;
+      }
+
+      case 'sla_settings:updated': {
+        if (data.slaSettings) {
+          this.handlers?.onSlaSettingsUpdated?.(data.slaSettings);
+        }
+        break;
+      }
+
       default:
         break;
     }
@@ -324,6 +340,7 @@ class RealtimeSyncManager {
     generalSettings: GeneralSettings;
     soundSettings: SoundSettings;
     auditLogs: AuditLog[];
+    externalVendors?: ExternalVendor[];
   }) {
     try {
       await fetch('/api/init-seed', {

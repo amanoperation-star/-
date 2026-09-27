@@ -24,6 +24,27 @@ export interface TimelineEvent {
   type: 'create' | 'status' | 'assign' | 'comment' | 'resolve' | 'timer' | 'sla' | 'merge';
 }
 
+export interface ExternalVendor {
+  id: string;
+  name: string; // اسم المسؤول أو جهة الاتصال
+  company: string; // اسم الشركة أو الجهة الخارجية (مثل: فودافون / AWS / البنك / شركة الصيانة)
+  role: string; // صفة الطرف الخارجي: مورد (Vendor) • مقاول (Contractor) • مزود خدمة (Provider) • شريك (Partner) • ممثل عميل (Client Rep)
+  phone?: string; // هاتف / واتساب للتواصل السريع
+  email?: string; // بريد إلكتروني رسمي
+  notes?: string; // تعليمات التنسيق ومواعيد العمل
+}
+
+export interface ExternalOwnerDetails {
+  name: string; // اسم المسؤول أو الشخص الخارجي
+  company?: string; // اسم الشركة أو الجهة الخارجية (مثل: فودافون / AWS / البنك / شركة الصيانة)
+  role?: string; // صفة الطرف الخارجي: مورد (Vendor) • مقاول (Contractor) • مزود خدمة (Provider) • شريك (Partner) • ممثل عميل (Client Rep)
+  phone?: string; // رقم هاتف / واتساب للمتابعة المباشرة
+  email?: string; // بريد إلكتروني للتواصل
+  externalTicketId?: string; // رقم البلاغ / التذكرة لدى الطرف الخارجي (External Case Ref)
+  notes?: string; // ملاحظات أو تعليمات التنسيق مع الطرف الخارجي
+  vendorId?: string; // معرّف الجهة الخارجية المسجلة بالدليل إن وجد
+}
+
 export interface Issue {
   id: string;
   client: string;
@@ -34,6 +55,8 @@ export interface Issue {
   desc: string;
   assigned: string; // Team
   owner: string; // Assignee name
+  isExternalOwner?: boolean; // هل المسؤول من خارج الشركة (طرف خارجي / مورد / مقاول)
+  externalOwnerDetails?: ExternalOwnerDetails; // تفاصيل المسؤول والجهة الخارجية
   priority: Priority;
   status: IssueStatus;
   createdAt: string; // ISO string with full timestamp
@@ -54,6 +77,11 @@ export interface Issue {
   mergedIntoTicketId?: string; // If this ticket is merged into another
   mergedTicketIds?: string[]; // IDs of tickets that were merged into this one
   clientNotes?: string;
+  slaPaused?: boolean; // هل تم تجميد عداد المهلة (بسبب الطرف الخارجي أو انتظار العميل)
+  slaPausedReason?: string; // سبب تجميد العداد
+  slaPausedAt?: string; // توقيت تجميد العداد
+  slaExtendedHours?: number; // ساعات التمديد الإضافية المعتمدة
+  slaExtensionReason?: string; // سبب التمديد الاستثنائي
 }
 
 export interface AppUser {
@@ -137,6 +165,19 @@ export interface GeneralSettings {
   badgeStyle?: BadgeStyleType;
 }
 
+export interface SlaSettings {
+  businessHoursOnly: boolean; // احتساب ساعات العمل الرسمية فقط أم 24/7
+  workStartHour: number; // ساعة بدء الدوام (مثلاً 9)
+  workEndHour: number; // ساعة نهاية الدوام (مثلاً 17)
+  workDays: number[]; // أيام العمل: 0=الأحد, 1=الإثنين, ..., 4=الخميس
+  pauseOnExternalPending: boolean; // إيقاف العداد تلقائياً عند إسناد التذكرة لطرف خارجي
+  pauseOnCustomerPending: boolean; // إيقاف العداد عند انتظار إفادة العميل
+  warningThresholdMinutes: number; // عتبة الإنذار المبكر قبل الانتهاء (مثلاً 120 دقيقة)
+  autoEscalateOnBreach: boolean; // تصعيد الأولوية تلقائياً عند تجاوز المهلة
+  soundAlertOnRisk: boolean; // تشغيل إنذار صوتي عند اقتراب انتهاء SLA
+  activePreset?: 'enterprise' | 'standard' | 'relaxed' | 'custom';
+}
+
 export interface SystemBackupData {
   version: string;
   exportedAt: string;
@@ -150,6 +191,8 @@ export interface SystemBackupData {
   soundSettings: SoundSettings;
   generalSettings: GeneralSettings;
   auditLogs: AuditLog[];
+  externalVendors?: ExternalVendor[];
+  slaSettings?: SlaSettings;
 }
 
 export interface ScheduledReport {
