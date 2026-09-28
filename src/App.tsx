@@ -470,14 +470,20 @@ export default function App() {
     }
   }, [supabaseConfig.url, supabaseConfig.key]);
 
-  // Supabase Realtime DB Changes Subscription
+  // Supabase Realtime DB Changes Subscription for all tables
   useEffect(() => {
     const client = supabaseRef.current;
     if (!client) return;
 
     const channel = client
-      .channel('issues-db-changes')
+      .channel('supabase-realtime-sync')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'issues' }, () => {
+        handlePullSupabaseNow(true);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'app_users' }, () => {
+        handlePullSupabaseNow(true);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cab_activities' }, () => {
         handlePullSupabaseNow(true);
       })
       .subscribe();
