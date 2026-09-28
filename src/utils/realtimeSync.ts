@@ -65,6 +65,18 @@ class RealtimeSyncManager {
       return;
     }
 
+    // On static production hosts (like GitHub Pages), we bypass local Express WebSockets
+    // and rely purely on Supabase Realtime channels
+    const isLocalHost = 
+      window.location.hostname === 'localhost' || 
+      window.location.hostname === '127.0.0.1' || 
+      window.location.port !== '';
+
+    if (!isLocalHost) {
+      this.setStatus('connected');
+      return;
+    }
+
     this.setStatus('connecting');
 
     try {
