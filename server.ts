@@ -37,6 +37,7 @@ let state: {
   slaSettings: any;
   cabActivities: any[];
   supabaseConfig: any;
+  deletedIssueIds?: string[];
   isSeeded?: boolean;
 } = {
   issues: [],
@@ -51,6 +52,7 @@ let state: {
   slaSettings: null,
   cabActivities: [],
   supabaseConfig: DEFAULT_SUPABASE_CONFIG,
+  deletedIssueIds: [],
   isSeeded: false,
 };
 
@@ -340,14 +342,17 @@ async function syncWithSupabase(force = false) {
     if (issuesRes && issuesRes.ok) {
       const issuesData = await issuesRes.json();
       if (Array.isArray(issuesData)) {
-        if (issuesData.length === 0) {
+        const deletedSet = new Set(state.deletedIssueIds || []);
+        const validRows = issuesData.filter((row: any) => !deletedSet.has(row.id));
+
+        if (validRows.length === 0) {
           if (state.isSeeded || (state.issues && state.issues.length > 0)) {
             state.issues = [];
             state.isSeeded = true;
             changed = true;
           }
         } else {
-          state.issues = issuesData.map((row: any) => {
+          state.issues = validRows.map((row: any) => {
             const existing = (state.issues || []).find((i: any) => i.id === row.id);
             return {
               id: row.id,
@@ -863,6 +868,9 @@ app.delete('/api/issues/:id', (req, res) => {
   const { id } = req.params;
   const { actor } = req.query;
 
+  if (!state.deletedIssueIds) state.deletedIssueIds = [];
+  if (!state.deletedIssueIds.includes(id)) state.deletedIssueIds.push(id);
+
   state.issues = (state.issues || []).filter((i) => i.id !== id);
   state.isSeeded = true;
 
@@ -877,6 +885,7 @@ app.delete('/api/issues/:id', (req, res) => {
 
   saveDatabase();
   deleteIssuesFromSupabase([id]).catch(() => {});
+  pushSystemStoreToSupabase('deleted_issue_ids', state.deletedIssueIds).catch(() => {});
 
   broadcast({
     type: 'ticket:deleted',
@@ -895,6 +904,11 @@ app.delete('/api/issues/bulk', async (req, res) => {
     return;
   }
 
+  if (!state.deletedIssueIds) state.deletedIssueIds = [];
+  issueIds.forEach((id: string) => {
+    if (!state.deletedIssueIds!.includes(id)) state.deletedIssueIds!.push(id);
+  });
+
   const idsSet = new Set(issueIds);
   state.issues = (state.issues || []).filter((i) => !idsSet.has(i.id));
   state.isSeeded = true;
@@ -910,6 +924,7 @@ app.delete('/api/issues/bulk', async (req, res) => {
 
   saveDatabase();
   deleteIssuesFromSupabase(issueIds).catch(() => {});
+  pushSystemStoreToSupabase('deleted_issue_ids', state.deletedIssueIds).catch(() => {});
 
   broadcast({
     type: 'state:synced',
@@ -924,6 +939,12 @@ app.delete('/api/issues/bulk', async (req, res) => {
 app.delete('/api/issues/all', async (req, res) => {
   const { actor } = req.body || {};
   const previousCount = state.issues?.length || 0;
+
+  if (!state.deletedIssueIds) state.deletedIssueIds = [];
+  (state.issues || []).forEach((i: any) => {
+    if (i.id && !state.deletedIssueIds!.includes(i.id)) state.deletedIssueIds!.push(i.id);
+  });
+
   state.issues = [];
   state.isSeeded = true;
 
@@ -937,6 +958,7 @@ app.delete('/api/issues/all', async (req, res) => {
   state.auditLogs = [newLog, ...(state.auditLogs || []).slice(0, 99)];
 
   saveDatabase();
+  pushSystemStoreToSupabase('deleted_issue_ids', state.deletedIssueIds).catch(() => {});
 
   const url = (state.supabaseConfig?.url || DEFAULT_SUPABASE_CONFIG.url || '').replace(/\/+$/, '');
   const key = state.supabaseConfig?.key || DEFAULT_SUPABASE_CONFIG.key;

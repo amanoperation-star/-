@@ -368,7 +368,33 @@ export default function App() {
   ).length;
 
   const isHydratedRef = useRef(false);
-  const deletedIssueIdsRef = useRef<Set<string>>(new Set());
+  const deletedIssueIdsRef = useRef<Set<string>>((() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY + '_DELETED_ISSUE_IDS');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return new Set<string>(parsed);
+      }
+    } catch {}
+    return new Set<string>();
+  })());
+
+  const saveDeletedIssueIds = (idsSet: Set<string>) => {
+    try {
+      const arr = Array.from(idsSet);
+      localStorage.setItem(STORAGE_KEY + '_DELETED_ISSUE_IDS', JSON.stringify(arr));
+      if (supabaseRef.current) {
+        Promise.resolve(
+          supabaseRef.current.from('system_cloud_store').upsert(
+            [{ key: 'deleted_issue_ids', data: arr, updated_at: new Date().toISOString() }],
+            { onConflict: 'key' }
+          )
+        ).catch(() => {});
+      }
+    } catch (e) {
+      console.warn('Error persisting deleted issue IDs:', e);
+    }
+  };
 
   // Save to LocalStorage safely
   useEffect(() => {
@@ -490,6 +516,20 @@ export default function App() {
         ]);
 
         if (!isMounted) return;
+
+        // 0. Extract deleted tombstones from system_cloud_store if present
+        if (sbStoreRes && !sbStoreRes.error && Array.isArray(sbStoreRes.data)) {
+          const tombstonesRow = sbStoreRes.data.find((r: any) => r.key === 'deleted_issue_ids');
+          if (tombstonesRow && Array.isArray(tombstonesRow.data)) {
+            tombstonesRow.data.forEach((id: string) => deletedIssueIdsRef.current.add(id));
+            try {
+              localStorage.setItem(
+                STORAGE_KEY + '_DELETED_ISSUE_IDS',
+                JSON.stringify(Array.from(deletedIssueIdsRef.current))
+              );
+            } catch {}
+          }
+        }
 
         // 1. Issues: prefer live Supabase if available
         if (sbIssuesRes && !sbIssuesRes.error && Array.isArray(sbIssuesRes.data)) {
@@ -786,6 +826,7 @@ export default function App() {
 
         onTicketDeleted: (issueId: string, actor: string) => {
           deletedIssueIdsRef.current.add(issueId);
+          saveDeletedIssueIds(deletedIssueIdsRef.current);
           setIssues((prev) => {
             const next = prev.filter((i) => i.id !== issueId);
             try {
@@ -804,6 +845,7 @@ export default function App() {
 
         onTicketBulkDeleted: (issueIds: string[], actor: string) => {
           issueIds.forEach((id) => deletedIssueIdsRef.current.add(id));
+          saveDeletedIssueIds(deletedIssueIdsRef.current);
           setIssues((prev) => {
             const next = prev.filter((i) => !issueIds.includes(i.id));
             try {
@@ -823,6 +865,7 @@ export default function App() {
         onTicketsCleared: (actor: string) => {
           setIssues((prev) => {
             prev.forEach((i) => deletedIssueIdsRef.current.add(i.id));
+            saveDeletedIssueIds(deletedIssueIdsRef.current);
             return [];
           });
           try {
@@ -1619,6 +1662,7 @@ export default function App() {
   // Bulk Delete Selected Tickets
   const handleBulkDelete = async (issueIds: string[]) => {
     issueIds.forEach((id) => deletedIssueIdsRef.current.add(id));
+    saveDeletedIssueIds(deletedIssueIdsRef.current);
     setIssues((prev) => {
       const next = prev.filter((i) => !issueIds.includes(i.id));
       try {
@@ -1635,6 +1679,7 @@ export default function App() {
   // Delete Single Issue
   const handleDeleteIssue = async (issueId: string) => {
     deletedIssueIdsRef.current.add(issueId);
+    saveDeletedIssueIds(deletedIssueIdsRef.current);
     setIssues((prev) => {
       const next = prev.filter((i) => i.id !== issueId);
       try {
@@ -1652,6 +1697,7 @@ export default function App() {
   const handleClearAllTickets = async () => {
     setIssues((prev) => {
       prev.forEach((i) => deletedIssueIdsRef.current.add(i.id));
+      saveDeletedIssueIds(deletedIssueIdsRef.current);
       return [];
     });
     try {
