@@ -838,7 +838,13 @@ export default function App() {
         },
 
         onTicketDeleted: (issueId: string, actor: string) => {
-          setIssues((prev) => prev.filter((i) => i.id !== issueId));
+          setIssues((prev) => {
+            const next = prev.filter((i) => i.id !== issueId);
+            try {
+              localStorage.setItem(STORAGE_KEY + '_ISSUES', JSON.stringify(next));
+            } catch {}
+            return next;
+          });
           if (detailIssueRef.current?.id === issueId) {
             setShowDetailsModal(false);
             setDetailIssue(null);

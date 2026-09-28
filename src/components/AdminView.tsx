@@ -582,19 +582,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
             {/* Quick Live KPI Badges Bar */}
             <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
-              <button
-                type="button"
-                onClick={() => setAdminTab('analytics')}
-                className={`px-3 py-1 rounded-xl flex items-center gap-1.5 transition cursor-pointer ${
-                  adminTab === 'analytics'
-                    ? 'bg-blue-600 text-white border border-blue-400 font-black shadow-md shadow-blue-500/20'
-                    : 'bg-blue-950/60 hover:bg-blue-900/60 border border-blue-700/60 text-blue-300'
-                }`}
-                title="عرض الرسوم البيانية التفاعلية لتوزيع التذاكر لهذا الشهر"
-              >
-                <BarChart3 className="w-3.5 h-3.5 text-blue-400" />
-                <span>تحليلات ورسوم التوزيع 📊 (Recharts)</span>
-              </button>
               <div className="bg-slate-900/80 border border-slate-700/80 px-3 py-1 rounded-xl flex items-center gap-1.5 text-slate-300">
                 <Users className="w-3.5 h-3.5 text-indigo-400" />
                 <span>المستخدمين: <strong className="text-white font-mono">{users.length}</strong></span>
