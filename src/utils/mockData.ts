@@ -47,6 +47,28 @@ export const INITIAL_USERS: AppUser[] = [
     password: '123',
     permissions: getDefaultPermissionsForRole('Agent'),
   },
+  {
+    id: 'usr-1790256968066',
+    name: 'محمد رمضان',
+    username: 'محمد.رمضان',
+    email: 'محمد.رمضان@support.internal',
+    role: 'Supervisor',
+    department: 'بيب',
+    avatar: 'م',
+    password: '123',
+    permissions: getDefaultPermissionsForRole('Supervisor'),
+  },
+  {
+    id: 'usr-1790553494732',
+    name: 'سسب',
+    username: 'يسي',
+    email: 'jsf@gmail.com',
+    role: 'Agent',
+    department: 'الدعم الفني والعمليات',
+    avatar: 'س',
+    password: '123',
+    permissions: getDefaultPermissionsForRole('Agent'),
+  },
 ];
 
 export const INITIAL_CATEGORIES: CategoryRule[] = [
@@ -134,13 +156,107 @@ export const INITIAL_SOUND_SETTINGS: SoundSettings = {
   volume: 0.8,
 };
 
-const now = new Date();
-const fourHoursAgo = new Date(now.getTime() - 4 * 60 * 60 * 1000).toISOString();
-const twoDaysAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString();
-const thirtyMinsAgo = new Date(now.getTime() - 30 * 60 * 1000).toISOString();
-const oneDayAgo = new Date(now.getTime() - 25 * 60 * 60 * 1000).toISOString();
-
 export const INITIAL_ISSUES: Issue[] = [
+  {
+    id: 'INC-1006',
+    client: 'سيس للخدمات التقنية',
+    clientEmail: 'mohamec@gmail.com',
+    clientPhone: '+966 55 987 6543',
+    tag: 'Database',
+    type: 'تقني / Technical',
+    desc: 'مشكلة في مزامنة البيانات عبر السحابة اللحظية وتحديث سجلات التذاكر',
+    assigned: 'فريق الدعم البرمجي',
+    owner: 'محمد علي',
+    priority: 'High',
+    status: 'Open',
+    createdAt: '2026-09-26T10:00:00.000Z',
+    dueDate: '2026-09-27T10:00:00.000Z',
+    workTime: 0,
+    isWorkingNow: false,
+    activeWorker: null,
+    csat: 5,
+    comments: [
+      {
+        id: 'c-1790359041889',
+        user: 'أحمد العتيبي',
+        text: 'تذكرة مفتوحة ومسجلة في السحابة المركزية، جاهزة للبدء والمتابعة من أي جهاز.',
+        time: 'الآن',
+      },
+    ],
+    timeline: [
+      {
+        id: 't-1790359041889',
+        time: 'الآن',
+        actor: 'محمد علي',
+        title: 'تسجيل التذكرة في السحابة 🌐',
+        details: 'تم فتح التذكرة ومزامنتها سحابياً لجميع أعضاء الفريق.',
+        type: 'create',
+      },
+    ],
+  },
+  {
+    id: 'INC-1005',
+    client: 'يبي',
+    clientEmail: 'mo@gmail',
+    clientPhone: 'بيب',
+    tag: 'Database',
+    type: 'تقني / Technical',
+    desc: 'ss',
+    assigned: 'فريق الدعم البرمجي',
+    owner: 'محمد علي',
+    priority: 'Low',
+    status: 'Resolved',
+    createdAt: '2026-09-22T22:07:26.254Z',
+    dueDate: '2026-09-24T22:07:26.254Z',
+    workTime: 76,
+    isWorkingNow: false,
+    activeWorker: null,
+    csat: 5,
+    comments: [
+      {
+        id: 'c-1790115235006',
+        user: 'أحمد العتيبي',
+        text: '🔒 تم حل وإغلاق التذكرة. الإجراء المعتمد: تمت المعالجة الفنية وإعادة الخدمة للعمل بكفاءة 100%.',
+        time: 'الآن',
+      },
+    ],
+    timeline: [
+      {
+        id: 't-1790115235006',
+        time: 'الآن',
+        actor: 'أحمد العتيبي',
+        title: 'حل وإغلاق البلاغ 🟢',
+        details: 'تم حل المشكلة واعتماد الإجراء: تمت المعالجة الفنية وإعادة الخدمة للعمل بكفاءة 100%.',
+        type: 'resolve',
+      },
+      {
+        id: 't-1790114945838',
+        time: 'الآن',
+        actor: 'أحمد العتيبي',
+        title: 'إيقاف مؤقت للعداد',
+        details: 'تم إيقاف مؤقت العمل عند 76 ثانية.',
+        type: 'timer',
+      },
+      {
+        id: 't-1790114868310',
+        time: 'الآن',
+        actor: 'أحمد العتيبي',
+        title: 'بدء جلسة العمل',
+        details: 'بدأ الموظف أحمد العتيبي العمل على التذكرة وتشغيل المؤقت.',
+        type: 'timer',
+      },
+      {
+        id: 't-1790114846254',
+        time: 'الآن',
+        actor: 'أحمد العتيبي',
+        title: 'إنشاء التذكرة',
+        details: 'تم تسجيل البلاغ وإسناده إلى محمد علي بحالة Open.',
+        type: 'create',
+      },
+    ],
+    resolutionReason: 'تمت المعالجة الفنية وإعادة الخدمة للعمل بكفاءة 100%.',
+    resolvedAt: '2026-09-22T22:13:55.006Z',
+  },
   {
     id: 'INC-1001',
     client: 'شركة الأمل الدولية للتقنية',
@@ -152,9 +268,9 @@ export const INITIAL_ISSUES: Issue[] = [
     assigned: 'فريق الدعم البرمجي',
     owner: 'محمد علي',
     priority: 'Critical',
-    status: 'In Progress',
-    createdAt: fourHoursAgo,
-    dueDate: calculateDueDate(fourHoursAgo, 'Critical', 3), // Already breached (4h > 3h)
+    status: 'Resolved',
+    createdAt: '2026-09-22T17:44:33.422Z',
+    dueDate: '2026-09-22T20:44:33.422Z',
     workTime: 3840,
     isWorkingNow: false,
     activeWorker: null,
@@ -166,8 +282,38 @@ export const INITIAL_ISSUES: Issue[] = [
         text: 'تم فحص سجلات Nginx وتبيّن وجود ضغط مفاجئ على microservice السداد. جاري إعادة تشغيل الحاوية وتوسيع الذاكرة.',
         time: 'منذ ساعتين',
       },
+      {
+        id: 'c-1790115238941',
+        user: 'أحمد العتيبي',
+        text: '🔒 تم حل وإغلاق التذكرة. الإجراء المعتمد: تم تحويل الطلب للفريق الهندسي المختص وتحديث الصلاحيات بنجاح.',
+        time: 'الآن',
+      },
     ],
     timeline: [
+      {
+        id: 't-1790115238941',
+        time: 'الآن',
+        actor: 'أحمد العتيبي',
+        title: 'حل وإغلاق البلاغ 🟢',
+        details: 'تم حل المشكلة واعتماد الإجراء: تم تحويل الطلب للفريق الهندسي المختص وتحديث الصلاحيات بنجاح.',
+        type: 'resolve',
+      },
+      {
+        id: 't-1790114476717',
+        time: 'الآن',
+        actor: 'أحمد العتيبي',
+        title: 'إيقاف مؤقت للعداد',
+        details: 'تم إيقاف مؤقت العمل عند 3841 ثانية.',
+        type: 'timer',
+      },
+      {
+        id: 't-1790114475107',
+        time: 'الآن',
+        actor: 'أحمد العتيبي',
+        title: 'بدء جلسة العمل',
+        details: 'بدأ الموظف أحمد العتيبي العمل على التذكرة وتشغيل المؤقت.',
+        type: 'timer',
+      },
       {
         id: 't-1',
         time: 'منذ 4 ساعات',
@@ -176,23 +322,9 @@ export const INITIAL_ISSUES: Issue[] = [
         details: 'تم استلام البلاغ برقم INC-1001 وتعيينه تلقائياً لمحمد علي بالأولوية الحرج.',
         type: 'create',
       },
-      {
-        id: 't-2',
-        time: 'منذ 3 ساعات',
-        actor: 'محمد علي',
-        title: 'تغيير الحالة إلى قيد العمل',
-        details: 'تم بدء التحقيق البرمجي في بوابة الدفع.',
-        type: 'status',
-      },
-      {
-        id: 't-3',
-        time: 'منذ ساعة',
-        actor: 'النظام الذكي (SLA Watcher)',
-        title: 'تجاوز اتفاقية مستوى الخدمة SLA ⚠️',
-        details: 'تجاوزت التذكرة حد 3 ساعات المسموح به للأولوية الحرجة دون إغلاق نهائي.',
-        type: 'sla',
-      },
     ],
+    resolutionReason: 'تم تحويل الطلب للفريق الهندسي المختص وتحديث الصلاحيات بنجاح.',
+    resolvedAt: '2026-09-22T22:13:58.941Z',
   },
   {
     id: 'INC-1002',
@@ -205,9 +337,9 @@ export const INITIAL_ISSUES: Issue[] = [
     assigned: 'فريق الشبكات والسيرفرات',
     owner: 'عمر اليافعي',
     priority: 'High',
-    status: 'Open',
-    createdAt: thirtyMinsAgo,
-    dueDate: calculateDueDate(thirtyMinsAgo, 'High', 6),
+    status: 'Resolved',
+    createdAt: '2026-09-22T21:14:33.422Z',
+    dueDate: '2026-09-23T03:14:33.422Z',
     workTime: 1200,
     isWorkingNow: false,
     activeWorker: null,
@@ -219,8 +351,22 @@ export const INITIAL_ISSUES: Issue[] = [
         text: 'تم ملاحظة CPU spike بنسبة 94% بسبب استعلام إحصائي غير مفهرس على جدول المواعيد.',
         time: 'منذ 15 دقيقة',
       },
+      {
+        id: 'c-1790115253740',
+        user: 'أحمد العتيبي',
+        text: '🔒 تم حل وإغلاق التذكرة. الإجراء المعتمد: تم تحويل الطلب للفريق الهندسي المختص وتحديث الصلاحيات بنجاح.',
+        time: 'الآن',
+      },
     ],
     timeline: [
+      {
+        id: 't-1790115253740',
+        time: 'الآن',
+        actor: 'أحمد العتيبي',
+        title: 'حل وإغلاق البلاغ 🟢',
+        details: 'تم حل المشكلة واعتماد الإجراء: تم تحويل الطلب للفريق الهندسي المختص وتحديث الصلاحيات بنجاح.',
+        type: 'resolve',
+      },
       {
         id: 't-4',
         time: 'منذ 30 دقيقة',
@@ -230,6 +376,8 @@ export const INITIAL_ISSUES: Issue[] = [
         type: 'create',
       },
     ],
+    resolutionReason: 'تم تحويل الطلب للفريق الهندسي المختص وتحديث الصلاحيات بنجاح.',
+    resolvedAt: '2026-09-22T22:14:13.740Z',
   },
   {
     id: 'INC-1003',
@@ -242,11 +390,11 @@ export const INITIAL_ISSUES: Issue[] = [
     owner: 'أحمد العتيبي',
     priority: 'Medium',
     status: 'Resolved',
-    createdAt: twoDaysAgo,
-    dueDate: calculateDueDate(twoDaysAgo, 'Medium', 24),
+    createdAt: '2026-09-20T21:44:33.422Z',
+    dueDate: '2026-09-21T21:44:33.422Z',
     workTime: 5400,
     resolutionReason: 'تم إصدار الفاتورة المحدثة وتفعيل التراخيص الإضافية للعميل مع اعتماد الخصم السنوي.',
-    resolvedAt: oneDayAgo,
+    resolvedAt: '2026-09-21T20:44:33.422Z',
     csat: 5,
     comments: [
       {
@@ -291,9 +439,9 @@ export const INITIAL_ISSUES: Issue[] = [
     assigned: 'فريق تجربة العميل',
     owner: 'سارة خالد',
     priority: 'High',
-    status: 'Pending',
-    createdAt: oneDayAgo,
-    dueDate: calculateDueDate(oneDayAgo, 'High', 10), // Overdue!
+    status: 'Resolved',
+    createdAt: '2026-09-21T20:44:33.422Z',
+    dueDate: '2026-09-22T06:44:33.422Z',
     workTime: 2300,
     csat: 3,
     comments: [
@@ -303,8 +451,22 @@ export const INITIAL_ISSUES: Issue[] = [
         text: 'تم فتح تذكرة مع مزود بوابة الـ SMS وبانتظار رد المهندس المسؤول حول حظر بعض النطاقات.',
         time: 'منذ 18 ساعة',
       },
+      {
+        id: 'c-1790115259379',
+        user: 'أحمد العتيبي',
+        text: '🔒 تم حل وإغلاق التذكرة. الإجراء المعتمد: المشكلة ناتجة عن خطأ في مدخلات المستخدم، تم تصحيح البيانات والتواصل معه.',
+        time: 'الآن',
+      },
     ],
     timeline: [
+      {
+        id: 't-1790115259379',
+        time: 'الآن',
+        actor: 'أحمد العتيبي',
+        title: 'حل وإغلاق البلاغ 🟢',
+        details: 'تم حل المشكلة واعتماد الإجراء: المشكلة ناتجة عن خطأ في مدخلات المستخدم، تم تصحيح البيانات والتواصل معه.',
+        type: 'resolve',
+      },
       {
         id: 't-7',
         time: 'منذ 25 ساعة',
@@ -330,6 +492,10 @@ export const INITIAL_ISSUES: Issue[] = [
         type: 'sla',
       },
     ],
+    resolutionReason: 'المشكلة ناتجة عن خطأ في مدخلات المستخدم، تم تصحيح البيانات والتواصل معه.',
+    resolvedAt: '2026-09-22T22:14:19.379Z',
+    isWorkingNow: false,
+    activeWorker: null,
   },
 ];
 

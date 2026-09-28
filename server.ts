@@ -153,6 +153,199 @@ const saveDatabase = () => {
 
 loadDatabase();
 
+let lastSupabaseSync = 0;
+async function syncWithSupabase(force = false) {
+  const now = Date.now();
+  if (!force && now - lastSupabaseSync < 3000) {
+    return;
+  }
+  const url = (state.supabaseConfig?.url || DEFAULT_SUPABASE_CONFIG.url || '').replace(/\/+$/, '');
+  const key = state.supabaseConfig?.key || DEFAULT_SUPABASE_CONFIG.key;
+  if (!url || !key || !url.startsWith('https://')) return;
+
+  const headers = { apikey: key, Authorization: `Bearer ${key}` };
+
+  try {
+    const [issuesRes, usersRes, cabRes, storeRes] = await Promise.all([
+      fetch(`${url}/rest/v1/issues?select=*`, { headers }).catch(() => null),
+      fetch(`${url}/rest/v1/app_users?select=*`, { headers }).catch(() => null),
+      fetch(`${url}/rest/v1/cab_activities?select=*`, { headers }).catch(() => null),
+      fetch(`${url}/rest/v1/system_cloud_store?select=*`, { headers }).catch(() => null),
+    ]);
+
+    let changed = false;
+
+    if (issuesRes && issuesRes.ok) {
+      const issuesData = await issuesRes.json();
+      if (Array.isArray(issuesData) && issuesData.length > 0) {
+        state.issues = issuesData.map((row: any) => {
+          const existing = (state.issues || []).find((i: any) => i.id === row.id);
+          return {
+            id: row.id,
+            client: row.client || existing?.client || 'عميل',
+            clientEmail: row.client_email || existing?.clientEmail || undefined,
+            clientPhone: row.client_phone || existing?.clientPhone || undefined,
+            tag: row.tag || existing?.tag || 'VIP Client',
+            type: row.type || existing?.type || 'تقني / Technical',
+            desc: row.desc_text || existing?.desc || '',
+            assigned: row.assigned || existing?.assigned || 'فريق الدعم',
+            owner: row.owner || existing?.owner || 'محمد علي',
+            priority: row.priority || existing?.priority || 'Medium',
+            status: row.status || existing?.status || 'Open',
+            workTime: row.worktime ?? existing?.workTime ?? 0,
+            csat: row.csat ?? existing?.csat ?? 5,
+            createdAt: row.created_at || existing?.createdAt || new Date().toISOString(),
+            dueDate: row.due_date || existing?.dueDate || new Date().toISOString(),
+            timeline: Array.isArray(row.timeline) && row.timeline.length > 0 ? row.timeline : (existing?.timeline || []),
+            comments: Array.isArray(row.comments) && row.comments.length > 0 ? row.comments : (existing?.comments || []),
+            resolutionReason: existing?.resolutionReason || undefined,
+            resolvedAt: existing?.resolvedAt || undefined,
+            attachment: row.attachment || existing?.attachment || undefined,
+          };
+        });
+        changed = true;
+      }
+    }
+
+    if (usersRes && usersRes.ok) {
+      const usersData = await usersRes.json();
+      if (Array.isArray(usersData) && usersData.length > 0) {
+        state.users = usersData.map((row: any) => ({
+          id: row.id,
+          name: row.name,
+          username: row.username,
+          email: row.email,
+          role: row.role,
+          department: row.department,
+          avatar: row.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces',
+          permissions: Array.isArray(row.permissions) ? row.permissions : [],
+          password: row.password || '123456',
+        }));
+        changed = true;
+      }
+    }
+
+    if (cabRes && cabRes.ok) {
+      const cabData = await cabRes.json();
+      if (Array.isArray(cabData) && cabData.length > 0) {
+        state.cabActivities = cabData.map((row: any) => ({
+          id: row.id,
+          activityName: row.activity_name || row.activityName || 'نشاط صيانة',
+          scope: row.scope,
+          impactedServices: row.impacted_services || row.impactedServices,
+          serviceImpact: row.service_impact || row.serviceImpact,
+          stopServiceTargetSystem: row.stop_service_target_system || row.stopServiceTargetSystem,
+          stoppedSystemName: row.stopped_system_name || row.stoppedSystemName,
+          downtimeRequired: row.downtime_required || row.downtimeRequired || 'No',
+          date: row.date,
+          startTime: row.start_time || row.startTime,
+          endTime: row.end_time || row.endTime,
+          maintenanceWindow: row.maintenance_window || row.maintenanceWindow,
+          requestor: row.requestor,
+          tpm: row.tpm,
+          changeManagement: row.change_management || row.changeManagement,
+          status: row.status || 'Pending Approval',
+          riskLevel: row.risk_level || row.riskLevel || 'Low',
+          rollbackPlan: row.rollback_plan || row.rollbackPlan,
+          rollbackReason: row.rollback_reason || row.rollbackReason,
+          comments: row.comments || [],
+          auditTrail: row.audit_trail || row.auditTrail || [],
+          createdAt: row.created_at || row.createdAt || new Date().toISOString(),
+        }));
+        changed = true;
+      }
+    }
+
+    if (storeRes && storeRes.ok) {
+      const storeData = await storeRes.json();
+      if (Array.isArray(storeData)) {
+        for (const item of storeData) {
+          if (item.key === 'categories' && Array.isArray(item.data)) {
+            state.categories = item.data;
+            changed = true;
+          } else if (item.key === 'tags' && Array.isArray(item.data)) {
+            state.tags = item.data;
+            changed = true;
+          } else if (item.key === 'canned_responses' && Array.isArray(item.data)) {
+            state.cannedResponses = item.data;
+            changed = true;
+          } else if (item.key === 'general_settings' && item.data) {
+            state.generalSettings = item.data;
+            changed = true;
+          } else if (item.key === 'sound_settings' && item.data) {
+            state.soundSettings = item.data;
+            changed = true;
+          } else if (item.key === 'external_vendors' && Array.isArray(item.data)) {
+            state.externalVendors = item.data;
+            changed = true;
+          } else if (item.key === 'sla_settings' && item.data) {
+            state.slaSettings = item.data;
+            changed = true;
+          } else if (item.key === 'audit_logs' && Array.isArray(item.data)) {
+            state.auditLogs = item.data;
+            changed = true;
+          }
+        }
+      }
+    }
+
+    lastSupabaseSync = Date.now();
+    if (changed) {
+      saveDatabase();
+      console.log(`[Supabase-Sync] Synced with Supabase: ${state.issues.length} issues, ${state.users.length} users, ${state.cabActivities.length} CAB`);
+    }
+  } catch (e) {
+    console.warn('[Supabase-Sync] Could not sync with Supabase:', e);
+  }
+}
+
+async function pushIssueToSupabase(issue: any) {
+  const url = (state.supabaseConfig?.url || DEFAULT_SUPABASE_CONFIG.url || '').replace(/\/+$/, '');
+  const key = state.supabaseConfig?.key || DEFAULT_SUPABASE_CONFIG.key;
+  if (!url || !key || !url.startsWith('https://')) return;
+
+  const headers = {
+    apikey: key,
+    Authorization: `Bearer ${key}`,
+    'Content-Type': 'application/json',
+    Prefer: 'resolution=merge-duplicates',
+  };
+
+  const payload = {
+    id: issue.id,
+    client: issue.client || 'عميل',
+    client_email: issue.clientEmail || null,
+    client_phone: issue.clientPhone || null,
+    tag: issue.tag || 'General',
+    type: issue.type || 'تقني / Technical',
+    desc_text: issue.desc || '',
+    assigned: issue.assigned || 'فريق الدعم',
+    owner: issue.owner || 'محمد علي',
+    priority: issue.priority || 'Medium',
+    status: issue.status || 'Open',
+    worktime: issue.workTime || 0,
+    csat: issue.csat || 5,
+    created_at: issue.createdAt || new Date().toISOString(),
+    due_date: issue.dueDate || new Date().toISOString(),
+    timeline: issue.timeline || [],
+    comments: issue.comments || [],
+    attachment: issue.attachment || null,
+  };
+
+  try {
+    await fetch(`${url}/rest/v1/issues`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify([payload]),
+    });
+  } catch (err) {
+    console.warn('[Supabase-Push] Failed to push issue to Supabase:', err);
+  }
+}
+
+// Initial sync with Supabase
+syncWithSupabase(true).catch(() => {});
+
 // Express app setup
 const app = express();
 app.use(express.json({ limit: '20mb' }));
@@ -255,10 +448,10 @@ app.get('/api/health', (_req, res) => {
 });
 
 // API: Get complete state
-app.get('/api/state', (req, res) => {
-  if (req.query.fresh === '1' || !state.issues || state.issues.length === 0) {
-    loadDatabase();
-  }
+app.get('/api/state', async (req, res) => {
+  try {
+    await syncWithSupabase(req.query.fresh === '1' || !state.issues || state.issues.length === 0);
+  } catch {}
   res.json({
     status: 'ok',
     state,
@@ -348,6 +541,7 @@ app.post('/api/issues', (req, res) => {
   state.auditLogs = [newLog, ...(state.auditLogs || []).slice(0, 99)];
 
   saveDatabase();
+  pushIssueToSupabase(issue).catch(() => {});
 
   // Instant Realtime Broadcast to ALL team members across all regions!
   broadcast({
@@ -398,6 +592,7 @@ app.put('/api/issues/:id', (req, res) => {
   }
 
   saveDatabase();
+  pushIssueToSupabase(issue).catch(() => {});
 
   // Broadcast to all connected clients
   broadcast({
@@ -475,6 +670,15 @@ app.delete('/api/issues/:id', (req, res) => {
   state.auditLogs = [newLog, ...(state.auditLogs || []).slice(0, 99)];
 
   saveDatabase();
+
+  const sbUrl = (state.supabaseConfig?.url || DEFAULT_SUPABASE_CONFIG.url || '').replace(/\/+$/, '');
+  const sbKey = state.supabaseConfig?.key || DEFAULT_SUPABASE_CONFIG.key;
+  if (sbUrl && sbKey && sbUrl.startsWith('https://')) {
+    fetch(`${sbUrl}/rest/v1/issues?id=eq.${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}` }
+    }).catch(() => {});
+  }
 
   broadcast({
     type: 'ticket:deleted',
@@ -945,6 +1149,12 @@ setInterval(() => {
 
 // Setup frontend serving (Vite in development, static in production)
 async function startServer() {
+  try {
+    await syncWithSupabase(true);
+  } catch (err) {
+    console.warn('[Startup] Supabase initial sync warning:', err);
+  }
+
   const isProduction = process.env.NODE_ENV === 'production';
 
   if (!isProduction) {

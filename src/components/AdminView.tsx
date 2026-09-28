@@ -52,6 +52,7 @@ import {
   ArrowLeft,
   Calendar,
   Paperclip,
+  BarChart3,
 } from 'lucide-react';
 import { AppUser, CategoryRule, SoundSettings, SupabaseConfig, AuditLog, Issue, Priority, GeneralSettings, SystemBackupData, ExternalVendor, CabBusinessActivity } from '../types';
 import { SyncConnectionStatus, ActiveUserPresence } from '../utils/realtimeSync';
@@ -62,6 +63,8 @@ import { GeneralSettingsTab } from './GeneralSettingsTab';
 import { BackupRestoreTab } from './BackupRestoreTab';
 import { ScheduledReportsView } from './ScheduledReportsView';
 import { AttachmentCenterTab } from './AttachmentCenterTab';
+import { AdminAnalyticsDashboard } from './AdminAnalyticsDashboard';
+import { CloudSyncImportModal } from './CloudSyncImportModal';
 
 interface AdminViewProps {
   users: AppUser[];
@@ -89,6 +92,7 @@ interface AdminViewProps {
   onSaveSupabaseConfig: (url: string, key: string) => void;
   onSyncSupabaseNow: () => void;
   onPullSupabaseNow?: () => void;
+  onImportCloudData?: (data: any) => void;
   onTestSupabaseConnection?: (url: string, key: string) => Promise<{ success: boolean; message: string }>;
   auditLogs: AuditLog[];
   onClearAuditLogs: () => void;
@@ -97,7 +101,7 @@ interface AdminViewProps {
   onUpdateGeneralSettings?: (settings: GeneralSettings) => void;
   onRestoreBackup?: (backup: SystemBackupData, mode: 'overwrite' | 'merge') => void;
   onResetSystemToDefault?: () => void;
-  initialTab?: 'general' | 'backup' | 'users' | 'tags' | 'audio' | 'reports' | 'categories' | 'canned' | 'supabase' | 'csat' | 'audit' | 'vendors' | 'sla_page' | 'attachments';
+  initialTab?: 'general' | 'backup' | 'users' | 'tags' | 'audio' | 'reports' | 'categories' | 'canned' | 'supabase' | 'csat' | 'audit' | 'vendors' | 'sla_page' | 'attachments' | 'analytics';
   realtimeStatus?: SyncConnectionStatus;
   onlineUsers?: ActiveUserPresence[];
   totalConnections?: number;
@@ -157,10 +161,13 @@ export const AdminView: React.FC<AdminViewProps> = ({
   onDeleteExternalVendor,
   onNavigateToSla,
   cabActivities = [],
+  onImportCloudData,
 }) => {
-  const [adminTab, setAdminTab] = useState<'general' | 'backup' | 'users' | 'tags' | 'audio' | 'reports' | 'categories' | 'canned' | 'supabase' | 'csat' | 'audit' | 'vendors' | 'sla_page' | 'attachments'>(
+  const [adminTab, setAdminTab] = useState<'general' | 'backup' | 'users' | 'tags' | 'audio' | 'reports' | 'categories' | 'canned' | 'supabase' | 'csat' | 'audit' | 'vendors' | 'sla_page' | 'attachments' | 'analytics'>(
     initialTab || 'general'
   );
+
+  const [isCloudImportModalOpen, setIsCloudImportModalOpen] = useState(false);
 
   React.useEffect(() => {
     if (initialTab) {
@@ -492,6 +499,14 @@ export const AdminView: React.FC<AdminViewProps> = ({
       icon: FileSpreadsheet,
       items: [
         {
+          id: 'analytics',
+          label: 'تحليلات ورسوم التوزيع 📊 (Recharts)',
+          desc: 'رسوم بيانية تفاعلية لتوزيع التذاكر حسب الأقسام والأولويات لهذا الشهر',
+          icon: BarChart3,
+          badge: 'Recharts 📊',
+          badgeColor: 'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300',
+        },
+        {
           id: 'reports',
           label: 'التقارير المتقدمة والتصدير',
           desc: 'تصدير التذاكر إلى ملفات CSV وإحصائيات',
@@ -567,6 +582,19 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
             {/* Quick Live KPI Badges Bar */}
             <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
+              <button
+                type="button"
+                onClick={() => setAdminTab('analytics')}
+                className={`px-3 py-1 rounded-xl flex items-center gap-1.5 transition cursor-pointer ${
+                  adminTab === 'analytics'
+                    ? 'bg-blue-600 text-white border border-blue-400 font-black shadow-md shadow-blue-500/20'
+                    : 'bg-blue-950/60 hover:bg-blue-900/60 border border-blue-700/60 text-blue-300'
+                }`}
+                title="عرض الرسوم البيانية التفاعلية لتوزيع التذاكر لهذا الشهر"
+              >
+                <BarChart3 className="w-3.5 h-3.5 text-blue-400" />
+                <span>تحليلات ورسوم التوزيع 📊 (Recharts)</span>
+              </button>
               <div className="bg-slate-900/80 border border-slate-700/80 px-3 py-1 rounded-xl flex items-center gap-1.5 text-slate-300">
                 <Users className="w-3.5 h-3.5 text-indigo-400" />
                 <span>المستخدمين: <strong className="text-white font-mono">{users.length}</strong></span>
@@ -855,6 +883,14 @@ export const AdminView: React.FC<AdminViewProps> = ({
         <GeneralSettingsTab
           generalSettings={generalSettings}
           onUpdateGeneralSettings={onUpdateGeneralSettings}
+        />
+      )}
+
+      {/* 0. ANALYTICS & DISTRIBUTION DASHBOARD (RECHARTS) */}
+      {adminTab === 'analytics' && (
+        <AdminAnalyticsDashboard
+          issues={issues}
+          categories={categories}
         />
       )}
 
@@ -1954,6 +1990,35 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 </div>
               </div>
 
+              {/* Direct Cloud Import & Explorer Highlight Banner */}
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-sky-50 via-indigo-50 to-blue-50 dark:from-slate-900 dark:via-indigo-950/60 dark:to-slate-900 border border-sky-300 dark:border-sky-800/80 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-sky-600 to-blue-600 text-white flex items-center justify-center shadow-md shadow-sky-600/30 shrink-0">
+                    <Cloud className="w-6 h-6 animate-pulse" />
+                  </div>
+                  <div>
+                    <h5 className="font-black text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                      <span>استعراض واسترجاع كافة بيانات السحابة (Cloud Data Explorer)</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
+                        مباشر ⚡
+                      </span>
+                    </h5>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 font-medium leading-relaxed">
+                      اضغط هنا لفتح نافذة فحص واسترجاع كل ما هو مسجل في السحابة (التذاكر، المستخدمين، أنشطة CAB، الإعدادات) وتطبيقها فوراً لجهازك.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsCloudImportModalOpen(true)}
+                  className="px-5 py-2.5 bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white rounded-xl text-xs font-black transition flex items-center gap-2 shadow-lg shadow-sky-600/30 cursor-pointer shrink-0"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>استيراد واسترجاع الكل من السحابة ⬇️</span>
+                </button>
+              </div>
+
               {/* Action Buttons */}
               <div className="flex flex-wrap items-center gap-2.5 pt-2">
                 <button
@@ -2037,17 +2102,15 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   <span>رفع ومزامنة الكل سحابياً ⬆️</span>
                 </button>
 
-                {onPullSupabaseNow && (
-                  <button
-                    type="button"
-                    onClick={onPullSupabaseNow}
-                    className="px-4 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-bold transition shadow-sm flex items-center gap-1.5 cursor-pointer text-xs"
-                    title="استيراد وسحب جميع التذاكر والمستخدمين والإعدادات من السحابة"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>استيراد واسترجاع الكل من السحابة ⬇️</span>
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setIsCloudImportModalOpen(true)}
+                  className="px-4 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-bold transition shadow-sm flex items-center gap-1.5 cursor-pointer text-xs"
+                  title="استيراد وسحب واستعراض جميع التذاكر والمستخدمين والإعدادات من السحابة"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>استيراد واسترجاع الكل من السحابة ⬇️</span>
+                </button>
 
                 <button
                   type="button"
@@ -2815,6 +2878,24 @@ create policy "Allow all on system_cloud_store" on system_cloud_store for all us
           </div>
         </div>
       )}
+
+      {/* Cloud Sync & Import Explorer Modal */}
+      <CloudSyncImportModal
+        isOpen={isCloudImportModalOpen}
+        onClose={() => setIsCloudImportModalOpen(false)}
+        supabaseConfig={supabaseConfig}
+        currentStats={{
+          issuesCount: issues.length,
+          usersCount: users.length,
+          cabCount: cabActivities?.length || 0,
+          categoriesCount: categories.length,
+        }}
+        onImportComplete={(imported) => {
+          if (onImportCloudData) {
+            onImportCloudData(imported);
+          }
+        }}
+      />
     </div>
   );
 };
