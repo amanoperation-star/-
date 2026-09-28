@@ -15,6 +15,8 @@ export interface RealtimeEventHandlers {
   onTicketUpdated: (issue: Issue, actor: string, changeType?: string, details?: string) => void;
   onTicketCommentAdded: (issueId: string, comment: any, actor: string) => void;
   onTicketDeleted: (issueId: string, actor: string) => void;
+  onTicketBulkDeleted?: (issueIds: string[], actor: string) => void;
+  onTicketsCleared?: (actor: string) => void;
   onCabCreated?: (activity: CabBusinessActivity, author: string) => void;
   onCabUpdated?: (activity: CabBusinessActivity, author: string, details?: string) => void;
   onCabDeleted?: (activityId: string, author: string) => void;
@@ -201,6 +203,18 @@ class RealtimeSyncManager {
         break;
       }
 
+      case 'ticket:bulk_deleted': {
+        if (Array.isArray(data.issueIds)) {
+          this.handlers?.onTicketBulkDeleted?.(data.issueIds, data.actor || 'مدير النظام');
+        }
+        break;
+      }
+
+      case 'ticket:cleared': {
+        this.handlers?.onTicketsCleared?.(data.actor || 'مدير النظام');
+        break;
+      }
+
       case 'state:synced': {
         if (data.state) {
           this.handlers?.onStateSynced(data.state);
@@ -351,12 +365,64 @@ class RealtimeSyncManager {
 
   // 4. Broadcast ticket delete
   public async broadcastTicketDelete(issueId: string, actor: string) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(
+        JSON.stringify({
+          type: 'ticket:delete',
+          issueId,
+          actor,
+        })
+      );
+    }
     try {
       await fetch(`/api/issues/${issueId}?actor=${encodeURIComponent(actor)}`, {
         method: 'DELETE',
       });
     } catch (err) {
       console.warn('[RealtimeSync] REST delete error:', err);
+    }
+  }
+
+  // 4a1. Broadcast bulk tickets delete
+  public async broadcastBulkTicketDelete(issueIds: string[], actor: string) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(
+        JSON.stringify({
+          type: 'ticket:bulk_delete',
+          issueIds,
+          actor,
+        })
+      );
+    }
+    try {
+      await fetch('/api/issues/bulk', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ issueIds, actor }),
+      });
+    } catch (err) {
+      console.warn('[RealtimeSync] REST bulk delete error:', err);
+    }
+  }
+
+  // 4a2. Broadcast wipe all tickets
+  public async broadcastClearAllTickets(actor: string) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(
+        JSON.stringify({
+          type: 'ticket:clear_all',
+          actor,
+        })
+      );
+    }
+    try {
+      await fetch('/api/issues/all', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ actor }),
+      });
+    } catch (err) {
+      console.warn('[RealtimeSync] REST clear all error:', err);
     }
   }
 

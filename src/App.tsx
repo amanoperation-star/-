@@ -785,6 +785,7 @@ export default function App() {
         },
 
         onTicketDeleted: (issueId: string, actor: string) => {
+          deletedIssueIdsRef.current.add(issueId);
           setIssues((prev) => {
             const next = prev.filter((i) => i.id !== issueId);
             try {
@@ -798,6 +799,39 @@ export default function App() {
           }
           if (actor !== currentUserRef.current.name) {
             addNotification('حذف تذكرة 🗑️', `قام ${actor} بحذف التذكرة ${issueId}`, undefined, 'warning');
+          }
+        },
+
+        onTicketBulkDeleted: (issueIds: string[], actor: string) => {
+          issueIds.forEach((id) => deletedIssueIdsRef.current.add(id));
+          setIssues((prev) => {
+            const next = prev.filter((i) => !issueIds.includes(i.id));
+            try {
+              localStorage.setItem(STORAGE_KEY + '_ISSUES', JSON.stringify(next));
+            } catch {}
+            return next;
+          });
+          if (detailIssueRef.current && issueIds.includes(detailIssueRef.current.id)) {
+            setShowDetailsModal(false);
+            setDetailIssue(null);
+          }
+          if (actor !== currentUserRef.current.name) {
+            addNotification('حذف جماعي 🗑️', `قام ${actor} بحذف ${issueIds.length} تذكرة`, undefined, 'warning');
+          }
+        },
+
+        onTicketsCleared: (actor: string) => {
+          setIssues((prev) => {
+            prev.forEach((i) => deletedIssueIdsRef.current.add(i.id));
+            return [];
+          });
+          try {
+            localStorage.setItem(STORAGE_KEY + '_ISSUES', '[]');
+          } catch {}
+          setShowDetailsModal(false);
+          setDetailIssue(null);
+          if (actor !== currentUserRef.current.name) {
+            addNotification('تفريغ التذاكر 🗑️', `قام ${actor} بتفريغ كافة التذاكر من المنظومة`, undefined, 'warning');
           }
         },
 
@@ -1594,7 +1628,7 @@ export default function App() {
     });
 
     await deleteBulkIssuesFromSupabase(issueIds);
-    issueIds.forEach((id) => realtimeSync.broadcastTicketDelete(id, currentUser.name));
+    realtimeSync.broadcastBulkTicketDelete(issueIds, currentUser.name);
     addAuditLog('حذف جماعي', `تم حذف ${issueIds.length} تذكرة نهائياً.`);
   };
 
@@ -1626,7 +1660,7 @@ export default function App() {
 
     try {
       const client = getSupabaseClient();
-      const { error } = await client.from('issues').delete().neq('id', '0');
+      const { error } = await client.from('issues').delete().neq('id', 'dummy_clean_id_999');
       if (error) {
         console.error('[Supabase Wipe All Error]:', error);
       }
@@ -1634,6 +1668,7 @@ export default function App() {
       console.error('[Supabase Wipe All Exception]:', err);
     }
 
+    realtimeSync.broadcastClearAllTickets(currentUser.name);
     addAuditLog('تفريغ كافة التذاكر', 'تم مسح وتفريغ كافة التذاكر من المنظومة والسحابة نهائياً.');
   };
 
@@ -2059,9 +2094,10 @@ export default function App() {
     try {
       const client = supabaseRef.current;
 
-      // 1. Upsert issues (only if tickets exist)
-      if (issues && issues.length > 0) {
-        const issuesPayload = issues.map((i) => ({
+      // 1. Upsert issues (only active non-deleted tickets)
+      const activeIssuesToSync = (issues || []).filter((i) => !deletedIssueIdsRef.current.has(i.id));
+      if (activeIssuesToSync.length > 0) {
+        const issuesPayload = activeIssuesToSync.map((i) => ({
           id: i.id,
           client: i.client,
           tag: i.tag,
