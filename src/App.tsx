@@ -829,10 +829,13 @@ export default function App() {
 
         onStateSynced: (serverState: any) => {
           if (!serverState) return;
-          if (Array.isArray(serverState.issues)) {
-            setIssues(serverState.issues);
+          // When Supabase is configured or active, Supabase is the sole authoritative database for tickets.
+          // Do not allow local dev server state cache to overwrite Supabase issues.
+          if (!supabaseConfig.connected && Array.isArray(serverState.issues)) {
+            const valid = serverState.issues.filter((i: any) => !deletedIssueIdsRef.current.has(i.id));
+            setIssues(valid);
             try {
-              localStorage.setItem(STORAGE_KEY + '_ISSUES', JSON.stringify(serverState.issues));
+              localStorage.setItem(STORAGE_KEY + '_ISSUES', JSON.stringify(valid));
             } catch {}
           }
           if (Array.isArray(serverState.categories) && serverState.categories.length > 0) {
@@ -1591,6 +1594,7 @@ export default function App() {
     });
 
     await deleteBulkIssuesFromSupabase(issueIds);
+    issueIds.forEach((id) => realtimeSync.broadcastTicketDelete(id, currentUser.name));
     addAuditLog('حذف جماعي', `تم حذف ${issueIds.length} تذكرة نهائياً.`);
   };
 
@@ -1606,6 +1610,7 @@ export default function App() {
     });
 
     await deleteSingleIssueFromSupabase(issueId);
+    realtimeSync.broadcastTicketDelete(issueId, currentUser.name);
     addAuditLog('حذف تذكرة', `تم حذف التذكرة ${issueId} نهائياً.`);
   };
 
