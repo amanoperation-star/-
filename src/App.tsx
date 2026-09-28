@@ -1405,7 +1405,13 @@ export default function App() {
       setEditingIssue(null);
     } else {
       // Create new ticket and automatically broadcast to all team members!
-      const newId = `INC-${1000 + issues.length + 1}`;
+      let nextNum = 1001;
+      const existingIds = new Set(issues.map((i) => i.id.toUpperCase()));
+      const deletedIds = deletedIssueIdsRef.current;
+      while (existingIds.has(`INC-${nextNum}`) || deletedIds.has(`INC-${nextNum}`)) {
+        nextNum++;
+      }
+      const newId = `INC-${nextNum}`;
       const initialStatus = data.status || 'Open';
       const isWorking = initialStatus === 'In Progress';
       const newIssue: Issue = {
