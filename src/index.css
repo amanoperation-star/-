@@ -185,3 +185,22 @@
   box-shadow: 0 0 10px rgba(6, 182, 212, 0.4);
   text-shadow: 0 0 5px rgba(6, 182, 212, 0.5);
 }
+
+/* Dedicated Tab & Filter Dark-Mode Stability */
+.dark .ticket-source-btn:not(.is-active) {
+  background-color: #1e293b !important;
+  color: #cbd5e1 !important;
+}
+.dark .ticket-source-btn:not(.is-active):hover {
+  background-color: #334155 !important;
+  color: #ffffff !important;
+}
+
+.dark .status-filter-btn:not(.is-active) {
+  background-color: #1e293b !important;
+  color: #cbd5e1 !important;
+}
+.dark .status-filter-btn:not(.is-active):hover {
+  background-color: #334155 !important;
+  color: #ffffff !important;
+}

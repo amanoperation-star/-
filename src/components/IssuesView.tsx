@@ -200,9 +200,9 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
           <button
             type="button"
             onClick={() => setTicketSourceFilter('ALL')}
-            className={`px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
+            className={`ticket-source-btn px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
               ticketSourceFilter === 'ALL'
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                ? 'is-active bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                 : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
@@ -212,9 +212,9 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
           <button
             type="button"
             onClick={() => setTicketSourceFilter('CLIENT')}
-            className={`px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
+            className={`ticket-source-btn px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
               ticketSourceFilter === 'CLIENT'
-                ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
+                ? 'is-active bg-purple-600 text-white shadow-md shadow-purple-600/30'
                 : 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/60'
             }`}
           >
@@ -228,9 +228,9 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
           <button
             type="button"
             onClick={() => setTicketSourceFilter('INTERNAL')}
-            className={`px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
+            className={`ticket-source-btn px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
               ticketSourceFilter === 'INTERNAL'
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                ? 'is-active bg-blue-600 text-white shadow-md shadow-blue-600/30'
                 : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
@@ -246,9 +246,9 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
           <button
             type="button"
             onClick={() => setFilterStatus('Open')}
-            className={`px-3.5 py-2 rounded-xl flex items-center gap-2 transition shrink-0 ${
+            className={`status-filter-btn px-3.5 py-2 rounded-xl flex items-center gap-2 transition shrink-0 cursor-pointer ${
               filterStatus === 'Open'
-                ? 'bg-rose-600 text-white shadow-md shadow-rose-600/30'
+                ? 'is-active bg-rose-600 text-white shadow-md shadow-rose-600/30'
                 : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
             }`}
           >
@@ -268,9 +268,9 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
           <button
             type="button"
             onClick={() => setFilterStatus('In Progress')}
-            className={`px-3.5 py-2 rounded-xl flex items-center gap-2 transition shrink-0 ${
+            className={`status-filter-btn px-3.5 py-2 rounded-xl flex items-center gap-2 transition shrink-0 cursor-pointer ${
               filterStatus === 'In Progress'
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                ? 'is-active bg-blue-600 text-white shadow-md shadow-blue-600/30'
                 : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
             }`}
           >
@@ -291,9 +291,9 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
             <button
               type="button"
               onClick={() => setFilterStatus('Breached')}
-              className={`px-3.5 py-2 rounded-xl flex items-center gap-2 transition shrink-0 ${
+              className={`status-filter-btn px-3.5 py-2 rounded-xl flex items-center gap-2 transition shrink-0 cursor-pointer ${
                 filterStatus === 'Breached'
-                  ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30'
+                  ? 'is-active bg-amber-600 text-white shadow-md shadow-amber-600/30'
                   : 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40'
               }`}
             >
@@ -308,9 +308,9 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
           <button
             type="button"
             onClick={() => setFilterStatus('Resolved')}
-            className={`px-3.5 py-2 rounded-xl flex items-center gap-2 transition shrink-0 ${
+            className={`status-filter-btn px-3.5 py-2 rounded-xl flex items-center gap-2 transition shrink-0 cursor-pointer ${
               filterStatus === 'Resolved'
-                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+                ? 'is-active bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
                 : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
             }`}
           >
@@ -333,9 +333,9 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
               setFilterOwner('EXTERNAL_ALL');
               setFilterStatus('ALL');
             }}
-            className={`px-3.5 py-2 rounded-xl flex items-center gap-2 transition shrink-0 ${
+            className={`status-filter-btn px-3.5 py-2 rounded-xl flex items-center gap-2 transition shrink-0 cursor-pointer ${
               filterOwner === 'EXTERNAL_ALL'
-                ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
+                ? 'is-active bg-purple-600 text-white shadow-md shadow-purple-600/30'
                 : 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50 border border-purple-200 dark:border-purple-800/60'
             }`}
           >
@@ -358,9 +358,9 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
               setFilterStatus('ALL');
               setFilterOwner('ALL');
             }}
-            className={`px-3.5 py-2 rounded-xl flex items-center gap-2 transition shrink-0 ${
+            className={`status-filter-btn px-3.5 py-2 rounded-xl flex items-center gap-2 transition shrink-0 cursor-pointer ${
               filterStatus === 'ALL' && filterOwner === 'ALL'
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                ? 'is-active bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                 : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
             }`}
           >
