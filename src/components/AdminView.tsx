@@ -65,6 +65,7 @@ import { ScheduledReportsView } from './ScheduledReportsView';
 import { AttachmentCenterTab } from './AttachmentCenterTab';
 import { AdminAnalyticsDashboard } from './AdminAnalyticsDashboard';
 import { CloudSyncImportModal } from './CloudSyncImportModal';
+import { TableEditorTab } from './TableEditorTab';
 
 interface AdminViewProps {
   users: AppUser[];
@@ -101,7 +102,7 @@ interface AdminViewProps {
   onUpdateGeneralSettings?: (settings: GeneralSettings) => void;
   onRestoreBackup?: (backup: SystemBackupData, mode: 'overwrite' | 'merge') => void;
   onResetSystemToDefault?: () => void;
-  initialTab?: 'general' | 'backup' | 'users' | 'tags' | 'audio' | 'reports' | 'categories' | 'canned' | 'supabase' | 'csat' | 'audit' | 'vendors' | 'sla_page' | 'attachments' | 'analytics';
+  initialTab?: 'general' | 'backup' | 'users' | 'tags' | 'audio' | 'reports' | 'categories' | 'canned' | 'supabase' | 'csat' | 'audit' | 'vendors' | 'sla_page' | 'attachments' | 'analytics' | 'table_editor';
   realtimeStatus?: SyncConnectionStatus;
   onlineUsers?: ActiveUserPresence[];
   totalConnections?: number;
@@ -163,7 +164,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   cabActivities = [],
   onImportCloudData,
 }) => {
-  const [adminTab, setAdminTab] = useState<'general' | 'backup' | 'users' | 'tags' | 'audio' | 'reports' | 'categories' | 'canned' | 'supabase' | 'csat' | 'audit' | 'vendors' | 'sla_page' | 'attachments' | 'analytics'>(
+  const [adminTab, setAdminTab] = useState<'general' | 'backup' | 'users' | 'tags' | 'audio' | 'reports' | 'categories' | 'canned' | 'supabase' | 'csat' | 'audit' | 'vendors' | 'sla_page' | 'attachments' | 'analytics' | 'table_editor'>(
     initialTab || 'general'
   );
 
@@ -410,6 +411,14 @@ export const AdminView: React.FC<AdminViewProps> = ({
           badgeColor: supabaseConfig.connected
             ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
             : 'bg-slate-100 dark:bg-slate-800 text-slate-500',
+        },
+        {
+          id: 'table_editor',
+          label: 'محرر ومستعرض الجداول (Table Editor)',
+          desc: 'إدارة جداول Supabase واستعراض كود SQL المحدث',
+          icon: Database,
+          badge: 'Table Editor ⚡',
+          badgeColor: 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300',
         },
       ],
     },
@@ -2305,6 +2314,14 @@ create policy "Allow all on system_cloud_store" on system_cloud_store for all us
             </div>
           </div>
         </div>
+      )}
+
+      {/* TABLE EDITOR TAB */}
+      {adminTab === 'table_editor' && (
+        <TableEditorTab
+          supabaseConfig={{ url: sbUrl, key: sbKey }}
+          onSyncNow={onSyncSupabaseNow}
+        />
       )}
 
       {/* 8. CSAT RATINGS */}
