@@ -495,18 +495,6 @@ export default function App() {
         if (sbIssuesRes && !sbIssuesRes.error && Array.isArray(sbIssuesRes.data)) {
           const validRows = sbIssuesRes.data.filter((row: any) => !deletedIssueIdsRef.current.has(row.id));
           if (validRows.length === 0) {
-            // If Supabase table is empty, check if we have local issues in localStorage to preserve
-            const localSaved = localStorage.getItem(STORAGE_KEY + '_ISSUES');
-            if (localSaved) {
-              try {
-                const parsedLocal = JSON.parse(localSaved).filter((i: any) => !deletedIssueIdsRef.current.has(i.id));
-                if (Array.isArray(parsedLocal) && parsedLocal.length > 0) {
-                  setIssues(parsedLocal);
-                  handleSyncSupabaseNow(true);
-                  return;
-                }
-              } catch {}
-            }
             setIssues([]);
             try {
               localStorage.setItem(STORAGE_KEY + '_ISSUES', '[]');
@@ -2203,16 +2191,6 @@ export default function App() {
       if (!issuesErr && Array.isArray(issuesData)) {
         const validRows = issuesData.filter((row: any) => !deletedIssueIdsRef.current.has(row.id));
         if (validRows.length === 0) {
-          const localSaved = localStorage.getItem(STORAGE_KEY + '_ISSUES');
-          if (localSaved) {
-            try {
-              const parsedLocal = JSON.parse(localSaved).filter((i: any) => !deletedIssueIdsRef.current.has(i.id));
-              if (Array.isArray(parsedLocal) && parsedLocal.length > 0) {
-                setIssues(parsedLocal);
-                return;
-              }
-            } catch {}
-          }
           setIssues([]);
           try {
             localStorage.setItem(STORAGE_KEY + '_ISSUES', '[]');
