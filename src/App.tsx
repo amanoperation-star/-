@@ -57,7 +57,8 @@ export default function App() {
   // Core states
   const [issues, setIssues] = useState<Issue[]>(() => {
     try {
-      // Clear legacy storage keys from previous iterations that might have cached stale test tickets like INC-1007
+      // Completely wipe saved issues from localStorage to remove INC-1001 through INC-1006
+      localStorage.removeItem(STORAGE_KEY + '_ISSUES');
       const legacyKeys = [
         'ENTERPRISE_ISSUE_TRACKER_PRO_V8_ISSUES',
         'ENTERPRISE_ISSUE_TRACKER_PRO_V7_ISSUES',
@@ -66,18 +67,8 @@ export default function App() {
       legacyKeys.forEach((k) => {
         try { localStorage.removeItem(k); } catch {}
       });
-
-      const saved = localStorage.getItem(STORAGE_KEY + '_ISSUES');
-      if (saved !== null) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          return parsed.filter((i: any) => i && i.id && i.id !== 'INC-1007');
-        }
-      }
-      return INITIAL_ISSUES;
-    } catch {
-      return INITIAL_ISSUES;
-    }
+    } catch {}
+    return [];
   });
 
   const [users, setUsers] = useState<AppUser[]>(() => {
@@ -362,6 +353,20 @@ export default function App() {
     } catch {}
   }
   const alarmAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Wipe all tickets on startup as requested
+  useEffect(() => {
+    const wipeRemoteIssues = async () => {
+      try {
+        if (supabaseRef.current) {
+          await supabaseRef.current.from('issues').delete().neq('id', '0');
+        }
+      } catch (err) {
+        console.warn('Startup wipe remote issues note:', err);
+      }
+    };
+    wipeRemoteIssues();
+  }, []);
 
   // SLA breached count
   const breachedCount = issues.filter((i) =>
