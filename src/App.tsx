@@ -66,11 +66,21 @@ export default function App() {
         try { localStorage.removeItem(k); } catch {}
       });
 
+      let deletedSet = new Set<string>();
+      try {
+        const deletedSaved = localStorage.getItem(STORAGE_KEY + '_DELETED_ISSUE_IDS');
+        if (deletedSaved) {
+          const parsedDel = JSON.parse(deletedSaved);
+          if (Array.isArray(parsedDel)) deletedSet = new Set(parsedDel);
+        }
+      } catch {}
+
       const saved = localStorage.getItem(STORAGE_KEY + '_ISSUES');
       if (saved !== null) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          return parsed;
+          const valid = parsed.filter((i: any) => !deletedSet.has(i.id));
+          return valid;
         }
       }
       return [];
