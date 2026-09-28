@@ -1716,11 +1716,9 @@ export default function App() {
 
   // Delete ALL Tickets (Wipe All)
   const handleClearAllTickets = async () => {
-    setIssues((prev) => {
-      prev.forEach((i) => deletedIssueIdsRef.current.add(i.id));
-      saveDeletedIssueIds(deletedIssueIdsRef.current);
-      return [];
-    });
+    deletedIssueIdsRef.current.clear();
+    saveDeletedIssueIds(deletedIssueIdsRef.current);
+    setIssues([]);
     try {
       localStorage.setItem(STORAGE_KEY + '_ISSUES', '[]');
     } catch {}
@@ -2562,6 +2560,8 @@ export default function App() {
   // Reset system to factory default
   const handleResetSystemToDefault = () => {
     if (confirm('⚠️ تحذير شديد: هل أنت متأكد تماماً من رغبتك في مسح كافة التعديلات واستعادة بيانات المصنع الافتراضية للمنظومة؟ لا يمكن التراجع عن هذا الإجراء إلا إذا كنت قد حمّلت نسخة احتياطية مسبقاً.')) {
+      deletedIssueIdsRef.current.clear();
+      saveDeletedIssueIds(deletedIssueIdsRef.current);
       setIssues(INITIAL_ISSUES);
       setUsers(INITIAL_USERS);
       setCategories(INITIAL_CATEGORIES);
@@ -2580,6 +2580,7 @@ export default function App() {
         localStorage.removeItem(STORAGE_KEY + '_SOUND');
         localStorage.removeItem(STORAGE_KEY + '_GENERAL');
         localStorage.removeItem(STORAGE_KEY + '_AUDIT');
+        localStorage.removeItem(STORAGE_KEY + '_DELETED_ISSUE_IDS');
       } catch (e) {
         console.error('Error clearing localStorage', e);
       }
