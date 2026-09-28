@@ -18,6 +18,12 @@ if (!fs.existsSync(DATA_DIR)) {
 }
 
 // In-memory state cache
+const DEFAULT_SUPABASE_CONFIG = {
+  url: 'https://jdwgkaxhmuywetnpdhqt.supabase.co',
+  key: 'sb_publishable_5WAZhnB_h-tAZrzT56rhgQ_WeANxqJD',
+  connected: true,
+};
+
 let state: {
   issues: any[];
   categories: any[];
@@ -43,7 +49,7 @@ let state: {
   externalVendors: [],
   slaSettings: null,
   cabActivities: [],
-  supabaseConfig: null,
+  supabaseConfig: DEFAULT_SUPABASE_CONFIG,
 };
 
 const DEFAULT_SLA_SETTINGS = {
@@ -111,8 +117,10 @@ const loadDatabase = () => {
       if (!state.slaSettings) {
         state.slaSettings = DEFAULT_SLA_SETTINGS;
       }
-      if (parsed.supabaseConfig) {
+      if (parsed.supabaseConfig && parsed.supabaseConfig.url && parsed.supabaseConfig.url.includes('supabase.co')) {
         state.supabaseConfig = parsed.supabaseConfig;
+      } else {
+        state.supabaseConfig = DEFAULT_SUPABASE_CONFIG;
       }
       console.log(`[Database] Loaded ${state.issues?.length || 0} tickets, ${state.externalVendors?.length || 0} external vendors, Supabase: ${state.supabaseConfig ? 'configured' : 'none'} from disk.`);
     } else {

@@ -48,6 +48,9 @@ import { collisionManager } from './utils/collisionDetector';
 
 const STORAGE_KEY = 'ENTERPRISE_ISSUE_TRACKER_PRO_V8';
 
+export const DEFAULT_SUPABASE_PROJECT_URL = 'https://jdwgkaxhmuywetnpdhqt.supabase.co';
+export const DEFAULT_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_5WAZhnB_h-tAZrzT56rhgQ_WeANxqJD';
+
 export default function App() {
   // Core states
   const [issues, setIssues] = useState<Issue[]>(() => {
@@ -131,10 +134,17 @@ export default function App() {
       const saved = localStorage.getItem(STORAGE_KEY + '_SUPABASE');
       if (saved) {
         const parsed = JSON.parse(saved);
-        return { ...parsed, connected: true };
+        if (parsed.url && parsed.url.includes('supabase.co')) {
+          return { ...parsed, connected: true };
+        }
       }
     } catch {}
-    return { url: 'https://cloud-synced.internal', key: 'cloud-active-sync', connected: true };
+    return {
+      url: DEFAULT_SUPABASE_PROJECT_URL,
+      key: DEFAULT_SUPABASE_PUBLISHABLE_KEY,
+      connected: true,
+      lastSync: 'الآن',
+    };
   });
 
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => {
@@ -401,8 +411,8 @@ export default function App() {
 
   // Initialize Supabase if config is valid
   useEffect(() => {
-    const url = (supabaseConfig.url || '').trim();
-    const key = (supabaseConfig.key || '').trim();
+    const url = (supabaseConfig.url || DEFAULT_SUPABASE_PROJECT_URL).trim();
+    const key = (supabaseConfig.key || DEFAULT_SUPABASE_PUBLISHABLE_KEY).trim();
     if (
       url &&
       key &&
@@ -412,7 +422,11 @@ export default function App() {
       try {
         const client = createClient(url, key);
         supabaseRef.current = client;
-        setSupabaseConfig((prev) => ({ ...prev, connected: true }));
+        setSupabaseConfig((prev) => ({ ...prev, url, key, connected: true }));
+        // Silently pull any existing records from Supabase tables
+        setTimeout(() => {
+          handlePullSupabaseNow(true);
+        }, 400);
       } catch {
         setSupabaseConfig((prev) => ({ ...prev, connected: false }));
       }

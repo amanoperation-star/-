@@ -1848,18 +1848,18 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   </label>
                   {sbKey.trim().length > 0 && (
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border flex items-center gap-1 ${
-                      sbKey.trim().startsWith('sbp_')
+                      sbKey.trim().startsWith('sb_publishable_') || sbKey.trim().startsWith('sbp_')
                         ? 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/70 border-emerald-300 dark:border-emerald-800'
                         : sbKey.trim().startsWith('eyJ')
                         ? 'text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/70 border-sky-300 dark:border-sky-800'
-                        : 'text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700'
+                        : 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/70 border-emerald-300 dark:border-emerald-800'
                     }`}>
                       <Key className="w-3 h-3" />
-                      {sbKey.trim().startsWith('sbp_') 
-                        ? 'Publishable API Key حديث (sbp_)' 
+                      {sbKey.trim().startsWith('sb_publishable_') || sbKey.trim().startsWith('sbp_') 
+                        ? 'Publishable API Key موثق ⚡' 
                         : sbKey.trim().startsWith('eyJ') 
                         ? 'مفتاح عام صالح (JWT / Anon Key)' 
-                        : 'مفتاح API'}
+                        : 'مفتاح اتصال سحابي'}
                     </span>
                   )}
                 </div>

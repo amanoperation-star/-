@@ -732,5 +732,130 @@
       "action": "تحديث حالة تذكرة",
       "details": "بدء العمل على تذكرة بوابة الدفع INC-1001 وتفعيل التتبع الزمني."
     }
-  ]
+  ],
+  "externalVendors": [
+    {
+      "id": "ext-1",
+      "name": "م/ أحمد مصطفى",
+      "company": "فودافون مصر / الاتصالات والبنية التحتية",
+      "role": "مزود خدمة اتصالات وإنترنت",
+      "phone": "+20 10 1234 5678",
+      "email": "noc-support@vodafone.com",
+      "notes": "الدعم الفني للخطوط الساخنة والألياف الضوئية والإنترنت المركزي"
+    },
+    {
+      "id": "ext-2",
+      "name": "فريق الدعم الفني",
+      "company": "AWS / Cloud Infrastructure",
+      "role": "مزود خدمة سحابية / تقنية (Service Provider)",
+      "phone": "+1 206 555 0100",
+      "email": "aws-enterprise-support@amazon.com",
+      "notes": "بلاغات خوادم EC2 وقواعد بيانات RDS السحابية. اذكر رقم الحساب المؤسسي"
+    },
+    {
+      "id": "ext-3",
+      "name": "م/ كريم الشريف",
+      "company": "الرواد لصيانة الشبكات والسيرفرات",
+      "role": "مقاول صيانة / دعم خارجي (Contractor)",
+      "phone": "+966 54 888 9911",
+      "email": "support@alrowad-networks.com",
+      "notes": "صيانة كبائن السيرفرات والراوترات وتمديدات الكابلات الميدانية"
+    },
+    {
+      "id": "ext-4",
+      "name": "دعم المعاملات والتسويات",
+      "company": "Paymob / بوابة الدفع الإلكتروني",
+      "role": "شريك تقني متكامل (Tech Partner)",
+      "phone": "+20 2 2588 0000",
+      "email": "merchants-support@paymob.com",
+      "notes": "الاستعلام عن تعليق العمليات المالية والربط مع بوابات الدفع"
+    }
+  ],
+  "slaSettings": {
+    "businessHoursOnly": false,
+    "workStartHour": 9,
+    "workEndHour": 17,
+    "workDays": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "pauseOnExternalPending": true,
+    "pauseOnCustomerPending": true,
+    "warningThresholdMinutes": 120,
+    "autoEscalateOnBreach": true,
+    "soundAlertOnRisk": true,
+    "activePreset": "standard"
+  },
+  "cabActivities": [
+    {
+      "id": "CAB-2026-283",
+      "activityName": "Core Database Migration & Engine Patch (Copy)",
+      "scope": "Upgrading primary PostgreSQL cluster to v16 with security patches and indexes optimization.",
+      "impactedServices": "Payment Gateway, User Authentication API, Client Portal",
+      "serviceImpact": "Brief intermittent latency during master node failover switch",
+      "downtimeRequired": "Yes",
+      "date": "Sunday, 28/09/2026",
+      "startTime": "02:00 AM",
+      "endTime": "04:00 AM",
+      "maintenanceWindow": "02:00 AM - 04:00 AM",
+      "requestor": "أحمد العتيبي",
+      "tpm": "عمر اليافعي",
+      "changeManagement": "IT Change Management Team",
+      "status": "Approved",
+      "createdAt": "2026-09-27T20:41:50.283Z",
+      "rollbackReason": "ثقثقثق",
+      "comments": [
+        {
+          "id": "cb-comm-1790543612092",
+          "author": "أحمد العتيبي",
+          "content": "🛑 تم تنفيذ التراجع (Rollback). السبب: ثقثقثق",
+          "createdAt": "١٢:١٣ ص ٢٨‏/٩‏/٢٠٢٦",
+          "type": "rollback_reason"
+        }
+      ]
+    },
+    {
+      "id": "CAB-2026-001",
+      "activityName": "Core Database Migration & Engine Patch",
+      "scope": "Upgrading primary PostgreSQL cluster to v16 with security patches and indexes optimization.",
+      "impactedServices": "Payment Gateway, User Authentication API, Client Portal",
+      "serviceImpact": "Brief intermittent latency during master node failover switch",
+      "downtimeRequired": "Yes",
+      "date": "Sunday, 28/09/2026",
+      "startTime": "02:00 AM",
+      "endTime": "04:00 AM",
+      "maintenanceWindow": "02:00 AM - 04:00 AM",
+      "requestor": "أحمد العتيبي",
+      "tpm": "عمر اليافعي",
+      "changeManagement": "IT Change Management Team",
+      "status": "Completed",
+      "createdAt": "2026-09-27T20:34:44.760Z"
+    },
+    {
+      "id": "CAB-2026-002",
+      "activityName": "Edge Router & Firewall Firmware Update",
+      "scope": "Applying zero-day vulnerability security patch on secondary core switch in HQ Data Center.",
+      "impactedServices": "Internal Corporate VPN, Local Network Shared Drives",
+      "serviceImpact": "No impact expected due to redundant HA traffic routing",
+      "downtimeRequired": "No",
+      "date": "Tuesday, 30/09/2026",
+      "startTime": "11:00 PM",
+      "endTime": "11:45 PM",
+      "maintenanceWindow": "11:00 PM - 11:45 PM",
+      "requestor": "سارة خالد",
+      "tpm": "محمد علي",
+      "changeManagement": "IT Change Management Team",
+      "status": "Completed",
+      "createdAt": "2026-09-27T20:34:44.760Z"
+    }
+  ],
+  "supabaseConfig": {
+    "url": "https://jdwgkaxhmuywetnpdhqt.supabase.co",
+    "key": "sb_publishable_5WAZhnB_h-tAZrzT56rhgQ_WeANxqJD",
+    "connected": true,
+    "lastSync": "الآن"
+  }
 }
