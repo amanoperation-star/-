@@ -203,7 +203,7 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
             className={`px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
               ticketSourceFilter === 'ALL'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             <span>📁 كل التذاكر ({totalCount})</span>
@@ -215,7 +215,7 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
             className={`px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
               ticketSourceFilter === 'CLIENT'
                 ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
-                : 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 hover:bg-purple-100'
+                : 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/60'
             }`}
           >
             <Globe className="w-3.5 h-3.5" />
@@ -231,7 +231,7 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
             className={`px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
               ticketSourceFilter === 'INTERNAL'
                 ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             <span>💼 التذاكر الداخلية (فريق العمل)</span>
@@ -294,7 +294,7 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
               className={`px-3.5 py-2 rounded-xl flex items-center gap-2 transition shrink-0 ${
                 filterStatus === 'Breached'
                   ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30'
-                  : 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 hover:bg-amber-100'
+                  : 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40'
               }`}
             >
               <AlertTriangle className="w-3.5 h-3.5" />
