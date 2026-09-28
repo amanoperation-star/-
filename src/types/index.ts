@@ -167,6 +167,12 @@ export interface GeneralSettings {
   customFooterNote: string;
   badgeStyle?: BadgeStyleType;
   cabDesignStyle?: CabDesignStyle;
+  lightThemeBgColor?: string; // 'default' | 'pure_white' | 'soft_gray' | 'warm_beige' | 'ice_blue' | 'soft_mint' | 'custom'
+  lightCardBgColor?: string; // 'default' | 'custom'
+  lightHeaderBgColor?: string; // 'default' | 'custom'
+  customLightBgHex?: string;
+  customCardBgHex?: string;
+  customHeaderBgHex?: string;
 }
 
 export interface SlaSettings {

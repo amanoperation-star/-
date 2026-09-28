@@ -351,6 +351,123 @@ export const GeneralSettingsTab: React.FC<GeneralSettingsTabProps> = ({
             </div>
           </div>
 
+          {/* Section 2.5: Light Theme Color Customizer (تعديل وتخصيص اللون الأبيض وألواح الخلفيات) */}
+          <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+            <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400">
+                <Palette className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="font-bold text-sm text-slate-900 dark:text-white">تعديل وتخصيص اللون الأبيض وألوان المظهر (Light Theme Colors)</h4>
+                <p className="text-[11px] text-slate-400">تحكم باللون الأبيض والخلفيات بالوضع النهاري لتحقيق الراحة البصرية</p>
+              </div>
+            </div>
+
+            {/* Main App Background Control */}
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                1. لون خلفية المنظومة الرئيسي (Main Background):
+              </label>
+              <select
+                value={formData.lightThemeBgColor || 'default'}
+                onChange={(e) => setFormData({ ...formData, lightThemeBgColor: e.target.value })}
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-bold focus:ring-2 focus:ring-indigo-500 outline-hidden cursor-pointer"
+              >
+                <option value="default">الرمادي المريح الافتراضي (#f8fafc) 🏢</option>
+                <option value="pure_white">الأبيض الناصع الشفاف (#ffffff) 🏳️</option>
+                <option value="soft_gray">رمادي ناعم هادئ (#f1f5f9) 🩶</option>
+                <option value="warm_beige">البيج الدافئ الكلاسيكي (#fafaf9) 🍦</option>
+                <option value="ice_blue">الأزرق الثلجي الخفيف (#f0f9ff) ❄️</option>
+                <option value="soft_mint">الأخضر الهادئ الطازج (#f0fdf4) 🌿</option>
+                <option value="custom">إدخال لون مخصص يدوياً (Hex Color) 🎨</option>
+              </select>
+
+              {formData.lightThemeBgColor === 'custom' && (
+                <div className="flex gap-2 items-center pt-1.5 animate-fadeIn">
+                  <input
+                    type="color"
+                    value={formData.customLightBgHex || '#f8fafc'}
+                    onChange={(e) => setFormData({ ...formData, customLightBgHex: e.target.value })}
+                    className="w-10 h-10 p-0.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent cursor-pointer shrink-0"
+                  />
+                  <input
+                    type="text"
+                    value={formData.customLightBgHex || '#f8fafc'}
+                    onChange={(e) => setFormData({ ...formData, customLightBgHex: e.target.value })}
+                    placeholder="#f8fafc"
+                    className="flex-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-mono font-bold focus:ring-2 focus:ring-indigo-500 outline-hidden"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Card Background Control */}
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                2. لون خلفية البطاقات والصناديق (Cards & Panels Background):
+              </label>
+              <select
+                value={formData.lightCardBgColor || 'default'}
+                onChange={(e) => setFormData({ ...formData, lightCardBgColor: e.target.value })}
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-bold focus:ring-2 focus:ring-indigo-500 outline-hidden cursor-pointer"
+              >
+                <option value="default">الأبيض الافتراضي الناصع (#ffffff) ⬜</option>
+                <option value="custom">تعديل اللون الأبيض إلى لون مخصص (Hex Color) 🎨</option>
+              </select>
+
+              {formData.lightCardBgColor === 'custom' && (
+                <div className="flex gap-2 items-center pt-1.5 animate-fadeIn">
+                  <input
+                    type="color"
+                    value={formData.customCardBgHex || '#ffffff'}
+                    onChange={(e) => setFormData({ ...formData, customCardBgHex: e.target.value })}
+                    className="w-10 h-10 p-0.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent cursor-pointer shrink-0"
+                  />
+                  <input
+                    type="text"
+                    value={formData.customCardBgHex || '#ffffff'}
+                    onChange={(e) => setFormData({ ...formData, customCardBgHex: e.target.value })}
+                    placeholder="#ffffff"
+                    className="flex-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-mono font-bold focus:ring-2 focus:ring-indigo-500 outline-hidden"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Header Background Control */}
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                3. لون خلفية شريط العنوان العلوي (Header Background):
+              </label>
+              <select
+                value={formData.lightHeaderBgColor || 'default'}
+                onChange={(e) => setFormData({ ...formData, lightHeaderBgColor: e.target.value })}
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-bold focus:ring-2 focus:ring-indigo-500 outline-hidden cursor-pointer"
+              >
+                <option value="default">الأبيض الافتراضي مع تأثير زجاجي 🏢</option>
+                <option value="custom">تعديل اللون إلى لون مخصص (Hex Color) 🎨</option>
+              </select>
+
+              {formData.lightHeaderBgColor === 'custom' && (
+                <div className="flex gap-2 items-center pt-1.5 animate-fadeIn">
+                  <input
+                    type="color"
+                    value={formData.customHeaderBgHex || '#ffffff'}
+                    onChange={(e) => setFormData({ ...formData, customHeaderBgHex: e.target.value })}
+                    className="w-10 h-10 p-0.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent cursor-pointer shrink-0"
+                  />
+                  <input
+                    type="text"
+                    value={formData.customHeaderBgHex || '#ffffff'}
+                    onChange={(e) => setFormData({ ...formData, customHeaderBgHex: e.target.value })}
+                    placeholder="#ffffff"
+                    className="flex-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-mono font-bold focus:ring-2 focus:ring-indigo-500 outline-hidden"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Section 3: Copyright & Footer Customization */}
           <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4 md:col-span-2">
             <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">

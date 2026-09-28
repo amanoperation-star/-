@@ -30,6 +30,7 @@ let state: {
   externalVendors: any[];
   slaSettings: any;
   cabActivities: any[];
+  supabaseConfig: any;
 } = {
   issues: [],
   categories: [],
@@ -42,6 +43,7 @@ let state: {
   externalVendors: [],
   slaSettings: null,
   cabActivities: [],
+  supabaseConfig: null,
 };
 
 const DEFAULT_SLA_SETTINGS = {
@@ -109,7 +111,10 @@ const loadDatabase = () => {
       if (!state.slaSettings) {
         state.slaSettings = DEFAULT_SLA_SETTINGS;
       }
-      console.log(`[Database] Loaded ${state.issues?.length || 0} tickets, ${state.externalVendors?.length || 0} external vendors from disk.`);
+      if (parsed.supabaseConfig) {
+        state.supabaseConfig = parsed.supabaseConfig;
+      }
+      console.log(`[Database] Loaded ${state.issues?.length || 0} tickets, ${state.externalVendors?.length || 0} external vendors, Supabase: ${state.supabaseConfig ? 'configured' : 'none'} from disk.`);
     } else {
       state.externalVendors = DEFAULT_EXTERNAL_VENDORS;
       state.slaSettings = DEFAULT_SLA_SETTINGS;
@@ -293,13 +298,22 @@ app.post('/api/init-seed', (req, res) => {
     if (Array.isArray(initialData.cabActivities) && initialData.cabActivities.length > 0) {
       state.cabActivities = initialData.cabActivities;
     }
+    if (initialData.supabaseConfig && !state.supabaseConfig) {
+      state.supabaseConfig = initialData.supabaseConfig;
+    }
     saveDatabase();
     console.log(`[Database] Seeded with ${state.issues.length} tickets, ${state.cabActivities?.length || 0} CAB activities from client.`);
-  } else if (!state.cabActivities || state.cabActivities.length === 0) {
-    if (Array.isArray(initialData.cabActivities) && initialData.cabActivities.length > 0) {
+  } else {
+    let changed = false;
+    if ((!state.cabActivities || state.cabActivities.length === 0) && Array.isArray(initialData.cabActivities) && initialData.cabActivities.length > 0) {
       state.cabActivities = initialData.cabActivities;
-      saveDatabase();
+      changed = true;
     }
+    if (!state.supabaseConfig && initialData.supabaseConfig) {
+      state.supabaseConfig = initialData.supabaseConfig;
+      changed = true;
+    }
+    if (changed) saveDatabase();
   }
   res.json({ status: 'ok', state });
 });
@@ -476,6 +490,8 @@ app.post('/api/sync-all', (req, res) => {
   if (Array.isArray(payload.auditLogs)) state.auditLogs = payload.auditLogs;
   if (Array.isArray(payload.externalVendors)) state.externalVendors = payload.externalVendors;
   if (payload.slaSettings) state.slaSettings = payload.slaSettings;
+  if (Array.isArray(payload.cabActivities)) state.cabActivities = payload.cabActivities;
+  if (payload.supabaseConfig) state.supabaseConfig = payload.supabaseConfig;
 
   saveDatabase();
 
@@ -644,6 +660,25 @@ app.delete('/api/cab-activities/:id', (req, res) => {
   res.json({ status: 'ok', message: 'CAB activity deleted', cabActivities: state.cabActivities });
 });
 
+// API: Supabase Configuration CRUD & Multi-browser Persistence
+app.get('/api/supabase-config', (_req, res) => {
+  res.json({ status: 'ok', supabaseConfig: state.supabaseConfig || null });
+});
+
+app.post('/api/supabase-config', (req, res) => {
+  const config = req.body;
+  if (config) {
+    state.supabaseConfig = config;
+    saveDatabase();
+    broadcast({
+      type: 'supabase:config_updated',
+      supabaseConfig: state.supabaseConfig,
+    });
+    console.log(`[Database] Supabase configuration updated & persisted for all browsers/devices (${config.url}).`);
+  }
+  res.json({ status: 'ok', supabaseConfig: state.supabaseConfig });
+});
+
 // Create HTTP server
 const server = http.createServer(app);
 
@@ -809,6 +844,22 @@ wss.on('connection', (ws, request) => {
                 type: 'cab:deleted',
                 activityId,
                 author: author || clientInfo.name || 'مدير النظام',
+              },
+              ws
+            );
+          }
+          break;
+        }
+
+        case 'supabase:config_update': {
+          const { config } = data;
+          if (config) {
+            state.supabaseConfig = config;
+            saveDatabase();
+            broadcast(
+              {
+                type: 'supabase:config_updated',
+                supabaseConfig: state.supabaseConfig,
               },
               ws
             );

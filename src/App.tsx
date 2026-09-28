@@ -247,18 +247,21 @@ export default function App() {
   const handleAddCabActivity = (act: CabBusinessActivity) => {
     setCabActivities((prev) => [act, ...prev]);
     realtimeSync.broadcastCabCreate(act, currentUser.name);
+    upsertSingleCabActivityToSupabase(act);
     addAuditLog('إضافة نشاط CAB', `تم تسجيل نشاط التغيير ${act.id} (${act.activityName}) ومزامنته سحابياً`);
   };
 
   const handleUpdateCabActivity = (act: CabBusinessActivity) => {
     setCabActivities((prev) => prev.map((a) => (a.id === act.id ? act : a)));
     realtimeSync.broadcastCabUpdate(act, currentUser.name, `تحديث نشاط ${act.id}`);
+    upsertSingleCabActivityToSupabase(act);
     addAuditLog('تعديل نشاط CAB', `تم تحديث نشاط التغيير ${act.id}`);
   };
 
   const handleDeleteCabActivity = (id: string) => {
     setCabActivities((prev) => prev.filter((a) => a.id !== id));
     realtimeSync.broadcastCabDelete(id, currentUser.name);
+    deleteSingleCabActivityFromSupabase(id);
     addAuditLog('حذف نشاط CAB', `تم حذف نشاط التغيير ${id}`);
   };
 
@@ -340,20 +343,56 @@ export default function App() {
     }
   }, [issues]);
 
+  // Continuous Central Cloud & Supabase Auto-Save (حارس المزامنة السحابية التلقائي الشامل)
+  // Automatically persists ANY update to server disk & Supabase tables without manual intervention
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY + '_USERS', JSON.stringify(users));
-      localStorage.setItem(STORAGE_KEY + '_CATEGORIES', JSON.stringify(categories));
-      localStorage.setItem(STORAGE_KEY + '_TAGS', JSON.stringify(tags));
-      localStorage.setItem(STORAGE_KEY + '_CANNED', JSON.stringify(cannedResponses));
-      localStorage.setItem(STORAGE_KEY + '_SOUND', JSON.stringify(soundSettings));
-      localStorage.setItem(STORAGE_KEY + '_SUPABASE', JSON.stringify(supabaseConfig));
-      localStorage.setItem(STORAGE_KEY + '_AUDIT', JSON.stringify(auditLogs));
-      localStorage.setItem(STORAGE_KEY + '_GENERAL', JSON.stringify(generalSettings));
-    } catch (e) {
-      console.warn('LocalStorage Quota Warning (Settings)', e);
-    }
-  }, [users, categories, tags, cannedResponses, soundSettings, supabaseConfig, auditLogs, generalSettings]);
+    const timer = setTimeout(async () => {
+      try {
+        // 1. Persist entire state snapshot to central server disk (data/app_database.json)
+        await fetch('/api/sync-all', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            issues,
+            users,
+            categories,
+            tags,
+            cannedResponses,
+            generalSettings,
+            soundSettings,
+            auditLogs,
+            externalVendors,
+            slaSettings,
+            cabActivities,
+            supabaseConfig,
+            actor: currentUser?.name || 'النظام السحابي',
+          }),
+        });
+
+        // 2. If Supabase is connected, automatically sync all cloud tables silently!
+        if (supabaseRef.current) {
+          handleSyncSupabaseNow(true);
+        }
+      } catch (err) {
+        console.warn('[Auto-Cloud-Sync] Background persist error:', err);
+      }
+    }, 600); // 600ms debounce to batch rapid changes smoothly
+
+    return () => clearTimeout(timer);
+  }, [
+    issues,
+    users,
+    categories,
+    tags,
+    cannedResponses,
+    generalSettings,
+    soundSettings,
+    auditLogs,
+    externalVendors,
+    slaSettings,
+    cabActivities,
+    supabaseConfig,
+  ]);
 
   // Initialize Supabase if config is valid
   useEffect(() => {
@@ -442,6 +481,20 @@ export default function App() {
               try {
                 localStorage.setItem(STORAGE_KEY + '_CAB_ACTIVITIES', JSON.stringify(data.state.cabActivities));
               } catch {}
+            }
+            if (data.state.supabaseConfig && data.state.supabaseConfig.url) {
+              setSupabaseConfig(data.state.supabaseConfig);
+              try {
+                localStorage.setItem(STORAGE_KEY + '_SUPABASE', JSON.stringify(data.state.supabaseConfig));
+              } catch {}
+              if (data.state.supabaseConfig.url.startsWith('https://') && data.state.supabaseConfig.key) {
+                try {
+                  const client = createClient(data.state.supabaseConfig.url, data.state.supabaseConfig.key);
+                  supabaseRef.current = client;
+                } catch (e) {
+                  console.warn('Failed to auto-init supabase from server state:', e);
+                }
+              }
             }
           }
         }
@@ -679,6 +732,20 @@ export default function App() {
               localStorage.setItem(STORAGE_KEY + '_SLA_SETTINGS', JSON.stringify(serverState.slaSettings));
             } catch {}
           }
+          if (serverState.supabaseConfig && serverState.supabaseConfig.url) {
+            setSupabaseConfig(serverState.supabaseConfig);
+            try {
+              localStorage.setItem(STORAGE_KEY + '_SUPABASE', JSON.stringify(serverState.supabaseConfig));
+            } catch {}
+            if (serverState.supabaseConfig.url.startsWith('https://') && serverState.supabaseConfig.key) {
+              try {
+                const client = createClient(serverState.supabaseConfig.url, serverState.supabaseConfig.key);
+                supabaseRef.current = client;
+              } catch (e) {
+                console.warn('Failed to init Supabase client from server state:', e);
+              }
+            }
+          }
         },
 
         onExternalVendorsUpdated: (vendors: ExternalVendor[]) => {
@@ -709,6 +776,21 @@ export default function App() {
         onCollisionsUpdated: (collisions: any) => {
           collisionManager.updateServerCollisions(collisions);
         },
+
+        onSupabaseConfigUpdated: (newConfig: any) => {
+          if (newConfig && newConfig.url) {
+            setSupabaseConfig(newConfig);
+            try {
+              localStorage.setItem(STORAGE_KEY + '_SUPABASE', JSON.stringify(newConfig));
+            } catch {}
+            if (newConfig.url.startsWith('https://') && newConfig.key) {
+              try {
+                const client = createClient(newConfig.url, newConfig.key);
+                supabaseRef.current = client;
+              } catch {}
+            }
+          }
+        },
       },
       currentUser
     );
@@ -726,6 +808,7 @@ export default function App() {
       externalVendors,
       slaSettings,
       cabActivities,
+      supabaseConfig,
     } as any);
 
     return () => {
@@ -736,11 +819,22 @@ export default function App() {
   // Update client phone on issue
   const handleUpdateIssuePhone = (issueId: string, newPhone: string) => {
     const trimmed = newPhone.trim();
+    let updatedIssueToPersist: Issue | null = null;
     setIssues((prev) =>
-      prev.map((i) => (i.id === issueId ? { ...i, clientPhone: trimmed } : i))
+      prev.map((i) => {
+        if (i.id === issueId) {
+          const updated = { ...i, clientPhone: trimmed };
+          updatedIssueToPersist = updated;
+          return updated;
+        }
+        return i;
+      })
     );
     if (detailIssue && detailIssue.id === issueId) {
       setDetailIssue((prev) => (prev ? { ...prev, clientPhone: trimmed } : null));
+    }
+    if (updatedIssueToPersist) {
+      upsertSingleIssueToSupabase(updatedIssueToPersist);
     }
     realtimeSync.broadcastTicketUpdate(
       { id: issueId, clientPhone: trimmed } as any,
@@ -753,11 +847,22 @@ export default function App() {
 
   // General Ticket Updates (SLA extension, external ticket ID, pause, etc.)
   const handleUpdateIssue = (issueId: string, updates: Partial<Issue>) => {
+    let updatedIssueToPersist: Issue | null = null;
     setIssues((prev) =>
-      prev.map((i) => (i.id === issueId ? { ...i, ...updates } : i))
+      prev.map((i) => {
+        if (i.id === issueId) {
+          const updated = { ...i, ...updates };
+          updatedIssueToPersist = updated;
+          return updated;
+        }
+        return i;
+      })
     );
     if (detailIssue && detailIssue.id === issueId) {
       setDetailIssue((prev) => (prev ? { ...prev, ...updates } : null));
+    }
+    if (updatedIssueToPersist) {
+      upsertSingleIssueToSupabase(updatedIssueToPersist);
     }
     realtimeSync.broadcastTicketUpdate(
       { id: issueId, ...updates } as any,
@@ -849,6 +954,140 @@ export default function App() {
     }
   };
 
+  // Helper to immediately save/upsert a single ticket into Supabase Table Editor
+  const upsertSingleIssueToSupabase = async (issue: Issue) => {
+    if (!supabaseRef.current) return;
+    try {
+      const client = supabaseRef.current;
+      const payload1 = {
+        id: issue.id,
+        client: issue.client || '',
+        tag: issue.tag || '',
+        type: issue.type || '',
+        desc_text: issue.desc || '',
+        assigned: issue.assigned || '',
+        owner: issue.owner || '',
+        priority: issue.priority || 'Medium',
+        status: issue.status || 'Open',
+        worktime: issue.workTime || 0,
+        csat: issue.csat || 5,
+        created_at: issue.createdAt,
+        due_date: issue.dueDate,
+      };
+      const { error } = await client.from('issues').upsert(payload1, { onConflict: 'id' });
+      if (error) {
+        // Fallback if column 'desc_text' is named 'desc' in user's Supabase schema
+        const payload2 = {
+          id: issue.id,
+          client: issue.client || '',
+          tag: issue.tag || '',
+          type: issue.type || '',
+          desc: issue.desc || '',
+          assigned: issue.assigned || '',
+          owner: issue.owner || '',
+          priority: issue.priority || 'Medium',
+          status: issue.status || 'Open',
+          worktime: issue.workTime || 0,
+          csat: issue.csat || 5,
+          created_at: issue.createdAt,
+          due_date: issue.dueDate,
+        };
+        await client.from('issues').upsert(payload2, { onConflict: 'id' });
+      }
+    } catch (err) {
+      console.warn('[Supabase] Ticket auto-upsert note:', err);
+    }
+  };
+
+  const deleteSingleIssueFromSupabase = async (issueId: string) => {
+    if (!supabaseRef.current) return;
+    try {
+      await supabaseRef.current.from('issues').delete().eq('id', issueId);
+    } catch (err) {
+      console.warn('[Supabase] Delete issue note:', err);
+    }
+  };
+
+  const deleteBulkIssuesFromSupabase = async (issueIds: string[]) => {
+    if (!supabaseRef.current || !issueIds.length) return;
+    try {
+      await supabaseRef.current.from('issues').delete().in('id', issueIds);
+    } catch (err) {
+      console.warn('[Supabase] Bulk delete issues note:', err);
+    }
+  };
+
+  const upsertSingleUserToSupabase = async (user: AppUser) => {
+    if (!supabaseRef.current) return;
+    try {
+      const payload = {
+        id: user.id,
+        name: user.name,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        department: user.department,
+        avatar: user.avatar,
+        permissions: user.permissions || [],
+        password: user.password || '123456',
+      };
+      await supabaseRef.current.from('app_users').upsert(payload, { onConflict: 'id' });
+    } catch (err) {
+      console.warn('[Supabase] User auto-upsert note:', err);
+    }
+  };
+
+  const deleteSingleUserFromSupabase = async (userId: string) => {
+    if (!supabaseRef.current) return;
+    try {
+      await supabaseRef.current.from('app_users').delete().eq('id', userId);
+    } catch (err) {
+      console.warn('[Supabase] User delete note:', err);
+    }
+  };
+
+  const upsertSingleCabActivityToSupabase = async (cab: CabBusinessActivity) => {
+    if (!supabaseRef.current) return;
+    try {
+      const payload = {
+        id: cab.id,
+        activity_name: cab.activityName,
+        scope: cab.scope,
+        impacted_services: cab.impactedServices,
+        service_impact: cab.serviceImpact,
+        stop_service_target_system: cab.stopServiceTargetSystem,
+        stopped_system_name: cab.stoppedSystemName,
+        downtime_required: cab.downtimeRequired,
+        date: cab.date,
+        start_time: cab.startTime,
+        end_time: cab.endTime,
+        maintenance_window: cab.maintenanceWindow,
+        requestor: cab.requestor,
+        tpm: cab.tpm,
+        change_management: cab.changeManagement,
+        status: cab.status,
+        risk_level: cab.riskLevel,
+        rollback_plan: cab.rollbackPlan,
+        rollback_reason: cab.rollbackReason,
+        comments: cab.comments || [],
+        audit_trail: cab.auditTrail || [],
+        created_at: cab.createdAt || new Date().toISOString(),
+      };
+      await supabaseRef.current.from('cab_activities').upsert(payload, { onConflict: 'id' });
+    } catch (err) {
+      console.warn('[Supabase] CAB auto-upsert note:', err);
+    }
+  };
+
+  const deleteSingleCabActivityFromSupabase = async (cabId: string) => {
+    if (!supabaseRef.current) return;
+    try {
+      await supabaseRef.current.from('cab_activities').delete().eq('id', cabId);
+    } catch (err) {
+      console.warn('[Supabase] CAB delete note:', err);
+    }
+  };
+
   // Add or Update Ticket
   const handleSaveIssue = (data: Partial<Issue>) => {
     const nowIso = new Date().toISOString();
@@ -899,6 +1138,10 @@ export default function App() {
         'تعديل تذكرة',
         `تم تحديث بيانات التذكرة ${editingIssue.id}`
       );
+
+      // Immediately save/upsert to Supabase Table Editor!
+      upsertSingleIssueToSupabase(updatedIssue);
+      setTimeout(() => handleSyncSupabaseNow(true), 200);
 
       addAuditLog('تعديل تذكرة', `تم تحديث بيانات التذكرة ${editingIssue.id}`);
       setEditingIssue(null);
@@ -952,6 +1195,10 @@ export default function App() {
 
       // Broadcast new ticket immediately to entire team in all regions!
       realtimeSync.broadcastTicketCreate(newIssue, currentUser.name, currentUser.department);
+
+      // Immediately save/upsert new ticket to Supabase Table Editor!
+      upsertSingleIssueToSupabase(newIssue);
+      setTimeout(() => handleSyncSupabaseNow(true), 200);
 
       addAuditLog('إنشاء تذكرة', `تم تسجيل بلاغ جديد برقم ${newId} للعميل ${data.client} وبدء عداد العمل فوراً`);
       setNotifications((prev) => [
@@ -1126,6 +1373,7 @@ export default function App() {
         'تغيير الحالة',
         `تم تحويل الحالة إلى (${newStatus})`
       );
+      upsertSingleIssueToSupabase(updatedIssueToBroadcast);
     }
 
     addAuditLog('تحديث حالة', `تحويل حالة التذكرة ${issue.id} إلى ${newStatus}`);
@@ -1133,6 +1381,7 @@ export default function App() {
 
   // Bulk Status Change
   const handleBulkChangeStatus = (issueIds: string[], newStatus: IssueStatus) => {
+    let updatedIssuesToPersist: Issue[] = [];
     setIssues((prev) =>
       prev.map((item) => {
         if (issueIds.includes(item.id)) {
@@ -1151,6 +1400,7 @@ export default function App() {
             isWorkingNow: newStatus === 'Resolved' || newStatus === 'Closed' ? false : item.isWorkingNow,
             timeline: updatedTimeline,
           };
+          updatedIssuesToPersist.push(updated);
           realtimeSync.broadcastTicketUpdate(
             updated,
             currentUser.name,
@@ -1162,6 +1412,7 @@ export default function App() {
         return item;
       })
     );
+    updatedIssuesToPersist.forEach((iss) => upsertSingleIssueToSupabase(iss));
     addAuditLog('تحديث جماعي', `تم تعديل حالة ${issueIds.length} تذكرة إلى ${newStatus}`);
   };
 
@@ -1169,13 +1420,15 @@ export default function App() {
   const handleBulkDelete = (issueIds: string[]) => {
     setIssues((prev) => prev.filter((i) => !issueIds.includes(i.id)));
     issueIds.forEach((id) => realtimeSync.broadcastTicketDelete(id, currentUser.name));
+    deleteBulkIssuesFromSupabase(issueIds);
     addAuditLog('حذف جماعي', `تم حذف ${issueIds.length} تذكرة نهائياً.`);
   };
 
   // Delete Single Issue
-  const handleDeleteIssue = (issueId: string) => {
+  const handleDeleteIssue = async (issueId: string) => {
     setIssues((prev) => prev.filter((i) => i.id !== issueId));
     realtimeSync.broadcastTicketDelete(issueId, currentUser.name);
+    deleteSingleIssueFromSupabase(issueId);
     addAuditLog('حذف تذكرة', `تم حذف التذكرة ${issueId} نهائياً.`);
   };
 
@@ -1229,6 +1482,7 @@ export default function App() {
         'حل التذكرة',
         `تم حل التذكرة: ${reason}`
       );
+      upsertSingleIssueToSupabase(resolvedIssueToBroadcast);
     }
 
     addAuditLog('حل تذكرة', `إغلاق التذكرة ${issueId} وسبب الحل: ${reason}`);
@@ -1237,6 +1491,7 @@ export default function App() {
 
   // CSAT Rating Update
   const handleUpdateCsat = (issueId: string, rating: number) => {
+    let updatedIssueToPersist: Issue | null = null;
     setIssues((prev) =>
       prev.map((item) => {
         if (item.id === issueId) {
@@ -1254,6 +1509,7 @@ export default function App() {
             csat: rating,
             timeline: updatedTimeline,
           };
+          updatedIssueToPersist = updated;
           realtimeSync.broadcastTicketUpdate(
             updated,
             currentUser.name,
@@ -1265,6 +1521,9 @@ export default function App() {
         return item;
       })
     );
+    if (updatedIssueToPersist) {
+      upsertSingleIssueToSupabase(updatedIssueToPersist);
+    }
   };
 
   // Add Comment to Issue
@@ -1281,6 +1540,7 @@ export default function App() {
       attachment,
     };
 
+    let updatedIssueToPersist: Issue | null = null;
     setIssues((prev) =>
       prev.map((item) => {
         if (item.id === issueId) {
@@ -1295,15 +1555,21 @@ export default function App() {
             type: 'comment',
           });
 
-          return {
+          const updated = {
             ...item,
             comments: updatedComments,
             timeline: updatedTimeline,
           };
+          updatedIssueToPersist = updated;
+          return updated;
         }
         return item;
       })
     );
+
+    if (updatedIssueToPersist) {
+      upsertSingleIssueToSupabase(updatedIssueToPersist);
+    }
 
     // Broadcast new comment to all team members
     realtimeSync.broadcastComment(issueId, newComment, currentUser.name);
@@ -1349,9 +1615,20 @@ export default function App() {
   };
 
   const handleUpdateUserPassword = (userId: string, newPassword: string) => {
+    let updatedUserToPersist: AppUser | null = null;
     setUsers((prev) =>
-      prev.map((item) => (item.id === userId ? { ...item, password: newPassword } : item))
+      prev.map((item) => {
+        if (item.id === userId) {
+          const updated = { ...item, password: newPassword };
+          updatedUserToPersist = updated;
+          return updated;
+        }
+        return item;
+      })
     );
+    if (updatedUserToPersist) {
+      upsertSingleUserToSupabase(updatedUserToPersist);
+    }
     const u = users.find((item) => item.id === userId);
     addAuditLog('تغيير كلمة المرور', `تم تحديث كلمة المرور للموظف (${u?.name || userId}) بنجاح.`);
   };
@@ -1362,13 +1639,25 @@ export default function App() {
       ...userData,
     };
     setUsers((prev) => [...prev, newUser]);
+    upsertSingleUserToSupabase(newUser);
     addAuditLog('إضافة موظف', `تم إنشاء حساب ${userData.name} بالدور ${userData.role} وتحديد كلمة المرور والصلاحيات`);
   };
 
   const handleUpdateUserPermissions = (userId: string, newPermissions: string[]) => {
+    let updatedUserToPersist: AppUser | null = null;
     setUsers((prev) =>
-      prev.map((item) => (item.id === userId ? { ...item, permissions: newPermissions } : item))
+      prev.map((item) => {
+        if (item.id === userId) {
+          const updated = { ...item, permissions: newPermissions };
+          updatedUserToPersist = updated;
+          return updated;
+        }
+        return item;
+      })
     );
+    if (updatedUserToPersist) {
+      upsertSingleUserToSupabase(updatedUserToPersist);
+    }
     const u = users.find((item) => item.id === userId);
     addAuditLog('تعديل صلاحيات موظف', `تم تحديث صلاحيات الموظف (${u?.name || userId}) بنجاح.`);
   };
@@ -1376,6 +1665,7 @@ export default function App() {
   const handleDeleteUser = (userId: string) => {
     const u = users.find((item) => item.id === userId);
     setUsers((prev) => prev.filter((item) => item.id !== userId));
+    deleteSingleUserFromSupabase(userId);
     if (u) addAuditLog('حذف مستخدم', `تم حذف الحساب ${u.name}`);
   };
 
@@ -1459,15 +1749,20 @@ export default function App() {
   };
 
   // Supabase save
-  const handleSaveSupabase = (url: string, key: string) => {
+  const handleSaveSupabase = async (url: string, key: string) => {
     const cleanUrl = url.trim();
     const cleanKey = key.trim();
-    setSupabaseConfig({
+    const newConfig: SupabaseConfig = {
       url: cleanUrl,
       key: cleanKey,
       connected: !!(cleanUrl && cleanKey),
       lastSync: new Date().toLocaleTimeString('ar-EG'),
-    });
+    };
+    setSupabaseConfig(newConfig);
+    try {
+      localStorage.setItem(STORAGE_KEY + '_SUPABASE', JSON.stringify(newConfig));
+    } catch {}
+
     if (cleanUrl && cleanKey && cleanUrl.startsWith('https://')) {
       try {
         const client = createClient(cleanUrl, cleanKey);
@@ -1476,8 +1771,12 @@ export default function App() {
         console.warn('Error creating supabase client:', err);
       }
     }
-    addAuditLog('إعداد السحابة', 'تم حفظ وتحديث مفتاح الربط Publishable API Key مع Supabase');
-    alert('تم حفظ إعدادات الاتصال السحابي عبر Publishable API Key بنجاح!');
+
+    // Persist to central server so ALL browsers & devices have the cloud registered immediately!
+    await realtimeSync.broadcastSupabaseConfig(newConfig);
+
+    addAuditLog('إعداد السحابة', 'تم حفظ وتحديث بيانات السحابة (Project URL & API Key) مركزياً لكافة الأجهزة');
+    alert('✅ تم حفظ وتسجيل بيانات السحابة مركزياً بنجاح!\nالآن ستكون السحابة مسجلة ونشطة على أي متصفح أو جهاز آخر يفتح المنظومة تلقائياً.');
   };
 
   // Test Supabase Connection with Publishable API Key
@@ -1506,6 +1805,8 @@ export default function App() {
       const client = createClient(cleanUrl, cleanKey);
       const { error: issuesErr } = await client.from('issues').select('id').limit(1);
 
+      const updatedConfig = { url: cleanUrl, key: cleanKey, connected: true, lastSync: new Date().toLocaleTimeString('ar-EG') };
+
       if (issuesErr) {
         if (
           issuesErr.code === '42P01' ||
@@ -1515,10 +1816,11 @@ export default function App() {
           issuesErr.message?.includes('relation "issues" does not exist')
         ) {
           supabaseRef.current = client;
-          setSupabaseConfig((prev) => ({ ...prev, url: cleanUrl, key: cleanKey, connected: true }));
+          setSupabaseConfig((prev) => ({ ...prev, ...updatedConfig }));
+          realtimeSync.broadcastSupabaseConfig(updatedConfig);
           return {
             success: true,
-            message: 'تم التحقق من الـ Publishable API Key بنجاح! 🟢 (ملاحظة: الجداول السحابية لم تُنشأ بعد، يرجى نسخ كود SQL الشامل من الزر بالأسفل وتشغيله في Supabase SQL Editor لحفظ التذاكر واليوزرات والإعدادات).',
+            message: 'تم التحقق من الـ Publishable API Key وحفظه مركزياً بنجاح! 🟢 (ملاحظة: الجداول السحابية لم تُنشأ بعد، يرجى نسخ كود SQL الشامل من الزر بالأسفل وتشغيله في Supabase SQL Editor لحفظ التذاكر واليوزرات والإعدادات).',
           };
         }
 
@@ -1529,10 +1831,11 @@ export default function App() {
       }
 
       supabaseRef.current = client;
-      setSupabaseConfig((prev) => ({ ...prev, url: cleanUrl, key: cleanKey, connected: true }));
+      setSupabaseConfig((prev) => ({ ...prev, ...updatedConfig }));
+      realtimeSync.broadcastSupabaseConfig(updatedConfig);
       return {
         success: true,
-        message: 'الاتصال سليم 100%! تم التحقق من مشروع Supabase وجاهز لحفظ واسترجاع التذاكر واليوزرات والإعدادات سحابياً 🟢',
+        message: 'الاتصال سليم 100%! تم التحقق من مشروع Supabase وحفظ بيانات الربط مركزياً لكافة المتصفحات والأجهزة 🟢',
       };
     } catch (err: any) {
       return {
@@ -1542,7 +1845,7 @@ export default function App() {
     }
   };
 
-  // Full Push to Supabase (Issues, Users, Settings)
+  // Full Push to Supabase (Issues, Users, CAB, Settings)
   const handleSyncSupabaseNow = async (silent = false) => {
     if (!supabaseRef.current) {
       if (!silent) alert('يرجى التأكد من إدخال Project URL و Publishable API Key صالحين أولاً!');
@@ -1591,7 +1894,39 @@ export default function App() {
         console.warn('Users sync note:', usersError);
       }
 
-      // 3. Upsert system_cloud_store (categories, tags, canned responses, settings)
+      // 3. Upsert cab_activities if available
+      if (cabActivities && cabActivities.length > 0) {
+        const cabPayload = cabActivities.map((c) => ({
+          id: c.id,
+          activity_name: c.activityName,
+          scope: c.scope,
+          impacted_services: c.impactedServices,
+          service_impact: c.serviceImpact,
+          stop_service_target_system: c.stopServiceTargetSystem,
+          stopped_system_name: c.stoppedSystemName,
+          downtime_required: c.downtimeRequired,
+          date: c.date,
+          start_time: c.startTime,
+          end_time: c.endTime,
+          maintenance_window: c.maintenanceWindow,
+          requestor: c.requestor,
+          tpm: c.tpm,
+          change_management: c.changeManagement,
+          status: c.status,
+          risk_level: c.riskLevel,
+          rollback_plan: c.rollbackPlan,
+          rollback_reason: c.rollbackReason,
+          comments: c.comments || [],
+          audit_trail: c.auditTrail || [],
+          created_at: c.createdAt,
+        }));
+        const { error: cabError } = await client.from('cab_activities').upsert(cabPayload, { onConflict: 'id' });
+        if (cabError && !cabError.message?.includes('does not exist')) {
+          console.warn('CAB sync note:', cabError);
+        }
+      }
+
+      // 4. Upsert system_cloud_store (categories, tags, canned responses, settings, vendors, sla)
       const systemStorePayload = [
         { key: 'categories', data: categories, updated_at: new Date().toISOString() },
         { key: 'tags', data: tags, updated_at: new Date().toISOString() },
@@ -1599,6 +1934,8 @@ export default function App() {
         { key: 'general_settings', data: generalSettings, updated_at: new Date().toISOString() },
         { key: 'sound_settings', data: soundSettings, updated_at: new Date().toISOString() },
         { key: 'audit_logs', data: auditLogs.slice(0, 100), updated_at: new Date().toISOString() },
+        { key: 'external_vendors', data: externalVendors, updated_at: new Date().toISOString() },
+        { key: 'sla_settings', data: slaSettings, updated_at: new Date().toISOString() },
       ];
 
       const { error: storeError } = await client.from('system_cloud_store').upsert(systemStorePayload, { onConflict: 'key' });
@@ -1617,11 +1954,12 @@ export default function App() {
           `✅ تمت المزامنة الشاملة وحفظ كل البيانات في السحابة بنجاح!\n\n` +
           `• تذاكر وبلاغات: ${issues.length} تذكرة محفوظة\n` +
           `• مستخدمين وصلاحيات: ${users.length} مستخدم مع كلمات المرور\n` +
+          `• أنشطة CAB لاعتماد التغيير: ${cabActivities.length} نشاط\n` +
           `• أقسام وقواعد توجيه: ${categories.length} قسم\n` +
           `• الوسوم والردود الجاهزة والإعدادات العامة محفوظة بالكامل.`
         );
       }
-      addAuditLog('مزامنة سحابية شاملة', `تم حفظ وتحديث ${issues.length} تذكرة و ${users.length} مستخدم في Supabase`);
+      addAuditLog('مزامنة سحابية شاملة', `تم حفظ وتحديث ${issues.length} تذكرة و ${users.length} مستخدم و ${cabActivities.length} نشاط CAB في Supabase`);
     } catch (e: any) {
       if (!silent) {
         alert(`تنبيه المزامنة: ${e.message || 'تأكد من إنشاء الجداول عبر كود SQL المتاح في المنظومة'}`);
@@ -1629,7 +1967,7 @@ export default function App() {
     }
   };
 
-  // Full Pull from Supabase (Issues, Users, Settings)
+  // Full Pull from Supabase (Issues, Users, CAB, Settings)
   const handlePullSupabaseNow = async (silent = false) => {
     if (!supabaseRef.current) {
       if (!silent) alert('يرجى التأكد من الاتصال بـ Supabase أولاً!');
@@ -1640,6 +1978,7 @@ export default function App() {
       let pulledIssues = 0;
       let pulledUsers = 0;
       let pulledCats = 0;
+      let pulledCab = 0;
 
       // 1. Pull issues
       const { data: issuesData, error: issuesErr } = await client.from('issues').select('*');
@@ -1686,7 +2025,38 @@ export default function App() {
         pulledUsers = mappedUsers.length;
       }
 
-      // 3. Pull system_cloud_store
+      // 3. Pull cab_activities
+      const { data: cabData, error: cabErr } = await client.from('cab_activities').select('*');
+      if (!cabErr && cabData && cabData.length > 0) {
+        const mappedCab: CabBusinessActivity[] = cabData.map((row: any) => ({
+          id: row.id,
+          activityName: row.activity_name || row.activityName || 'نشاط صيانة',
+          scope: row.scope,
+          impactedServices: row.impacted_services || row.impactedServices,
+          serviceImpact: row.service_impact || row.serviceImpact,
+          stopServiceTargetSystem: row.stop_service_target_system || row.stopServiceTargetSystem,
+          stoppedSystemName: row.stopped_system_name || row.stoppedSystemName,
+          downtimeRequired: row.downtime_required || row.downtimeRequired || 'No',
+          date: row.date,
+          startTime: row.start_time || row.startTime,
+          endTime: row.end_time || row.endTime,
+          maintenanceWindow: row.maintenance_window || row.maintenanceWindow,
+          requestor: row.requestor,
+          tpm: row.tpm,
+          changeManagement: row.change_management || row.changeManagement,
+          status: row.status || 'Pending Approval',
+          riskLevel: row.risk_level || row.riskLevel || 'Low',
+          rollbackPlan: row.rollback_plan || row.rollbackPlan,
+          rollbackReason: row.rollback_reason || row.rollbackReason,
+          comments: row.comments || [],
+          auditTrail: row.audit_trail || row.auditTrail || [],
+          createdAt: row.created_at || row.createdAt || new Date().toISOString(),
+        }));
+        setCabActivities(mappedCab);
+        pulledCab = mappedCab.length;
+      }
+
+      // 4. Pull system_cloud_store
       const { data: storeData, error: storeErr } = await client.from('system_cloud_store').select('*');
       if (!storeErr && storeData) {
         for (const row of storeData) {
@@ -1716,10 +2086,11 @@ export default function App() {
           `📥 تم استيراد واسترجاع جميع البيانات السحابية بنجاح!\n\n` +
           `• استيراد ${pulledIssues} تذكرة من السحابة\n` +
           `• استيراد ${pulledUsers} مستخدم مع كلمات المرور والصلاحيات\n` +
+          `• استيراد ${pulledCab} نشاط CAB لاعتماد التغيير\n` +
           `• استيراد ${pulledCats} قسم وقواعد التوجيه والإعدادات والوسوم.`
         );
       }
-      addAuditLog('استيراد سحابي شامل', `تم استيراد ${pulledIssues} تذكرة و ${pulledUsers} مستخدم من Supabase`);
+      addAuditLog('استيراد سحابي شامل', `تم استيراد ${pulledIssues} تذكرة و ${pulledUsers} مستخدم و ${pulledCab} نشاط CAB من Supabase`);
     } catch (e: any) {
       if (!silent) {
         alert(`تنبيه أثناء الاستيراد: ${e.message || 'تأكد من وجود البيانات والجداول في السحابة'}`);
@@ -2054,8 +2425,62 @@ export default function App() {
     );
   }
 
+  const getDynamicStyles = () => {
+    if (theme === 'dark') return '';
+    
+    let pageBg = '';
+    if (generalSettings.lightThemeBgColor === 'pure_white') pageBg = '#ffffff';
+    else if (generalSettings.lightThemeBgColor === 'soft_gray') pageBg = '#f1f5f9';
+    else if (generalSettings.lightThemeBgColor === 'warm_beige') pageBg = '#fafaf9';
+    else if (generalSettings.lightThemeBgColor === 'ice_blue') pageBg = '#f0f9ff';
+    else if (generalSettings.lightThemeBgColor === 'soft_mint') pageBg = '#f0fdf4';
+    else if (generalSettings.lightThemeBgColor === 'custom' && generalSettings.customLightBgHex) {
+      pageBg = generalSettings.customLightBgHex;
+    }
+
+    let cardBg = '';
+    if (generalSettings.lightCardBgColor === 'custom' && generalSettings.customCardBgHex) {
+      cardBg = generalSettings.customCardBgHex;
+    }
+
+    let headerBg = '';
+    if (generalSettings.lightHeaderBgColor === 'custom' && generalSettings.customHeaderBgHex) {
+      headerBg = generalSettings.customHeaderBgHex;
+    }
+
+    let styles = '';
+    if (pageBg) {
+      styles += `
+        :root:not(.dark) .min-h-screen,
+        :root:not(.dark) body,
+        :root:not(.dark) .skin-standard {
+          background-color: ${pageBg} !important;
+          background-image: none !important;
+        }
+      `;
+    }
+    if (cardBg) {
+      styles += `
+        :root:not(.dark) .bg-white,
+        :root:not(.dark) .cab-activity-card {
+          background-color: ${cardBg} !important;
+        }
+      `;
+    }
+    if (headerBg) {
+      styles += `
+        :root:not(.dark) header,
+        :root:not(.dark) .sticky {
+          background-color: ${headerBg} !important;
+        }
+      `;
+    }
+    return styles;
+  };
+
   return (
     <BadgeStyleProvider style={generalSettings.badgeStyle || 'clean-arabic'}>
+      <style dangerouslySetInnerHTML={{ __html: getDynamicStyles() }} />
       <div className={`min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-['Cairo',sans-serif] transition-all duration-300 skin-${appSkin} relative overflow-x-hidden`}>
       {/* Premium Glassmorphic Dynamic Animated Background Blobs */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">

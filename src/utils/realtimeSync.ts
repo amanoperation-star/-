@@ -24,6 +24,7 @@ export interface RealtimeEventHandlers {
   onCollisionsUpdated?: (collisions: any) => void;
   onExternalVendorsUpdated?: (vendors: ExternalVendor[]) => void;
   onSlaSettingsUpdated?: (slaSettings: any) => void;
+  onSupabaseConfigUpdated?: (config: any) => void;
 }
 
 class RealtimeSyncManager {
@@ -148,7 +149,7 @@ class RealtimeSyncManager {
     switch (data.type) {
       case 'init': {
         // Initial state from server
-        if (data.state && data.state.issues && data.state.issues.length > 0) {
+        if (data.state) {
           this.handlers?.onStateSynced(data.state);
         }
         if (Array.isArray(data.activeUsers)) {
@@ -240,6 +241,13 @@ class RealtimeSyncManager {
       case 'cab:deleted': {
         if (data.activityId) {
           this.handlers?.onCabDeleted?.(data.activityId, data.author || 'مدير النظام');
+        }
+        break;
+      }
+
+      case 'supabase:config_updated': {
+        if (data.supabaseConfig) {
+          this.handlers?.onSupabaseConfigUpdated?.(data.supabaseConfig);
         }
         break;
       }
@@ -432,6 +440,7 @@ class RealtimeSyncManager {
     externalVendors?: ExternalVendor[];
     slaSettings?: any;
     cabActivities?: CabBusinessActivity[];
+    supabaseConfig?: any;
   }) {
     try {
       await fetch('/api/init-seed', {
@@ -444,7 +453,32 @@ class RealtimeSyncManager {
     }
   }
 
-  // 7. Send ticket focus (collision detection)
+  // 7. Broadcast Supabase configuration update to all connected browsers & persist centrally
+  public async broadcastSupabaseConfig(config: any) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      try {
+        this.ws.send(
+          JSON.stringify({
+            type: 'supabase:config_update',
+            config,
+          })
+        );
+      } catch (err) {
+        console.warn('[RealtimeSync] sendSupabaseConfig WS error:', err);
+      }
+    }
+    try {
+      await fetch('/api/supabase-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+      });
+    } catch (err) {
+      console.warn('[RealtimeSync] sendSupabaseConfig REST error:', err);
+    }
+  }
+
+  // 8. Send ticket focus (collision detection)
   public sendTicketFocus(ticketId: string, action: 'viewing' | 'editing' | 'working', user: any) {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       try {

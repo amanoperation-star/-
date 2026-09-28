@@ -364,6 +364,12 @@ export const INITIAL_GENERAL_SETTINGS: GeneralSettings = {
   customFooterNote: 'نظام إدارة البلاغات والتذاكر المؤسسي الموحد',
   badgeStyle: 'clean-arabic',
   cabDesignStyle: 'dynamic_table',
+  lightThemeBgColor: 'default',
+  lightCardBgColor: 'default',
+  lightHeaderBgColor: 'default',
+  customLightBgHex: '#f8fafc',
+  customCardBgHex: '#ffffff',
+  customHeaderBgHex: '#ffffff',
 };
 
 export const INITIAL_CAB_ACTIVITIES: CabBusinessActivity[] = [

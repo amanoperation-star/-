@@ -50,6 +50,39 @@
 }
 
 /* Skin-specific radial glowing background gradients */
+.skin-standard {
+  background-color: #f8fafc;
+}
+.dark .skin-standard {
+  background-color: #0f172a !important;
+}
+
+.skin-obsidian {
+  background-color: #f1f5f9;
+}
+.dark .skin-obsidian {
+  background-color: #030712 !important;
+  background-image: radial-gradient(at 20% 20%, rgba(30, 41, 59, 0.4) 0px, transparent 60%),
+                    radial-gradient(at 80% 80%, rgba(15, 23, 42, 0.6) 0px, transparent 60%) !important;
+}
+
+.skin-charcoal {
+  background-color: #e2e8f0;
+}
+.dark .skin-charcoal {
+  background-color: #111827 !important;
+  background-image: radial-gradient(at 10% 10%, rgba(31, 41, 55, 0.5) 0px, transparent 50%) !important;
+}
+
+.skin-emerald {
+  background-color: #f0fdf4;
+  background-image: radial-gradient(at 5% 5%, rgba(16, 185, 129, 0.08) 0px, transparent 45%);
+}
+.dark .skin-emerald {
+  background-color: #022c22 !important;
+  background-image: radial-gradient(at 10% 20%, rgba(16, 185, 129, 0.18) 0px, transparent 55%) !important;
+}
+
 .skin-amethyst {
   background-color: #f5f3ff;
   background-image: radial-gradient(at 5% 5%, rgba(168, 85, 247, 0.08) 0px, transparent 45%);

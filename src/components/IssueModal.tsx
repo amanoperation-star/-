@@ -658,49 +658,51 @@ export const IssueModal: React.FC<IssueModalProps> = ({
         {/* ======================================================== */}
         {/* Top Header with Visual Design Selector & Close Button */}
         {/* ======================================================== */}
-        <div className="relative px-5 py-4 bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 text-white border-b border-slate-800 shrink-0">
+        <div className="relative px-4 sm:px-6 py-4 bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 text-white border-b border-slate-800 shrink-0 select-none shadow-md">
           <div className="absolute top-0 right-0 w-80 h-full bg-gradient-to-l from-indigo-500/20 via-purple-500/10 to-transparent pointer-events-none" />
           <div className="absolute -bottom-6 left-12 w-32 h-16 bg-blue-500/15 rounded-full blur-xl pointer-events-none" />
 
-          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="relative z-10 flex flex-wrap items-center justify-between gap-3">
             {/* Title & Badge */}
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 flex items-center justify-center shrink-0 shadow-inner">
-                {isEditMode ? <Sparkles className="w-5 h-5 text-indigo-300" /> : <PlusCircle className="w-5 h-5 text-indigo-300" />}
+              <div className="w-10 h-10 rounded-2xl bg-indigo-500/20 border border-indigo-400/40 text-indigo-300 flex items-center justify-center shrink-0 shadow-inner">
+                {isEditMode ? <Sparkles className="w-5 h-5 text-indigo-300 shrink-0" /> : <PlusCircle className="w-5 h-5 text-indigo-300 shrink-0" />}
               </div>
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="font-extrabold text-base text-white tracking-tight">
                     {isEditMode ? `تعديل بيانات التذكرة: ${initialData?.id}` : 'فتح تذكرة وبلاغ جديد'}
                   </h3>
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-400/30">
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/25 text-indigo-300 border border-indigo-400/40">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                    <span>توجيه ذكي</span>
+                    <span>توجيه ذكي ⚡</span>
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-300/80 mt-0.5">
+                <p className="text-[11px] text-slate-300/90 mt-0.5">
                   حدد بيانات العميل والتصنيف وسيقوم النظام باحتساب المهلة وتعيين الفريق
                 </p>
               </div>
             </div>
 
-            {/* Design Selector Switcher Toolbar */}
-            <div className="flex items-center gap-2 self-end md:self-auto">
-              <div className="flex items-center bg-slate-900/90 p-1 rounded-xl border border-slate-700/70 shadow-inner">
-                <span className="text-[10px] text-slate-400 px-2 font-medium hidden sm:inline">الديزاين:</span>
+            {/* Design Selector Switcher Toolbar & Close Button */}
+            <div className="flex items-center gap-2 flex-wrap shrink-0 ms-auto">
+              <div className="flex items-center bg-slate-900/90 p-1 rounded-xl border border-indigo-500/30 shadow-md gap-1 overflow-x-auto max-w-full">
+                <span className="text-[10px] text-indigo-200 px-1.5 font-bold hidden sm:inline flex items-center gap-1 shrink-0">
+                  <span>الديزاين:</span>
+                </span>
                 
-                {/* 1. Cards Layout (User's Primary Request) */}
+                {/* 1. Cards Layout */}
                 <button
                   type="button"
                   onClick={() => handleSelectDesign('cards')}
                   title="تصميم البطاقات التفاعلية (Modern Cards)"
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 cursor-pointer ${
                     modalDesign === 'cards'
-                      ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/50'
-                      : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                      ? 'bg-indigo-600 text-white shadow-md ring-2 ring-indigo-400'
+                      : 'text-slate-200 hover:text-white hover:bg-slate-800/80'
                   }`}
                 >
-                  <LayoutGrid className="w-3.5 h-3.5" />
+                  <LayoutGrid className="w-4 h-4 shrink-0 text-indigo-300" />
                   <span>بطاقات</span>
                 </button>
 
@@ -709,13 +711,13 @@ export const IssueModal: React.FC<IssueModalProps> = ({
                   type="button"
                   onClick={() => handleSelectDesign('executive')}
                   title="تصميم الاستوديو التنفيذي (Executive Studio)"
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 cursor-pointer ${
                     modalDesign === 'executive'
-                      ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/50'
-                      : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                      ? 'bg-indigo-600 text-white shadow-md ring-2 ring-indigo-400'
+                      : 'text-slate-200 hover:text-white hover:bg-slate-800/80'
                   }`}
                 >
-                  <Columns3 className="w-3.5 h-3.5" />
+                  <Columns3 className="w-4 h-4 shrink-0 text-cyan-300" />
                   <span>تنفيذي</span>
                 </button>
 
@@ -724,13 +726,13 @@ export const IssueModal: React.FC<IssueModalProps> = ({
                   type="button"
                   onClick={() => handleSelectDesign('wizard')}
                   title="معالج الخطوات المرحلي (Step Wizard)"
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 cursor-pointer ${
                     modalDesign === 'wizard'
-                      ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/50'
-                      : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                      ? 'bg-indigo-600 text-white shadow-md ring-2 ring-indigo-400'
+                      : 'text-slate-200 hover:text-white hover:bg-slate-800/80'
                   }`}
                 >
-                  <ListOrdered className="w-3.5 h-3.5" />
+                  <ListOrdered className="w-4 h-4 shrink-0 text-amber-300" />
                   <span>خطوات</span>
                 </button>
 
@@ -739,13 +741,13 @@ export const IssueModal: React.FC<IssueModalProps> = ({
                   type="button"
                   onClick={() => handleSelectDesign('compact')}
                   title="التصميم السريع المدمج (Compact Rapid)"
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 cursor-pointer ${
                     modalDesign === 'compact'
-                      ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/50'
-                      : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                      ? 'bg-indigo-600 text-white shadow-md ring-2 ring-indigo-400'
+                      : 'text-slate-200 hover:text-white hover:bg-slate-800/80'
                   }`}
                 >
-                  <Zap className="w-3.5 h-3.5" />
+                  <Zap className="w-4 h-4 shrink-0 text-yellow-300" />
                   <span>سريع</span>
                 </button>
               </div>
@@ -754,10 +756,10 @@ export const IssueModal: React.FC<IssueModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-slate-300 hover:text-white flex items-center justify-center transition border border-white/10 shrink-0"
+                className="w-9 h-9 rounded-xl bg-slate-800 hover:bg-rose-600 active:scale-95 text-white flex items-center justify-center transition border border-slate-600 shrink-0 cursor-pointer shadow-md"
                 title="إغلاق النافذة"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5 stroke-[2.5]" />
               </button>
             </div>
           </div>

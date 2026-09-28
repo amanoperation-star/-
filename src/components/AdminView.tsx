@@ -267,6 +267,13 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [showSqlHelper, setShowSqlHelper] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
 
+  React.useEffect(() => {
+    if (supabaseConfig) {
+      if (supabaseConfig.url) setSbUrl(supabaseConfig.url);
+      if (supabaseConfig.key) setSbKey(supabaseConfig.key);
+    }
+  }, [supabaseConfig]);
+
   // Sound URL state
   const [soundUrlInput, setSoundUrlInput] = useState(soundSettings.alarmUrl);
 
