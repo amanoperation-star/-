@@ -42,15 +42,12 @@ import {
   INITIAL_CAB_ACTIVITIES
 } from './utils/mockData';
 import { isTicketSlaBreached, calculateDueDate, DEFAULT_SLA_SETTINGS } from './utils/sla';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { supabase, testSupabaseConnection, DEFAULT_SUPABASE_PROJECT_URL, DEFAULT_SUPABASE_PUBLISHABLE_KEY } from './utils/supabaseClient';
 import { LoginScreen } from './components/LoginScreen';
 import { BadgeStyleProvider } from './components/Badges';
 import { collisionManager } from './utils/collisionDetector';
 
 const STORAGE_KEY = 'ENTERPRISE_ISSUE_TRACKER_PRO_V9';
-
-export const DEFAULT_SUPABASE_PROJECT_URL = 'https://jdwgkaxhmuywetnpdhqt.supabase.co';
-export const DEFAULT_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_5WAZhnB_h-tAZrzT56rhgQ_WeANxqJD';
 
 export default function App() {
   // Core states
@@ -362,13 +359,9 @@ export default function App() {
     }
   }, [theme]);
 
-  // Supabase Client Reference (Initialized eagerly for immediate cloud queries)
-  const supabaseRef = useRef<SupabaseClient | null>(null);
-  if (!supabaseRef.current) {
-    try {
-      supabaseRef.current = createClient(DEFAULT_SUPABASE_PROJECT_URL, DEFAULT_SUPABASE_PUBLISHABLE_KEY);
-    } catch {}
-  }
+  // Supabase Client Reference (Using singleton global instance)
+  const supabaseRef = useRef(supabase);
+  supabaseRef.current = supabase;
   const alarmAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // SLA breached count
@@ -445,28 +438,12 @@ export default function App() {
     supabaseConfig,
   ]);
 
-  // Initialize Supabase if config is valid
+  // Initialize Supabase and pull data on load
   useEffect(() => {
-    const url = (supabaseConfig.url || DEFAULT_SUPABASE_PROJECT_URL).trim();
-    const key = (supabaseConfig.key || DEFAULT_SUPABASE_PUBLISHABLE_KEY).trim();
-    if (
-      url &&
-      key &&
-      url.startsWith('https://') &&
-      !url.includes('your-project')
-    ) {
-      try {
-        const client = createClient(url, key);
-        supabaseRef.current = client;
-        setSupabaseConfig((prev) => ({ ...prev, url, key, connected: true }));
-        // Silently pull any existing records from Supabase tables
-        setTimeout(() => {
-          handlePullSupabaseNow(true);
-        }, 400);
-      } catch {
-        setSupabaseConfig((prev) => ({ ...prev, connected: false }));
-      }
-    }
+    const timer = setTimeout(() => {
+      handlePullSupabaseNow(true);
+    }, 400);
+    return () => clearTimeout(timer);
   }, [supabaseConfig.url, supabaseConfig.key]);
 
   // Supabase Realtime DB Changes Subscription for all tables
@@ -600,7 +577,7 @@ export default function App() {
     let isMounted = true;
     const hydrateCloudData = async () => {
       try {
-        const client = supabaseRef.current || createClient(DEFAULT_SUPABASE_PROJECT_URL, DEFAULT_SUPABASE_PUBLISHABLE_KEY);
+        const client = supabase;
 
         // Fetch direct Supabase tables in parallel
         const [sbIssuesRes, sbUsersRes, sbCabRes, sbStoreRes] = await Promise.all([
@@ -1055,17 +1032,16 @@ export default function App() {
             } catch {}
           }
           if (serverState.supabaseConfig && serverState.supabaseConfig.url) {
+            const oldUrl = supabaseConfig.url;
+            const oldKey = supabaseConfig.key;
             setSupabaseConfig(serverState.supabaseConfig);
             try {
               localStorage.setItem(STORAGE_KEY + '_SUPABASE', JSON.stringify(serverState.supabaseConfig));
             } catch {}
-            if (serverState.supabaseConfig.url.startsWith('https://') && serverState.supabaseConfig.key) {
-              try {
-                const client = createClient(serverState.supabaseConfig.url, serverState.supabaseConfig.key);
-                supabaseRef.current = client;
-              } catch (e) {
-                console.warn('Failed to init Supabase client from server state:', e);
-              }
+            if (serverState.supabaseConfig.url !== oldUrl || serverState.supabaseConfig.key !== oldKey) {
+              setTimeout(() => {
+                window.location.reload();
+              }, 500);
             }
           }
           isHydratedRef.current = true;
@@ -1102,15 +1078,16 @@ export default function App() {
 
         onSupabaseConfigUpdated: (newConfig: any) => {
           if (newConfig && newConfig.url) {
+            const oldUrl = supabaseConfig.url;
+            const oldKey = supabaseConfig.key;
             setSupabaseConfig(newConfig);
             try {
               localStorage.setItem(STORAGE_KEY + '_SUPABASE', JSON.stringify(newConfig));
             } catch {}
-            if (newConfig.url.startsWith('https://') && newConfig.key) {
-              try {
-                const client = createClient(newConfig.url, newConfig.key);
-                supabaseRef.current = client;
-              } catch {}
+            if (newConfig.url !== oldUrl || newConfig.key !== oldKey) {
+              setTimeout(() => {
+                window.location.reload();
+              }, 500);
             }
           }
         },
@@ -1384,14 +1361,7 @@ export default function App() {
   };
 
   const getSupabaseClient = () => {
-    const url = (supabaseConfig.url || DEFAULT_SUPABASE_PROJECT_URL).trim();
-    const key = (supabaseConfig.key || DEFAULT_SUPABASE_PUBLISHABLE_KEY).trim();
-    if (url && key && url.startsWith('https://')) {
-      try {
-        return createClient(url, key);
-      } catch {}
-    }
-    return supabaseRef.current || createClient(DEFAULT_SUPABASE_PROJECT_URL, DEFAULT_SUPABASE_PUBLISHABLE_KEY);
+    return supabase;
   };
 
   const deleteSingleIssueFromSupabase = async (issueId: string) => {
@@ -1595,35 +1565,113 @@ export default function App() {
         ],
       };
 
-      // Pause any other ticket so only this new active ticket is ticking
-      setIssues((prev) => [
-        newIssue,
-        ...prev.map((i) => (i.isWorkingNow ? { ...i, isWorkingNow: false, activeWorker: null } : i)),
-      ]);
+      const newTicketPayload = {
+        id: newIssue.id,
+        client: newIssue.client || '',
+        client_email: newIssue.clientEmail || null,
+        client_phone: newIssue.clientPhone || null,
+        tag: newIssue.tag || '',
+        type: newIssue.type || '',
+        desc_text: newIssue.desc || '',
+        assigned: newIssue.assigned || '',
+        owner: newIssue.owner || '',
+        priority: newIssue.priority || 'Medium',
+        status: newIssue.status || 'Open',
+        worktime: newIssue.workTime || 0,
+        csat: newIssue.csat || 5,
+        created_at: newIssue.createdAt,
+        due_date: newIssue.dueDate,
+        comments: newIssue.comments || [],
+        timeline: newIssue.timeline || [],
+        is_external_owner: newIssue.isExternalOwner || false,
+        external_owner_details: newIssue.externalOwnerDetails || null,
+        merged_into_ticket_id: newIssue.mergedIntoTicketId || null,
+        merged_ticket_ids: newIssue.mergedTicketIds || [],
+        client_notes: newIssue.clientNotes || null,
+        sla_paused: newIssue.slaPaused || false,
+        sla_paused_reason: newIssue.slaPausedReason || null,
+        sla_paused_at: newIssue.slaPausedAt || null,
+        sla_extended_hours: newIssue.slaExtendedHours || 0,
+        sla_extension_reason: newIssue.slaExtensionReason || null,
+        submitted_by_client: newIssue.submittedByClient || false,
+      };
 
-      // Broadcast new ticket immediately to entire team in all regions!
-      realtimeSync.broadcastTicketCreate(newIssue, currentUser.name, currentUser.department);
+      // Perform a direct insert with strict error handling!
+      const performInsert = async () => {
+        try {
+          const { data: insertedData, error } = await supabase.from('issues').insert([newTicketPayload]).select();
+          
+          let finalData = insertedData;
+          let finalError = error;
 
-      // Immediately save/upsert new ticket to Supabase Table Editor!
-      upsertSingleIssueToSupabase(newIssue);
-      setTimeout(() => handleSyncSupabaseNow(true), 200);
+          if (finalError) {
+            console.warn('[Supabase] Primary direct insert failed, trying Standard SQL payload...');
+            const standardPayload = {
+              id: newId,
+              client: newIssue.client || '',
+              client_email: newIssue.clientEmail || null,
+              client_phone: newIssue.clientPhone || null,
+              tag: newIssue.tag || '',
+              type: newIssue.type || '',
+              desc_text: newIssue.desc || '',
+              assigned: newIssue.assigned || '',
+              owner: newIssue.owner || '',
+              priority: newIssue.priority || 'Medium',
+              status: newIssue.status || 'Open',
+              worktime: newIssue.workTime || 0,
+              csat: newIssue.csat || 5,
+              created_at: newIssue.createdAt,
+              due_date: newIssue.dueDate,
+              comments: newIssue.comments || [],
+              timeline: newIssue.timeline || [],
+            };
+            const { data: standardData, error: standardError } = await supabase.from('issues').insert([standardPayload]).select();
+            if (!standardError) {
+              finalData = standardData;
+              finalError = null;
+            } else {
+              finalError = standardError;
+            }
+          }
 
-      addAuditLog('إنشاء تذكرة', `تم تسجيل بلاغ جديد برقم ${newId} للعميل ${data.client} وبدء عداد العمل فوراً`);
-      setNotifications((prev) => [
-        {
-          id: `n-${Date.now()}`,
-          title: `تذكرة جديدة [${newId}]`,
-          desc: `تم استلام بلاغ ${newId} للعميل ${data.client || 'عميل جديد'} وبدء العداد فوراً. انقر لفتح التذكرة`,
-          time: 'الآن',
-          type: 'info',
-          ticketId: newId,
-        },
-        ...prev,
-      ]);
+          if (finalError) {
+            console.error('Supabase DB Insert Rejected:', finalError);
+            alert(`Failed to save to Supabase: ${finalError.message}`);
+            return; // DO NOT insert into React state or localStorage
+          }
 
-      // Automatically open the details modal for the newly created ticket so user sees live ticking stopwatch!
-      setDetailIssue(newIssue);
-      setShowDetailsModal(true);
+          // Map the confirmed returned row
+          const savedIssue = finalData && finalData[0] ? mapSingleRowToIssue(finalData[0]) : newIssue;
+
+          // Pause any other ticket so only this new active ticket is ticking
+          setIssues((prev) => [
+            savedIssue,
+            ...prev.map((i) => (i.isWorkingNow ? { ...i, isWorkingNow: false, activeWorker: null } : i)),
+          ]);
+
+          addAuditLog('إنشاء تذكرة', `تم تسجيل بلاغ جديد برقم ${savedIssue.id} للعميل ${savedIssue.client} وبدء عداد العمل فوراً`);
+          setNotifications((prev) => [
+            {
+              id: `n-${Date.now()}`,
+              title: `تذكرة جديدة [${savedIssue.id}]`,
+              desc: `تم استلام بلاغ ${savedIssue.id} للعميل ${savedIssue.client || 'عميل جديد'} وبدء العداد فوراً. انقر لفتح التذكرة`,
+              time: 'الآن',
+              type: 'info',
+              ticketId: savedIssue.id,
+            },
+            ...prev,
+          ]);
+
+          // Automatically open the details modal for the newly created ticket so user sees live ticking stopwatch!
+          setDetailIssue(savedIssue);
+          setShowDetailsModal(true);
+        } catch (err: any) {
+          console.error('Supabase DB Insert Exception:', err);
+          alert(`Failed to save to Supabase due to an exception: ${err?.message || err}`);
+        }
+      };
+
+      performInsert();
     }
   };
 
@@ -2212,20 +2260,11 @@ export default function App() {
       localStorage.setItem(STORAGE_KEY + '_SUPABASE', JSON.stringify(newConfig));
     } catch {}
 
-    if (cleanUrl && cleanKey && cleanUrl.startsWith('https://')) {
-      try {
-        const client = createClient(cleanUrl, cleanKey);
-        supabaseRef.current = client;
-      } catch (err) {
-        console.warn('Error creating supabase client:', err);
-      }
-    }
-
-    // Persist to central server so ALL browsers & devices have the cloud registered immediately!
-    await realtimeSync.broadcastSupabaseConfig(newConfig);
-
     addAuditLog('إعداد السحابة', 'تم حفظ وتحديث بيانات السحابة (Project URL & API Key) مركزياً لكافة الأجهزة');
-    alert('✅ تم حفظ وتسجيل بيانات السحابة مركزياً بنجاح!\nالآن ستكون السحابة مسجلة ونشطة على أي متصفح أو جهاز آخر يفتح المنظومة تلقائياً.');
+    alert('✅ تم حفظ وتسجيل بيانات السحابة مركزياً بنجاح!\nالمنظومة ستقوم بإعادة التحميل الآن لتطبيق الإعدادات الجديدة.');
+    setTimeout(() => {
+      window.location.reload();
+    }, 500);
   };
 
   // Test Supabase Connection with Publishable API Key
@@ -2250,48 +2289,12 @@ export default function App() {
       };
     }
 
-    try {
-      const client = createClient(cleanUrl, cleanKey);
-      const { error: issuesErr } = await client.from('issues').select('id').limit(1);
-
+    const res = await testSupabaseConnection(cleanUrl, cleanKey);
+    if (res.success) {
       const updatedConfig = { url: cleanUrl, key: cleanKey, connected: true, lastSync: new Date().toLocaleTimeString('ar-EG') };
-
-      if (issuesErr) {
-        if (
-          issuesErr.code === '42P01' ||
-          issuesErr.code === 'PGRST116' ||
-          issuesErr.code === 'PGRST204' ||
-          issuesErr.message?.toLowerCase().includes('does not exist') ||
-          issuesErr.message?.includes('relation "issues" does not exist')
-        ) {
-          supabaseRef.current = client;
-          setSupabaseConfig((prev) => ({ ...prev, ...updatedConfig }));
-          realtimeSync.broadcastSupabaseConfig(updatedConfig);
-          return {
-            success: true,
-            message: 'تم التحقق من الـ Publishable API Key وحفظه مركزياً بنجاح! 🟢 (ملاحظة: الجداول السحابية لم تُنشأ بعد، يرجى نسخ كود SQL الشامل من الزر بالأسفل وتشغيله في Supabase SQL Editor لحفظ التذاكر واليوزرات والإعدادات).',
-          };
-        }
-
-        return {
-          success: false,
-          message: `فشل التحقق من المفتاح: ${issuesErr.message} (رمز الخطأ: ${issuesErr.code || 'عام'})`,
-        };
-      }
-
-      supabaseRef.current = client;
       setSupabaseConfig((prev) => ({ ...prev, ...updatedConfig }));
-      realtimeSync.broadcastSupabaseConfig(updatedConfig);
-      return {
-        success: true,
-        message: 'الاتصال سليم 100%! تم التحقق من مشروع Supabase وحفظ بيانات الربط مركزياً لكافة المتصفحات والأجهزة 🟢',
-      };
-    } catch (err: any) {
-      return {
-        success: false,
-        message: `تعذر الاتصال بـ Supabase: ${err?.message || 'تأكد من صحة الرابط ومفتاح الـ API'}`
-      };
     }
+    return res;
   };
 
   // Full Push to Supabase (Issues, Users, CAB, Settings)
@@ -2473,21 +2476,7 @@ export default function App() {
 
   // Full Pull from Supabase (Issues, Users, CAB, Settings)
   const handlePullSupabaseNow = async (silent = false) => {
-    let client = supabaseRef.current;
-    if (!client) {
-      const url = (supabaseConfig.url || DEFAULT_SUPABASE_PROJECT_URL).trim();
-      const key = (supabaseConfig.key || DEFAULT_SUPABASE_PUBLISHABLE_KEY).trim();
-      if (url && key) {
-        try {
-          client = createClient(url, key);
-          supabaseRef.current = client;
-        } catch {}
-      }
-    }
-
-    if (!client) {
-      return;
-    }
+    const client = supabase;
     try {
       let pulledIssues = 0;
       let pulledUsers = 0;
