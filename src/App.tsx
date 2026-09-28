@@ -1042,22 +1042,6 @@ export default function App() {
       currentUser
     );
 
-    // Initial seed if server starts empty
-    realtimeSync.seedInitialServerData({
-      issues,
-      categories,
-      users,
-      tags,
-      cannedResponses,
-      generalSettings,
-      soundSettings,
-      auditLogs,
-      externalVendors,
-      slaSettings,
-      cabActivities,
-      supabaseConfig,
-    } as any);
-
     return () => {
       realtimeSync.destroy();
     };
@@ -2145,26 +2129,28 @@ export default function App() {
     try {
       const client = supabaseRef.current;
 
-      // 1. Upsert issues
-      const issuesPayload = issues.map((i) => ({
-        id: i.id,
-        client: i.client,
-        tag: i.tag,
-        type: i.type,
-        desc_text: i.desc,
-        assigned: i.assigned,
-        owner: i.owner,
-        priority: i.priority,
-        status: i.status,
-        worktime: i.workTime,
-        csat: i.csat,
-        created_at: i.createdAt,
-        due_date: i.dueDate,
-      }));
+      // 1. Upsert issues (only if tickets exist)
+      if (issues && issues.length > 0) {
+        const issuesPayload = issues.map((i) => ({
+          id: i.id,
+          client: i.client,
+          tag: i.tag,
+          type: i.type,
+          desc_text: i.desc,
+          assigned: i.assigned,
+          owner: i.owner,
+          priority: i.priority,
+          status: i.status,
+          worktime: i.workTime,
+          csat: i.csat,
+          created_at: i.createdAt,
+          due_date: i.dueDate,
+        }));
 
-      const { error: issuesError } = await client.from('issues').upsert(issuesPayload, { onConflict: 'id' });
-      if (issuesError && !issuesError.message?.includes('does not exist')) {
-        console.warn('Issues sync note:', issuesError);
+        const { error: issuesError } = await client.from('issues').upsert(issuesPayload, { onConflict: 'id' });
+        if (issuesError && !issuesError.message?.includes('does not exist')) {
+          console.warn('Issues sync note:', issuesError);
+        }
       }
 
       // 2. Upsert app_users
