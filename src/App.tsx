@@ -379,36 +379,13 @@ export default function App() {
     }
   }, [issues]);
 
-  // Continuous Central Cloud & Supabase Auto-Save (حارس المزامنة السحابية التلقائي الشامل)
-  // Automatically persists ANY update to server disk & Supabase tables without manual intervention
+  // Continuous Supabase Auto-Save
+  // Automatically persists ANY update to Supabase tables without manual intervention
   useEffect(() => {
-    // CRITICAL: Only push state to the server after this browser tab has been hydrated from the server!
     if (!isHydratedRef.current) return;
 
     const timer = setTimeout(async () => {
       try {
-        // 1. Persist entire state snapshot to central server disk (data/app_database.json)
-        await fetch('/api/sync-all', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            issues,
-            users,
-            categories,
-            tags,
-            cannedResponses,
-            generalSettings,
-            soundSettings,
-            auditLogs,
-            externalVendors,
-            slaSettings,
-            cabActivities,
-            supabaseConfig,
-            actor: currentUser?.name || 'النظام السحابي',
-          }),
-        });
-
-        // 2. If Supabase is connected, automatically sync all cloud tables silently!
         if (supabaseRef.current) {
           handleSyncSupabaseNow(true);
         }
