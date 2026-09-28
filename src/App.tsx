@@ -32,7 +32,6 @@ import {
 } from './types';
 import { realtimeSync, ActiveUserPresence, SyncConnectionStatus } from './utils/realtimeSync';
 import { 
-  INITIAL_ISSUES, 
   INITIAL_USERS, 
   INITIAL_CATEGORIES, 
   INITIAL_TAGS, 
@@ -477,7 +476,50 @@ export default function App() {
 
     const channel = client
       .channel('supabase-realtime-sync')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'issues' }, () => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'issues' }, (payload) => {
+        const newRow = payload.new;
+        if (newRow && newRow.id) {
+          const newIssue = mapSingleRowToIssue(newRow);
+          // Play sound and show toast if it was created by someone else
+          if (newIssue.owner !== currentUserRef.current.name) {
+            setLiveToast({
+              id: `toast-${Date.now()}`,
+              title: `تذكرة جديدة واردة الآن [${newIssue.id}] 🚀`,
+              desc: `للعميل: ${newIssue.client || 'عميل'} • الأولوية: ${newIssue.priority}`,
+              ticketId: newIssue.id,
+              author: newIssue.owner || 'زميل في الفريق',
+            });
+            
+            addNotification(
+              `تذكرة جديدة [${newIssue.id}] 📢`,
+              `تم تسجيل بلاغ جديد للعميل ${newIssue.client}`,
+              newIssue.id,
+              'info'
+            );
+            
+            if (!soundSettingsRef.current.muted) {
+              try {
+                const soundUrl = soundSettingsRef.current.customNotificationUrl || soundSettingsRef.current.alarmUrl;
+                if (soundUrl) {
+                  const sound = new Audio(soundUrl);
+                  sound.volume = soundSettingsRef.current.volume || 0.8;
+                  sound.play().catch(() => {});
+                }
+              } catch {}
+            }
+          }
+        }
+        handlePullSupabaseNow(true);
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'issues' }, () => {
+        handlePullSupabaseNow(true);
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'issues' }, (payload) => {
+        const oldRow = payload.old;
+        if (oldRow && oldRow.id) {
+          deletedIssueIdsRef.current.add(oldRow.id);
+          saveDeletedIssueIds(deletedIssueIdsRef.current);
+        }
         handlePullSupabaseNow(true);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'app_users' }, () => {
@@ -515,6 +557,43 @@ export default function App() {
 
     return () => clearInterval(timer);
   }, []);
+
+  const mapSingleRowToIssue = (row: any): Issue => {
+    const desc = row.desc_text || row.desc || row.description || row.title || '';
+    return {
+      id: row.id,
+      client: row.client || 'عميل',
+      clientEmail: row.client_email || row.clientEmail || undefined,
+      clientPhone: row.client_phone || row.clientPhone || undefined,
+      tag: row.tag || 'VIP Client',
+      type: row.type || 'تقني / Technical',
+      desc: desc,
+      assigned: row.assigned || 'فريق الدعم',
+      owner: row.owner || 'محمد علي',
+      priority: (row.priority as Priority) || 'Medium',
+      status: (row.status as IssueStatus) || 'Open',
+      workTime: row.worktime ?? row.workTime ?? 0,
+      csat: row.csat ?? 5,
+      createdAt: row.created_at || row.createdAt || new Date().toISOString(),
+      dueDate: row.due_date || row.dueDate || new Date().toISOString(),
+      timeline: Array.isArray(row.timeline) ? row.timeline : [],
+      comments: Array.isArray(row.comments) ? row.comments : [],
+      resolutionReason: row.resolution_reason || row.resolutionReason || undefined,
+      resolvedAt: row.resolved_at || row.resolvedAt || undefined,
+      attachment: row.attachment || undefined,
+      isExternalOwner: row.is_external_owner ?? row.isExternalOwner ?? false,
+      externalOwnerDetails: row.external_owner_details || row.externalOwnerDetails || undefined,
+      mergedIntoTicketId: row.merged_into_ticket_id || row.mergedIntoTicketId || undefined,
+      mergedTicketIds: Array.isArray(row.merged_ticket_ids) ? row.merged_ticket_ids : (Array.isArray(row.mergedTicketIds) ? row.mergedTicketIds : []),
+      clientNotes: row.client_notes || row.clientNotes || undefined,
+      slaPaused: row.sla_paused ?? row.slaPaused ?? false,
+      slaPausedReason: row.sla_paused_reason || row.slaPausedReason || undefined,
+      slaPausedAt: row.sla_paused_at || row.slaPausedAt || undefined,
+      slaExtendedHours: row.sla_extended_hours ?? row.slaExtendedHours ?? 0,
+      slaExtensionReason: row.sla_extension_reason || row.slaExtensionReason || undefined,
+      submittedByClient: row.submitted_by_client ?? row.submittedByClient ?? false,
+    };
+  };
 
   // Instant Central Cloud Hydration: fetch direct Supabase data immediately on page load
   useEffect(() => {
@@ -559,28 +638,7 @@ export default function App() {
                 localStorage.setItem(STORAGE_KEY + '_ISSUES', '[]');
               } catch {}
             } else {
-              const mappedIssues: Issue[] = validRows.map((row: any) => ({
-                id: row.id,
-                client: row.client || 'عميل',
-                clientEmail: row.client_email || row.clientEmail || undefined,
-                clientPhone: row.client_phone || row.clientPhone || undefined,
-                tag: row.tag || 'VIP Client',
-                type: row.type || 'تقني / Technical',
-                desc: row.desc_text || row.desc || row.description || '',
-                assigned: row.assigned || 'فريق الدعم',
-                owner: row.owner || 'محمد علي',
-                priority: (row.priority as Priority) || 'Medium',
-                status: (row.status as IssueStatus) || 'Open',
-                workTime: row.worktime ?? row.workTime ?? 0,
-                csat: row.csat ?? 5,
-                createdAt: row.created_at || row.createdAt || new Date().toISOString(),
-                dueDate: row.due_date || row.dueDate || new Date().toISOString(),
-                timeline: Array.isArray(row.timeline) ? row.timeline : [],
-                comments: Array.isArray(row.comments) ? row.comments : [],
-                resolutionReason: row.resolution_reason || row.resolutionReason || undefined,
-                resolvedAt: row.resolved_at || row.resolvedAt || undefined,
-                attachment: row.attachment || undefined,
-              }));
+              const mappedIssues: Issue[] = validRows.map(mapSingleRowToIssue);
 
               setIssues(mappedIssues);
               try {
@@ -1208,6 +1266,8 @@ export default function App() {
       const payload1 = {
         id: issue.id,
         client: issue.client || '',
+        client_email: issue.clientEmail || null,
+        client_phone: issue.clientPhone || null,
         tag: issue.tag || '',
         type: issue.type || '',
         desc_text: issue.desc || '',
@@ -1219,29 +1279,65 @@ export default function App() {
         csat: issue.csat || 5,
         created_at: issue.createdAt,
         due_date: issue.dueDate,
+        comments: issue.comments || [],
+        timeline: issue.timeline || [],
+        is_external_owner: issue.isExternalOwner || false,
+        external_owner_details: issue.externalOwnerDetails || null,
+        merged_into_ticket_id: issue.mergedIntoTicketId || null,
+        merged_ticket_ids: issue.mergedTicketIds || [],
+        client_notes: issue.clientNotes || null,
+        sla_paused: issue.slaPaused || false,
+        sla_paused_reason: issue.slaPausedReason || null,
+        sla_paused_at: issue.slaPausedAt || null,
+        sla_extended_hours: issue.slaExtendedHours || 0,
+        sla_extension_reason: issue.slaExtensionReason || null,
+        submitted_by_client: issue.submittedByClient || false,
       };
-      const { error } = await client.from('issues').upsert(payload1, { onConflict: 'id' });
-      if (error) {
-        // Fallback if column 'desc_text' is named 'desc' in user's Supabase schema
+      
+      const { error: error1 } = await client.from('issues').upsert(payload1, { onConflict: 'id' });
+      if (error1) {
+        console.warn('[Supabase] Primary upsert failed, trying camelCase fallback payload. Error:', error1);
+        
+        // Fallback if column names are camelCase or different in user's Supabase schema
         const payload2 = {
           id: issue.id,
           client: issue.client || '',
+          clientEmail: issue.clientEmail || null,
+          clientPhone: issue.clientPhone || null,
           tag: issue.tag || '',
           type: issue.type || '',
           desc: issue.desc || '',
+          description: issue.desc || '',
+          title: issue.desc || '',
           assigned: issue.assigned || '',
           owner: issue.owner || '',
           priority: issue.priority || 'Medium',
           status: issue.status || 'Open',
-          worktime: issue.workTime || 0,
+          workTime: issue.workTime || 0,
           csat: issue.csat || 5,
-          created_at: issue.createdAt,
-          due_date: issue.dueDate,
+          createdAt: issue.createdAt,
+          dueDate: issue.dueDate,
+          comments: issue.comments || [],
+          timeline: issue.timeline || [],
+          isExternalOwner: issue.isExternalOwner || false,
+          externalOwnerDetails: issue.externalOwnerDetails || null,
+          mergedIntoTicketId: issue.mergedIntoTicketId || null,
+          mergedTicketIds: issue.mergedTicketIds || [],
+          clientNotes: issue.clientNotes || null,
+          slaPaused: issue.slaPaused || false,
+          slaPausedReason: issue.slaPausedReason || null,
+          slaPausedAt: issue.slaPausedAt || null,
+          slaExtendedHours: issue.slaExtendedHours || 0,
+          slaExtensionReason: issue.slaExtensionReason || null,
+          submittedByClient: issue.submittedByClient || false,
         };
-        await client.from('issues').upsert(payload2, { onConflict: 'id' });
+        const { error: error2 } = await client.from('issues').upsert(payload2, { onConflict: 'id' });
+        if (error2) {
+          console.error('[Supabase] Fallback upsert also failed! Error:', error2);
+        }
       }
     } catch (err) {
-      console.warn('[Supabase] Ticket auto-upsert note:', err);
+      console.error('[Supabase] Exception in single issue upsert:', err);
     }
   };
 
@@ -2168,25 +2264,77 @@ export default function App() {
       // 1. Upsert issues (only active non-deleted tickets)
       const activeIssuesToSync = (issues || []).filter((i) => !deletedIssueIdsRef.current.has(i.id));
       if (activeIssuesToSync.length > 0) {
-        const issuesPayload = activeIssuesToSync.map((i) => ({
+        const payload1 = activeIssuesToSync.map((i) => ({
           id: i.id,
-          client: i.client,
-          tag: i.tag,
-          type: i.type,
-          desc_text: i.desc,
-          assigned: i.assigned,
-          owner: i.owner,
-          priority: i.priority,
-          status: i.status,
-          worktime: i.workTime,
-          csat: i.csat,
+          client: i.client || '',
+          client_email: i.clientEmail || null,
+          client_phone: i.clientPhone || null,
+          tag: i.tag || '',
+          type: i.type || '',
+          desc_text: i.desc || '',
+          assigned: i.assigned || '',
+          owner: i.owner || '',
+          priority: i.priority || 'Medium',
+          status: i.status || 'Open',
+          worktime: i.workTime || 0,
+          csat: i.csat || 5,
           created_at: i.createdAt,
           due_date: i.dueDate,
+          comments: i.comments || [],
+          timeline: i.timeline || [],
+          is_external_owner: i.isExternalOwner || false,
+          external_owner_details: i.externalOwnerDetails || null,
+          merged_into_ticket_id: i.mergedIntoTicketId || null,
+          merged_ticket_ids: i.mergedTicketIds || [],
+          client_notes: i.clientNotes || null,
+          sla_paused: i.slaPaused || false,
+          sla_paused_reason: i.slaPausedReason || null,
+          sla_paused_at: i.slaPausedAt || null,
+          sla_extended_hours: i.slaExtendedHours || 0,
+          sla_extension_reason: i.slaExtensionReason || null,
+          submitted_by_client: i.submittedByClient || false,
         }));
 
-        const { error: issuesError } = await client.from('issues').upsert(issuesPayload, { onConflict: 'id' });
-        if (issuesError && !issuesError.message?.includes('does not exist')) {
-          console.warn('Issues sync note:', issuesError);
+        const { error: issuesError1 } = await client.from('issues').upsert(payload1, { onConflict: 'id' });
+        if (issuesError1) {
+          console.warn('[Supabase] Bulk issues sync primary failed, trying camelCase fallback payload. Error:', issuesError1);
+          
+          const payload2 = activeIssuesToSync.map((i) => ({
+            id: i.id,
+            client: i.client || '',
+            clientEmail: i.clientEmail || null,
+            clientPhone: i.clientPhone || null,
+            tag: i.tag || '',
+            type: i.type || '',
+            desc: i.desc || '',
+            description: i.desc || '',
+            title: i.desc || '',
+            assigned: i.assigned || '',
+            owner: i.owner || '',
+            priority: i.priority || 'Medium',
+            status: i.status || 'Open',
+            workTime: i.workTime || 0,
+            csat: i.csat || 5,
+            createdAt: i.createdAt,
+            dueDate: i.dueDate,
+            comments: i.comments || [],
+            timeline: i.timeline || [],
+            isExternalOwner: i.isExternalOwner || false,
+            externalOwnerDetails: i.externalOwnerDetails || null,
+            mergedIntoTicketId: i.mergedIntoTicketId || null,
+            mergedTicketIds: i.mergedTicketIds || [],
+            clientNotes: i.clientNotes || null,
+            slaPaused: i.slaPaused || false,
+            slaPausedReason: i.slaPausedReason || null,
+            slaPausedAt: i.slaPausedAt || null,
+            slaExtendedHours: i.slaExtendedHours || 0,
+            slaExtensionReason: i.slaExtensionReason || null,
+            submittedByClient: i.submittedByClient || false,
+          }));
+          const { error: issuesError2 } = await client.from('issues').upsert(payload2, { onConflict: 'id' });
+          if (issuesError2) {
+            console.error('[Supabase] Bulk issues sync fallback also failed! Error:', issuesError2);
+          }
         }
       }
 
@@ -2306,6 +2454,9 @@ export default function App() {
 
       // 1. Pull issues
       const { data: issuesData, error: issuesErr } = await client.from('issues').select('*');
+      if (issuesErr) {
+        console.error('Supabase Fetch Error in handlePullSupabaseNow:', issuesErr);
+      }
       if (!issuesErr && Array.isArray(issuesData)) {
         const validRows = issuesData.filter((row: any) => !deletedIssueIdsRef.current.has(row.id));
         if (validRows.length === 0) {
@@ -2315,26 +2466,7 @@ export default function App() {
           } catch {}
           pulledIssues = 0;
         } else {
-          const mappedIssues: Issue[] = validRows.map((row: any) => ({
-            id: row.id,
-            client: row.client || 'عميل',
-            clientEmail: row.client_email || undefined,
-            clientPhone: row.client_phone || undefined,
-            tag: row.tag || 'VIP Client',
-            type: row.type || 'تقني / Technical',
-            desc: row.desc_text || '',
-            assigned: row.assigned || 'فريق الدعم',
-            owner: row.owner || 'محمد علي',
-            priority: (row.priority as Priority) || 'Medium',
-            status: (row.status as IssueStatus) || 'Open',
-            workTime: row.worktime || 0,
-            csat: row.csat || 5,
-            createdAt: row.created_at || new Date().toISOString(),
-            dueDate: row.due_date || new Date().toISOString(),
-            timeline: Array.isArray(row.timeline) ? row.timeline : [],
-            comments: Array.isArray(row.comments) ? row.comments : [],
-            attachment: row.attachment || undefined,
-          }));
+          const mappedIssues: Issue[] = validRows.map(mapSingleRowToIssue);
           setIssues(mappedIssues);
           try {
             localStorage.setItem(STORAGE_KEY + '_ISSUES', JSON.stringify(mappedIssues));
@@ -2568,7 +2700,7 @@ export default function App() {
     if (confirm('⚠️ تحذير شديد: هل أنت متأكد تماماً من رغبتك في مسح كافة التعديلات واستعادة بيانات المصنع الافتراضية للمنظومة؟ لا يمكن التراجع عن هذا الإجراء إلا إذا كنت قد حمّلت نسخة احتياطية مسبقاً.')) {
       deletedIssueIdsRef.current.clear();
       saveDeletedIssueIds(deletedIssueIdsRef.current);
-      setIssues(INITIAL_ISSUES);
+      setIssues([]);
       setUsers(INITIAL_USERS);
       setCategories(INITIAL_CATEGORIES);
       setTags(INITIAL_TAGS);
