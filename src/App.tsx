@@ -334,6 +334,8 @@ export default function App() {
     isTicketSlaBreached(i.createdAt, i.dueDate, i.status)
   ).length;
 
+  const isHydratedRef = useRef(false);
+
   // Save to LocalStorage safely
   useEffect(() => {
     try {
@@ -346,6 +348,9 @@ export default function App() {
   // Continuous Central Cloud & Supabase Auto-Save (حارس المزامنة السحابية التلقائي الشامل)
   // Automatically persists ANY update to server disk & Supabase tables without manual intervention
   useEffect(() => {
+    // CRITICAL: Only push state to the server after this browser tab has been hydrated from the server!
+    if (!isHydratedRef.current) return;
+
     const timer = setTimeout(async () => {
       try {
         // 1. Persist entire state snapshot to central server disk (data/app_database.json)
@@ -446,7 +451,7 @@ export default function App() {
         if (res.ok) {
           const data = await res.json();
           if (isMounted && data && data.state) {
-            if (Array.isArray(data.state.issues) && data.state.issues.length > 0) {
+            if (Array.isArray(data.state.issues)) {
               setIssues(data.state.issues);
               try {
                 localStorage.setItem(STORAGE_KEY + '_ISSUES', JSON.stringify(data.state.issues));
@@ -454,29 +459,59 @@ export default function App() {
             }
             if (Array.isArray(data.state.categories) && data.state.categories.length > 0) {
               setCategories(data.state.categories);
+              try {
+                localStorage.setItem(STORAGE_KEY + '_CATEGORIES', JSON.stringify(data.state.categories));
+              } catch {}
             }
             if (Array.isArray(data.state.users) && data.state.users.length > 0) {
               setUsers(data.state.users);
+              try {
+                localStorage.setItem(STORAGE_KEY + '_USERS', JSON.stringify(data.state.users));
+              } catch {}
             }
             if (Array.isArray(data.state.tags) && data.state.tags.length > 0) {
               setTags(data.state.tags);
+              try {
+                localStorage.setItem(STORAGE_KEY + '_TAGS', JSON.stringify(data.state.tags));
+              } catch {}
+            }
+            if (Array.isArray(data.state.cannedResponses) && data.state.cannedResponses.length > 0) {
+              setCannedResponses(data.state.cannedResponses);
+              try {
+                localStorage.setItem(STORAGE_KEY + '_CANNED', JSON.stringify(data.state.cannedResponses));
+              } catch {}
             }
             if (data.state.generalSettings) {
               setGeneralSettings(data.state.generalSettings);
+              try {
+                localStorage.setItem(STORAGE_KEY + '_GENERAL', JSON.stringify(data.state.generalSettings));
+              } catch {}
             }
             if (data.state.soundSettings) {
               setSoundSettings(data.state.soundSettings);
+              try {
+                localStorage.setItem(STORAGE_KEY + '_SOUND', JSON.stringify(data.state.soundSettings));
+              } catch {}
             }
             if (Array.isArray(data.state.auditLogs) && data.state.auditLogs.length > 0) {
               setAuditLogs(data.state.auditLogs);
+              try {
+                localStorage.setItem(STORAGE_KEY + '_AUDIT', JSON.stringify(data.state.auditLogs));
+              } catch {}
             }
-            if (Array.isArray(data.state.externalVendors) && data.state.externalVendors.length > 0) {
+            if (Array.isArray(data.state.externalVendors)) {
               setExternalVendors(data.state.externalVendors);
               try {
                 localStorage.setItem(STORAGE_KEY + '_EXTERNAL_VENDORS', JSON.stringify(data.state.externalVendors));
               } catch {}
             }
-            if (Array.isArray(data.state.cabActivities) && data.state.cabActivities.length > 0) {
+            if (data.state.slaSettings) {
+              setSlaSettings(data.state.slaSettings);
+              try {
+                localStorage.setItem(STORAGE_KEY + '_SLA_SETTINGS', JSON.stringify(data.state.slaSettings));
+              } catch {}
+            }
+            if (Array.isArray(data.state.cabActivities)) {
               setCabActivities(data.state.cabActivities);
               try {
                 localStorage.setItem(STORAGE_KEY + '_CAB_ACTIVITIES', JSON.stringify(data.state.cabActivities));
@@ -496,6 +531,7 @@ export default function App() {
                 }
               }
             }
+            isHydratedRef.current = true;
           }
         }
       } catch (err) {
@@ -708,13 +744,56 @@ export default function App() {
         },
 
         onStateSynced: (serverState: any) => {
-          if (Array.isArray(serverState.issues) && serverState.issues.length > 0) {
+          if (!serverState) return;
+          if (Array.isArray(serverState.issues)) {
             setIssues(serverState.issues);
             try {
               localStorage.setItem(STORAGE_KEY + '_ISSUES', JSON.stringify(serverState.issues));
             } catch {}
           }
-          if (Array.isArray(serverState.cabActivities) && serverState.cabActivities.length > 0) {
+          if (Array.isArray(serverState.categories) && serverState.categories.length > 0) {
+            setCategories(serverState.categories);
+            try {
+              localStorage.setItem(STORAGE_KEY + '_CATEGORIES', JSON.stringify(serverState.categories));
+            } catch {}
+          }
+          if (Array.isArray(serverState.users) && serverState.users.length > 0) {
+            setUsers(serverState.users);
+            try {
+              localStorage.setItem(STORAGE_KEY + '_USERS', JSON.stringify(serverState.users));
+            } catch {}
+          }
+          if (Array.isArray(serverState.tags) && serverState.tags.length > 0) {
+            setTags(serverState.tags);
+            try {
+              localStorage.setItem(STORAGE_KEY + '_TAGS', JSON.stringify(serverState.tags));
+            } catch {}
+          }
+          if (Array.isArray(serverState.cannedResponses) && serverState.cannedResponses.length > 0) {
+            setCannedResponses(serverState.cannedResponses);
+            try {
+              localStorage.setItem(STORAGE_KEY + '_CANNED', JSON.stringify(serverState.cannedResponses));
+            } catch {}
+          }
+          if (serverState.generalSettings) {
+            setGeneralSettings(serverState.generalSettings);
+            try {
+              localStorage.setItem(STORAGE_KEY + '_GENERAL', JSON.stringify(serverState.generalSettings));
+            } catch {}
+          }
+          if (serverState.soundSettings) {
+            setSoundSettings(serverState.soundSettings);
+            try {
+              localStorage.setItem(STORAGE_KEY + '_SOUND', JSON.stringify(serverState.soundSettings));
+            } catch {}
+          }
+          if (Array.isArray(serverState.auditLogs) && serverState.auditLogs.length > 0) {
+            setAuditLogs(serverState.auditLogs);
+            try {
+              localStorage.setItem(STORAGE_KEY + '_AUDIT', JSON.stringify(serverState.auditLogs));
+            } catch {}
+          }
+          if (Array.isArray(serverState.cabActivities)) {
             setCabActivities(serverState.cabActivities);
             try {
               localStorage.setItem(STORAGE_KEY + '_CAB_ACTIVITIES', JSON.stringify(serverState.cabActivities));
@@ -746,6 +825,7 @@ export default function App() {
               }
             }
           }
+          isHydratedRef.current = true;
         },
 
         onExternalVendorsUpdated: (vendors: ExternalVendor[]) => {

@@ -686,11 +686,16 @@ const server = http.createServer(app);
 const wss = new WebSocketServer({ noServer: true });
 
 server.on('upgrade', (request, socket, head) => {
-  const { pathname } = new URL(request.url || '', `http://${request.headers.host}`);
-  if (pathname === '/ws') {
-    wss.handleUpgrade(request, socket, head, (ws) => {
-      wss.emit('connection', ws, request);
-    });
+  try {
+    const host = request.headers.host || 'localhost';
+    const parsedUrl = new URL(request.url || '', `http://${host}`);
+    if (parsedUrl.pathname === '/ws' || parsedUrl.pathname === '/ws/') {
+      wss.handleUpgrade(request, socket, head, (ws) => {
+        wss.emit('connection', ws, request);
+      });
+    }
+  } catch (err) {
+    console.error('[WS Upgrade Error]', err);
   }
 });
 
