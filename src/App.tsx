@@ -57,8 +57,6 @@ export default function App() {
   // Core states
   const [issues, setIssues] = useState<Issue[]>(() => {
     try {
-      // Completely wipe saved issues from localStorage to remove INC-1001 through INC-1006
-      localStorage.removeItem(STORAGE_KEY + '_ISSUES');
       const legacyKeys = [
         'ENTERPRISE_ISSUE_TRACKER_PRO_V8_ISSUES',
         'ENTERPRISE_ISSUE_TRACKER_PRO_V7_ISSUES',
@@ -67,8 +65,18 @@ export default function App() {
       legacyKeys.forEach((k) => {
         try { localStorage.removeItem(k); } catch {}
       });
-    } catch {}
-    return [];
+
+      const saved = localStorage.getItem(STORAGE_KEY + '_ISSUES');
+      if (saved !== null) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed;
+        }
+      }
+      return [];
+    } catch {
+      return [];
+    }
   });
 
   const [users, setUsers] = useState<AppUser[]>(() => {
@@ -354,20 +362,6 @@ export default function App() {
   }
   const alarmAudioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Wipe all tickets on startup as requested
-  useEffect(() => {
-    const wipeRemoteIssues = async () => {
-      try {
-        if (supabaseRef.current) {
-          await supabaseRef.current.from('issues').delete().neq('id', '0');
-        }
-      } catch (err) {
-        console.warn('Startup wipe remote issues note:', err);
-      }
-    };
-    wipeRemoteIssues();
-  }, []);
-
   // SLA breached count
   const breachedCount = issues.filter((i) =>
     isTicketSlaBreached(i.createdAt, i.dueDate, i.status)
@@ -499,7 +493,19 @@ export default function App() {
         // 1. Issues: prefer live Supabase if available
         if (sbIssuesRes && !sbIssuesRes.error && Array.isArray(sbIssuesRes.data)) {
           if (sbIssuesRes.data.length === 0) {
-            // Supabase table is connected and empty (all tickets deleted on Supabase!)
+            // If Supabase table is empty, check if we have local issues in localStorage to preserve
+            const localSaved = localStorage.getItem(STORAGE_KEY + '_ISSUES');
+            if (localSaved) {
+              try {
+                const parsedLocal = JSON.parse(localSaved);
+                if (Array.isArray(parsedLocal) && parsedLocal.length > 0) {
+                  setIssues(parsedLocal);
+                  // Sync local items up to Supabase
+                  handleSyncSupabaseNow(true);
+                  return;
+                }
+              } catch {}
+            }
             setIssues([]);
             try {
               localStorage.setItem(STORAGE_KEY + '_ISSUES', '[]');
