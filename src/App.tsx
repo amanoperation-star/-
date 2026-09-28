@@ -1263,7 +1263,9 @@ export default function App() {
     if (!supabaseRef.current) return;
     try {
       const client = supabaseRef.current;
-      const payload1 = {
+      
+      // Try 1: Full payload with all columns
+      const fullPayload = {
         id: issue.id,
         client: issue.client || '',
         client_email: issue.clientEmail || null,
@@ -1294,48 +1296,88 @@ export default function App() {
         submitted_by_client: issue.submittedByClient || false,
       };
       
-      const { error: error1 } = await client.from('issues').upsert(payload1, { onConflict: 'id' });
-      if (error1) {
-        console.warn('[Supabase] Primary upsert failed, trying camelCase fallback payload. Error:', error1);
-        
-        // Fallback if column names are camelCase or different in user's Supabase schema
-        const payload2 = {
-          id: issue.id,
-          client: issue.client || '',
-          clientEmail: issue.clientEmail || null,
-          clientPhone: issue.clientPhone || null,
-          tag: issue.tag || '',
-          type: issue.type || '',
-          desc: issue.desc || '',
-          description: issue.desc || '',
-          title: issue.desc || '',
-          assigned: issue.assigned || '',
-          owner: issue.owner || '',
-          priority: issue.priority || 'Medium',
-          status: issue.status || 'Open',
-          workTime: issue.workTime || 0,
-          csat: issue.csat || 5,
-          createdAt: issue.createdAt,
-          dueDate: issue.dueDate,
-          comments: issue.comments || [],
-          timeline: issue.timeline || [],
-          isExternalOwner: issue.isExternalOwner || false,
-          externalOwnerDetails: issue.externalOwnerDetails || null,
-          mergedIntoTicketId: issue.mergedIntoTicketId || null,
-          mergedTicketIds: issue.mergedTicketIds || [],
-          clientNotes: issue.clientNotes || null,
-          slaPaused: issue.slaPaused || false,
-          slaPausedReason: issue.slaPausedReason || null,
-          slaPausedAt: issue.slaPausedAt || null,
-          slaExtendedHours: issue.slaExtendedHours || 0,
-          slaExtensionReason: issue.slaExtensionReason || null,
-          submittedByClient: issue.submittedByClient || false,
-        };
-        const { error: error2 } = await client.from('issues').upsert(payload2, { onConflict: 'id' });
-        if (error2) {
-          console.error('[Supabase] Fallback upsert also failed! Error:', error2);
-        }
+      const { error: error1 } = await client.from('issues').upsert(fullPayload, { onConflict: 'id' });
+      if (!error1) {
+        console.log('[Supabase] Upsert Success (Full Payload):', issue.id);
+        return;
       }
+      
+      console.warn('[Supabase] Full payload upsert failed, trying Standard SQL payload. Error:', error1);
+
+      // Try 2: Standard SQL payload (matching AdminView.tsx SQL exactly)
+      const standardPayload = {
+        id: issue.id,
+        client: issue.client || '',
+        client_email: issue.clientEmail || null,
+        client_phone: issue.clientPhone || null,
+        tag: issue.tag || '',
+        type: issue.type || '',
+        desc_text: issue.desc || '',
+        assigned: issue.assigned || '',
+        owner: issue.owner || '',
+        priority: issue.priority || 'Medium',
+        status: issue.status || 'Open',
+        worktime: issue.workTime || 0,
+        csat: issue.csat || 5,
+        created_at: issue.createdAt,
+        due_date: issue.dueDate,
+        comments: issue.comments || [],
+        timeline: issue.timeline || [],
+      };
+      
+      const { error: error2 } = await client.from('issues').upsert(standardPayload, { onConflict: 'id' });
+      if (!error2) {
+        console.log('[Supabase] Upsert Success (Standard Payload):', issue.id);
+        return;
+      }
+      
+      console.warn('[Supabase] Standard payload upsert failed, trying CamelCase payload. Error:', error2);
+
+      // Try 3: CamelCase fallback payload
+      const camelCasePayload = {
+        id: issue.id,
+        client: issue.client || '',
+        clientEmail: issue.clientEmail || null,
+        clientPhone: issue.clientPhone || null,
+        tag: issue.tag || '',
+        type: issue.type || '',
+        desc: issue.desc || '',
+        description: issue.desc || '',
+        title: issue.desc || '',
+        assigned: issue.assigned || '',
+        owner: issue.owner || '',
+        priority: issue.priority || 'Medium',
+        status: issue.status || 'Open',
+        workTime: issue.workTime || 0,
+        csat: issue.csat || 5,
+        createdAt: issue.createdAt,
+        dueDate: issue.dueDate,
+        comments: issue.comments || [],
+        timeline: issue.timeline || [],
+      };
+      
+      const { error: error3 } = await client.from('issues').upsert(camelCasePayload, { onConflict: 'id' });
+      if (!error3) {
+        console.log('[Supabase] Upsert Success (CamelCase Payload):', issue.id);
+        return;
+      }
+
+      console.warn('[Supabase] CamelCase payload upsert failed, trying Minimal payload. Error:', error3);
+
+      // Try 4: Minimal barebones payload
+      const minimalPayload = {
+        id: issue.id,
+        client: issue.client || '',
+        status: issue.status || 'Open',
+        priority: issue.priority || 'Medium',
+      };
+      const { error: error4 } = await client.from('issues').upsert(minimalPayload, { onConflict: 'id' });
+      if (!error4) {
+        console.log('[Supabase] Upsert Success (Minimal Payload):', issue.id);
+        return;
+      }
+      
+      console.error('[Supabase] ALL upsert fallbacks failed! Final error:', error4);
     } catch (err) {
       console.error('[Supabase] Exception in single issue upsert:', err);
     }
