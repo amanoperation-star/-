@@ -457,6 +457,23 @@ export default function App() {
     }
   }, [supabaseConfig.url, supabaseConfig.key]);
 
+  // Supabase Realtime DB Changes Subscription
+  useEffect(() => {
+    const client = supabaseRef.current;
+    if (!client) return;
+
+    const channel = client
+      .channel('issues-db-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'issues' }, () => {
+        handlePullSupabaseNow(true);
+      })
+      .subscribe();
+
+    return () => {
+      client.removeChannel(channel);
+    };
+  }, [supabaseConfig.url, supabaseConfig.key]);
+
   // FIX: Accurate stopwatch ticker!
   // ONLY increments for the single ticket currently marked as isWorkingNow!
   useEffect(() => {
@@ -1646,7 +1663,7 @@ export default function App() {
     addAuditLog('تحديث جماعي', `تم تعديل حالة ${issueIds.length} تذكرة إلى ${newStatus}`);
   };
 
-  // Bulk Delete
+  // Bulk Delete Selected Tickets
   const handleBulkDelete = async (issueIds: string[]) => {
     setIssues((prev) => {
       const next = prev.filter((i) => !issueIds.includes(i.id));
@@ -1655,17 +1672,13 @@ export default function App() {
       } catch {}
       return next;
     });
-    issueIds.forEach((id) => realtimeSync.broadcastTicketDelete(id, currentUser.name));
-    deleteBulkIssuesFromSupabase(issueIds);
 
-    try {
-      await fetch('/api/issues/bulk', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ issueIds, actor: currentUser.name }),
-      });
-    } catch (err) {
-      console.warn('Failed to call bulk delete API endpoint:', err);
+    if (supabaseRef.current && issueIds.length > 0) {
+      try {
+        await supabaseRef.current.from('issues').delete().in('id', issueIds);
+      } catch (err) {
+        console.warn('[Supabase] Bulk delete error:', err);
+      }
     }
 
     addAuditLog('حذف جماعي', `تم حذف ${issueIds.length} تذكرة نهائياً.`);
@@ -1680,42 +1693,30 @@ export default function App() {
       } catch {}
       return next;
     });
-    realtimeSync.broadcastTicketDelete(issueId, currentUser.name);
-    deleteSingleIssueFromSupabase(issueId);
 
-    try {
-      await fetch(`/api/issues/${encodeURIComponent(issueId)}?actor=${encodeURIComponent(currentUser.name)}`, {
-        method: 'DELETE',
-      });
-    } catch (err) {
-      console.warn('Failed to call delete issue API endpoint:', err);
+    if (supabaseRef.current) {
+      try {
+        await supabaseRef.current.from('issues').delete().eq('id', issueId);
+      } catch (err) {
+        console.warn('[Supabase] Single delete error:', err);
+      }
     }
 
     addAuditLog('حذف تذكرة', `تم حذف التذكرة ${issueId} نهائياً.`);
   };
 
-  // Delete ALL Tickets (Complete Reset / Clear)
+  // Delete ALL Tickets (Wipe All)
   const handleClearAllTickets = async () => {
     setIssues([]);
     try {
       localStorage.setItem(STORAGE_KEY + '_ISSUES', '[]');
     } catch {}
 
-    try {
-      await fetch('/api/issues/all', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ actor: currentUser.name }),
-      });
-    } catch (err) {
-      console.warn('Failed to call delete all API endpoint:', err);
-    }
-
     if (supabaseRef.current) {
       try {
-        await supabaseRef.current.from('issues').delete().neq('id', 'dummy_clean_id');
+        await supabaseRef.current.from('issues').delete().neq('id', '0');
       } catch (err) {
-        console.warn('Failed to wipe Supabase issues table:', err);
+        console.warn('[Supabase] Wipe all tickets error:', err);
       }
     }
 
