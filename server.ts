@@ -340,13 +340,13 @@ async function syncWithSupabase(force = false) {
     if (issuesRes && issuesRes.ok) {
       const issuesData = await issuesRes.json();
       if (Array.isArray(issuesData)) {
-        if (state.isSeeded && (!state.issues || state.issues.length === 0)) {
-          // System was explicitly cleared / emptied. Clean up orphaned rows in Supabase if any exist.
-          if (issuesData.length > 0) {
-            const orphanIds = issuesData.map((row: any) => row.id).filter(Boolean);
-            deleteIssuesFromSupabase(orphanIds).catch(() => {});
+        if (issuesData.length === 0) {
+          if (state.isSeeded || (state.issues && state.issues.length > 0)) {
+            state.issues = [];
+            state.isSeeded = true;
+            changed = true;
           }
-        } else if (issuesData.length > 0) {
+        } else {
           state.issues = issuesData.map((row: any) => {
             const existing = (state.issues || []).find((i: any) => i.id === row.id);
             return {

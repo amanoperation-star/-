@@ -507,41 +507,49 @@ export default function App() {
         const serverIssues: Issue[] = Array.isArray(serverState?.issues) ? serverState.issues : [];
 
         // 1. Issues: prefer live Supabase if available and merge with server issues to keep timeline, comments, resolutionReason
-        if (serverState?.isSeeded && serverIssues.length === 0) {
+        if (sbIssuesRes && !sbIssuesRes.error && Array.isArray(sbIssuesRes.data)) {
+          if (sbIssuesRes.data.length === 0) {
+            // Supabase table is connected and empty (all tickets deleted on Supabase!)
+            setIssues([]);
+            try {
+              localStorage.setItem(STORAGE_KEY + '_ISSUES', '[]');
+            } catch {}
+          } else {
+            const mappedIssues: Issue[] = sbIssuesRes.data.map((row: any) => {
+              const existing = serverIssues.find((s) => s.id === row.id);
+              return {
+                id: row.id,
+                client: row.client || existing?.client || 'عميل',
+                clientEmail: row.client_email || existing?.clientEmail || undefined,
+                clientPhone: row.client_phone || existing?.clientPhone || undefined,
+                tag: row.tag || existing?.tag || 'VIP Client',
+                type: row.type || existing?.type || 'تقني / Technical',
+                desc: row.desc_text || existing?.desc || '',
+                assigned: row.assigned || existing?.assigned || 'فريق الدعم',
+                owner: row.owner || existing?.owner || 'محمد علي',
+                priority: (row.priority as Priority) || existing?.priority || 'Medium',
+                status: (row.status as IssueStatus) || existing?.status || 'Open',
+                workTime: row.worktime ?? existing?.workTime ?? 0,
+                csat: row.csat ?? existing?.csat ?? 5,
+                createdAt: row.created_at || existing?.createdAt || new Date().toISOString(),
+                dueDate: row.due_date || existing?.dueDate || new Date().toISOString(),
+                timeline: Array.isArray(row.timeline) && row.timeline.length > 0 ? row.timeline : (existing?.timeline || []),
+                comments: Array.isArray(row.comments) && row.comments.length > 0 ? row.comments : (existing?.comments || []),
+                resolutionReason: existing?.resolutionReason || undefined,
+                resolvedAt: existing?.resolvedAt || undefined,
+                attachment: row.attachment || existing?.attachment || undefined,
+              };
+            });
+            setIssues(mappedIssues);
+            try {
+              localStorage.setItem(STORAGE_KEY + '_ISSUES', JSON.stringify(mappedIssues));
+            } catch {}
+          }
+        } else if (serverState?.isSeeded && serverIssues.length === 0) {
           // If server database was explicitly cleared, enforce empty tickets state
           setIssues([]);
           try {
             localStorage.setItem(STORAGE_KEY + '_ISSUES', '[]');
-          } catch {}
-        } else if (sbIssuesRes && !sbIssuesRes.error && Array.isArray(sbIssuesRes.data) && sbIssuesRes.data.length > 0) {
-          const mappedIssues: Issue[] = sbIssuesRes.data.map((row: any) => {
-            const existing = serverIssues.find((s) => s.id === row.id);
-            return {
-              id: row.id,
-              client: row.client || existing?.client || 'عميل',
-              clientEmail: row.client_email || existing?.clientEmail || undefined,
-              clientPhone: row.client_phone || existing?.clientPhone || undefined,
-              tag: row.tag || existing?.tag || 'VIP Client',
-              type: row.type || existing?.type || 'تقني / Technical',
-              desc: row.desc_text || existing?.desc || '',
-              assigned: row.assigned || existing?.assigned || 'فريق الدعم',
-              owner: row.owner || existing?.owner || 'محمد علي',
-              priority: (row.priority as Priority) || existing?.priority || 'Medium',
-              status: (row.status as IssueStatus) || existing?.status || 'Open',
-              workTime: row.worktime ?? existing?.workTime ?? 0,
-              csat: row.csat ?? existing?.csat ?? 5,
-              createdAt: row.created_at || existing?.createdAt || new Date().toISOString(),
-              dueDate: row.due_date || existing?.dueDate || new Date().toISOString(),
-              timeline: Array.isArray(row.timeline) && row.timeline.length > 0 ? row.timeline : (existing?.timeline || []),
-              comments: Array.isArray(row.comments) && row.comments.length > 0 ? row.comments : (existing?.comments || []),
-              resolutionReason: existing?.resolutionReason || undefined,
-              resolvedAt: existing?.resolvedAt || undefined,
-              attachment: row.attachment || existing?.attachment || undefined,
-            };
-          });
-          setIssues(mappedIssues);
-          try {
-            localStorage.setItem(STORAGE_KEY + '_ISSUES', JSON.stringify(mappedIssues));
           } catch {}
         } else if (serverState && Array.isArray(serverState.issues)) {
           setIssues(serverIssues);
@@ -2274,32 +2282,40 @@ export default function App() {
 
       // 1. Pull issues
       const { data: issuesData, error: issuesErr } = await client.from('issues').select('*');
-      if (!issuesErr && issuesData && issuesData.length > 0) {
-        const mappedIssues: Issue[] = issuesData.map((row: any) => ({
-          id: row.id,
-          client: row.client || 'عميل',
-          clientEmail: row.client_email || undefined,
-          clientPhone: row.client_phone || undefined,
-          tag: row.tag || 'VIP Client',
-          type: row.type || 'تقني / Technical',
-          desc: row.desc_text || '',
-          assigned: row.assigned || 'فريق الدعم',
-          owner: row.owner || 'محمد علي',
-          priority: (row.priority as Priority) || 'Medium',
-          status: (row.status as IssueStatus) || 'Open',
-          workTime: row.worktime || 0,
-          csat: row.csat || 5,
-          createdAt: row.created_at || new Date().toISOString(),
-          dueDate: row.due_date || new Date().toISOString(),
-          timeline: Array.isArray(row.timeline) ? row.timeline : [],
-          comments: Array.isArray(row.comments) ? row.comments : [],
-          attachment: row.attachment || undefined,
-        }));
-        setIssues(mappedIssues);
-        try {
-          localStorage.setItem(STORAGE_KEY + '_ISSUES', JSON.stringify(mappedIssues));
-        } catch {}
-        pulledIssues = mappedIssues.length;
+      if (!issuesErr && Array.isArray(issuesData)) {
+        if (issuesData.length === 0) {
+          setIssues([]);
+          try {
+            localStorage.setItem(STORAGE_KEY + '_ISSUES', '[]');
+          } catch {}
+          pulledIssues = 0;
+        } else {
+          const mappedIssues: Issue[] = issuesData.map((row: any) => ({
+            id: row.id,
+            client: row.client || 'عميل',
+            clientEmail: row.client_email || undefined,
+            clientPhone: row.client_phone || undefined,
+            tag: row.tag || 'VIP Client',
+            type: row.type || 'تقني / Technical',
+            desc: row.desc_text || '',
+            assigned: row.assigned || 'فريق الدعم',
+            owner: row.owner || 'محمد علي',
+            priority: (row.priority as Priority) || 'Medium',
+            status: (row.status as IssueStatus) || 'Open',
+            workTime: row.worktime || 0,
+            csat: row.csat || 5,
+            createdAt: row.created_at || new Date().toISOString(),
+            dueDate: row.due_date || new Date().toISOString(),
+            timeline: Array.isArray(row.timeline) ? row.timeline : [],
+            comments: Array.isArray(row.comments) ? row.comments : [],
+            attachment: row.attachment || undefined,
+          }));
+          setIssues(mappedIssues);
+          try {
+            localStorage.setItem(STORAGE_KEY + '_ISSUES', JSON.stringify(mappedIssues));
+          } catch {}
+          pulledIssues = mappedIssues.length;
+        }
       }
 
       // 2. Pull app_users
