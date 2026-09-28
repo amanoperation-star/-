@@ -1144,21 +1144,39 @@ export default function App() {
     }
   };
 
+  const getSupabaseClient = () => {
+    const url = (supabaseConfig.url || DEFAULT_SUPABASE_PROJECT_URL).trim();
+    const key = (supabaseConfig.key || DEFAULT_SUPABASE_PUBLISHABLE_KEY).trim();
+    if (url && key && url.startsWith('https://')) {
+      try {
+        return createClient(url, key);
+      } catch {}
+    }
+    return supabaseRef.current || createClient(DEFAULT_SUPABASE_PROJECT_URL, DEFAULT_SUPABASE_PUBLISHABLE_KEY);
+  };
+
   const deleteSingleIssueFromSupabase = async (issueId: string) => {
-    if (!supabaseRef.current) return;
     try {
-      await supabaseRef.current.from('issues').delete().eq('id', issueId);
+      const client = getSupabaseClient();
+      const { error } = await client.from('issues').delete().eq('id', issueId);
+      if (error) {
+        console.error('[Supabase Delete Single Error]:', error);
+      }
     } catch (err) {
-      console.warn('[Supabase] Delete issue note:', err);
+      console.error('[Supabase Delete Single Exception]:', err);
     }
   };
 
   const deleteBulkIssuesFromSupabase = async (issueIds: string[]) => {
-    if (!supabaseRef.current || !issueIds.length) return;
+    if (!issueIds.length) return;
     try {
-      await supabaseRef.current.from('issues').delete().in('id', issueIds);
+      const client = getSupabaseClient();
+      const { error } = await client.from('issues').delete().in('id', issueIds);
+      if (error) {
+        console.error('[Supabase Delete Bulk Error]:', error);
+      }
     } catch (err) {
-      console.warn('[Supabase] Bulk delete issues note:', err);
+      console.error('[Supabase Delete Bulk Exception]:', err);
     }
   };
 
@@ -1572,14 +1590,7 @@ export default function App() {
       return next;
     });
 
-    if (supabaseRef.current && issueIds.length > 0) {
-      try {
-        await supabaseRef.current.from('issues').delete().in('id', issueIds);
-      } catch (err) {
-        console.warn('[Supabase] Bulk delete error:', err);
-      }
-    }
-
+    await deleteBulkIssuesFromSupabase(issueIds);
     addAuditLog('حذف جماعي', `تم حذف ${issueIds.length} تذكرة نهائياً.`);
   };
 
@@ -1594,14 +1605,7 @@ export default function App() {
       return next;
     });
 
-    if (supabaseRef.current) {
-      try {
-        await supabaseRef.current.from('issues').delete().eq('id', issueId);
-      } catch (err) {
-        console.warn('[Supabase] Single delete error:', err);
-      }
-    }
-
+    await deleteSingleIssueFromSupabase(issueId);
     addAuditLog('حذف تذكرة', `تم حذف التذكرة ${issueId} نهائياً.`);
   };
 
@@ -1615,12 +1619,14 @@ export default function App() {
       localStorage.setItem(STORAGE_KEY + '_ISSUES', '[]');
     } catch {}
 
-    if (supabaseRef.current) {
-      try {
-        await supabaseRef.current.from('issues').delete().neq('id', '0');
-      } catch (err) {
-        console.warn('[Supabase] Wipe all tickets error:', err);
+    try {
+      const client = getSupabaseClient();
+      const { error } = await client.from('issues').delete().neq('id', '0');
+      if (error) {
+        console.error('[Supabase Wipe All Error]:', error);
       }
+    } catch (err) {
+      console.error('[Supabase Wipe All Exception]:', err);
     }
 
     addAuditLog('تفريغ كافة التذاكر', 'تم مسح وتفريغ كافة التذاكر من المنظومة والسحابة نهائياً.');
