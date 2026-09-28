@@ -368,6 +368,7 @@ export default function App() {
   ).length;
 
   const isHydratedRef = useRef(false);
+  const deletedIssueIdsRef = useRef<Set<string>>(new Set());
 
   // Save to LocalStorage safely
   useEffect(() => {
@@ -433,7 +434,7 @@ export default function App() {
     }
   }, [supabaseConfig.url, supabaseConfig.key]);
 
-  // Supabase Realtime DB Changes Subscription & Auto-Sync Polling
+  // Supabase Realtime DB Changes Subscription
   useEffect(() => {
     const client = supabaseRef.current;
     if (!client) return;
@@ -445,14 +446,8 @@ export default function App() {
       })
       .subscribe();
 
-    // Lightweight background sync interval (every 4 seconds) to guarantee instant team-wide updates without refresh
-    const syncInterval = setInterval(() => {
-      handlePullSupabaseNow(true);
-    }, 4000);
-
     return () => {
       client.removeChannel(channel);
-      clearInterval(syncInterval);
     };
   }, [supabaseConfig.url, supabaseConfig.key]);
 
@@ -498,15 +493,15 @@ export default function App() {
 
         // 1. Issues: prefer live Supabase if available
         if (sbIssuesRes && !sbIssuesRes.error && Array.isArray(sbIssuesRes.data)) {
-          if (sbIssuesRes.data.length === 0) {
+          const validRows = sbIssuesRes.data.filter((row: any) => !deletedIssueIdsRef.current.has(row.id));
+          if (validRows.length === 0) {
             // If Supabase table is empty, check if we have local issues in localStorage to preserve
             const localSaved = localStorage.getItem(STORAGE_KEY + '_ISSUES');
             if (localSaved) {
               try {
-                const parsedLocal = JSON.parse(localSaved);
+                const parsedLocal = JSON.parse(localSaved).filter((i: any) => !deletedIssueIdsRef.current.has(i.id));
                 if (Array.isArray(parsedLocal) && parsedLocal.length > 0) {
                   setIssues(parsedLocal);
-                  // Sync local items up to Supabase
                   handleSyncSupabaseNow(true);
                   return;
                 }
@@ -517,7 +512,7 @@ export default function App() {
               localStorage.setItem(STORAGE_KEY + '_ISSUES', '[]');
             } catch {}
           } else {
-            const mappedIssues: Issue[] = sbIssuesRes.data.map((row: any) => ({
+            const mappedIssues: Issue[] = validRows.map((row: any) => ({
               id: row.id,
               client: row.client || 'عميل',
               clientEmail: row.client_email || undefined,
@@ -1580,6 +1575,7 @@ export default function App() {
 
   // Bulk Delete Selected Tickets
   const handleBulkDelete = async (issueIds: string[]) => {
+    issueIds.forEach((id) => deletedIssueIdsRef.current.add(id));
     setIssues((prev) => {
       const next = prev.filter((i) => !issueIds.includes(i.id));
       try {
@@ -1601,6 +1597,7 @@ export default function App() {
 
   // Delete Single Issue
   const handleDeleteIssue = async (issueId: string) => {
+    deletedIssueIdsRef.current.add(issueId);
     setIssues((prev) => {
       const next = prev.filter((i) => i.id !== issueId);
       try {
@@ -1622,7 +1619,10 @@ export default function App() {
 
   // Delete ALL Tickets (Wipe All)
   const handleClearAllTickets = async () => {
-    setIssues([]);
+    setIssues((prev) => {
+      prev.forEach((i) => deletedIssueIdsRef.current.add(i.id));
+      return [];
+    });
     try {
       localStorage.setItem(STORAGE_KEY + '_ISSUES', '[]');
     } catch {}
@@ -2201,14 +2201,25 @@ export default function App() {
       // 1. Pull issues
       const { data: issuesData, error: issuesErr } = await client.from('issues').select('*');
       if (!issuesErr && Array.isArray(issuesData)) {
-        if (issuesData.length === 0) {
+        const validRows = issuesData.filter((row: any) => !deletedIssueIdsRef.current.has(row.id));
+        if (validRows.length === 0) {
+          const localSaved = localStorage.getItem(STORAGE_KEY + '_ISSUES');
+          if (localSaved) {
+            try {
+              const parsedLocal = JSON.parse(localSaved).filter((i: any) => !deletedIssueIdsRef.current.has(i.id));
+              if (Array.isArray(parsedLocal) && parsedLocal.length > 0) {
+                setIssues(parsedLocal);
+                return;
+              }
+            } catch {}
+          }
           setIssues([]);
           try {
             localStorage.setItem(STORAGE_KEY + '_ISSUES', '[]');
           } catch {}
           pulledIssues = 0;
         } else {
-          const mappedIssues: Issue[] = issuesData.map((row: any) => ({
+          const mappedIssues: Issue[] = validRows.map((row: any) => ({
             id: row.id,
             client: row.client || 'عميل',
             clientEmail: row.client_email || undefined,
