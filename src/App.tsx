@@ -507,7 +507,13 @@ export default function App() {
         const serverIssues: Issue[] = Array.isArray(serverState?.issues) ? serverState.issues : [];
 
         // 1. Issues: prefer live Supabase if available and merge with server issues to keep timeline, comments, resolutionReason
-        if (sbIssuesRes && !sbIssuesRes.error && Array.isArray(sbIssuesRes.data)) {
+        if (serverState?.isSeeded && serverIssues.length === 0) {
+          // If server database was explicitly cleared, enforce empty tickets state
+          setIssues([]);
+          try {
+            localStorage.setItem(STORAGE_KEY + '_ISSUES', '[]');
+          } catch {}
+        } else if (sbIssuesRes && !sbIssuesRes.error && Array.isArray(sbIssuesRes.data) && sbIssuesRes.data.length > 0) {
           const mappedIssues: Issue[] = sbIssuesRes.data.map((row: any) => {
             const existing = serverIssues.find((s) => s.id === row.id);
             return {
@@ -544,7 +550,7 @@ export default function App() {
           } catch {}
         }
 
-        // 2. Users: prefer live Supabase if available
+        // 2. Users: prefer live Supabase if available, fallback to serverState
         if (sbUsersRes && Array.isArray(sbUsersRes.data) && sbUsersRes.data.length > 0) {
           const mappedUsers: AppUser[] = sbUsersRes.data.map((row: any) => ({
             id: row.id,
@@ -561,14 +567,14 @@ export default function App() {
           try {
             localStorage.setItem(STORAGE_KEY + '_USERS', JSON.stringify(mappedUsers));
           } catch {}
-        } else if (serverState && Array.isArray(serverState.users) && serverState.users.length > 0) {
+        } else if (serverState && Array.isArray(serverState.users)) {
           setUsers(serverState.users);
           try {
             localStorage.setItem(STORAGE_KEY + '_USERS', JSON.stringify(serverState.users));
           } catch {}
         }
 
-        // 3. CAB Activities: prefer live Supabase if available
+        // 3. CAB Activities: prefer live Supabase if available, fallback to serverState
         if (sbCabRes && Array.isArray(sbCabRes.data) && sbCabRes.data.length > 0) {
           const mappedCab: CabBusinessActivity[] = sbCabRes.data.map((row: any) => ({
             id: row.id,
@@ -598,28 +604,28 @@ export default function App() {
           try {
             localStorage.setItem(STORAGE_KEY + '_CAB_ACTIVITIES', JSON.stringify(mappedCab));
           } catch {}
-        } else if (serverState && Array.isArray(serverState.cabActivities) && serverState.cabActivities.length > 0) {
+        } else if (serverState && Array.isArray(serverState.cabActivities)) {
           setCabActivities(serverState.cabActivities);
           try {
             localStorage.setItem(STORAGE_KEY + '_CAB_ACTIVITIES', JSON.stringify(serverState.cabActivities));
           } catch {}
         }
 
-        // 4. Server state integration for settings and categories
+        // 4. Server state integration for settings, categories, tags, canned responses
         if (serverState) {
-          if (Array.isArray(serverState.categories) && serverState.categories.length > 0) {
+          if (Array.isArray(serverState.categories)) {
             setCategories(serverState.categories);
             try {
               localStorage.setItem(STORAGE_KEY + '_CATEGORIES', JSON.stringify(serverState.categories));
             } catch {}
           }
-          if (Array.isArray(serverState.tags) && serverState.tags.length > 0) {
+          if (Array.isArray(serverState.tags)) {
             setTags(serverState.tags);
             try {
               localStorage.setItem(STORAGE_KEY + '_TAGS', JSON.stringify(serverState.tags));
             } catch {}
           }
-          if (Array.isArray(serverState.cannedResponses) && serverState.cannedResponses.length > 0) {
+          if (Array.isArray(serverState.cannedResponses)) {
             setCannedResponses(serverState.cannedResponses);
             try {
               localStorage.setItem(STORAGE_KEY + '_CANNED', JSON.stringify(serverState.cannedResponses));
@@ -637,7 +643,7 @@ export default function App() {
               localStorage.setItem(STORAGE_KEY + '_SOUND', JSON.stringify(serverState.soundSettings));
             } catch {}
           }
-          if (Array.isArray(serverState.auditLogs) && serverState.auditLogs.length > 0) {
+          if (Array.isArray(serverState.auditLogs)) {
             setAuditLogs(serverState.auditLogs);
             try {
               localStorage.setItem(STORAGE_KEY + '_AUDIT', JSON.stringify(serverState.auditLogs));
@@ -1633,7 +1639,7 @@ export default function App() {
   };
 
   // Bulk Delete
-  const handleBulkDelete = (issueIds: string[]) => {
+  const handleBulkDelete = async (issueIds: string[]) => {
     setIssues((prev) => {
       const next = prev.filter((i) => !issueIds.includes(i.id));
       try {
@@ -1643,6 +1649,17 @@ export default function App() {
     });
     issueIds.forEach((id) => realtimeSync.broadcastTicketDelete(id, currentUser.name));
     deleteBulkIssuesFromSupabase(issueIds);
+
+    try {
+      await fetch('/api/issues/bulk', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ issueIds, actor: currentUser.name }),
+      });
+    } catch (err) {
+      console.warn('Failed to call bulk delete API endpoint:', err);
+    }
+
     addAuditLog('حذف جماعي', `تم حذف ${issueIds.length} تذكرة نهائياً.`);
   };
 
@@ -1657,7 +1674,44 @@ export default function App() {
     });
     realtimeSync.broadcastTicketDelete(issueId, currentUser.name);
     deleteSingleIssueFromSupabase(issueId);
+
+    try {
+      await fetch(`/api/issues/${encodeURIComponent(issueId)}?actor=${encodeURIComponent(currentUser.name)}`, {
+        method: 'DELETE',
+      });
+    } catch (err) {
+      console.warn('Failed to call delete issue API endpoint:', err);
+    }
+
     addAuditLog('حذف تذكرة', `تم حذف التذكرة ${issueId} نهائياً.`);
+  };
+
+  // Delete ALL Tickets (Complete Reset / Clear)
+  const handleClearAllTickets = async () => {
+    setIssues([]);
+    try {
+      localStorage.setItem(STORAGE_KEY + '_ISSUES', '[]');
+    } catch {}
+
+    try {
+      await fetch('/api/issues/all', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ actor: currentUser.name }),
+      });
+    } catch (err) {
+      console.warn('Failed to call delete all API endpoint:', err);
+    }
+
+    if (supabaseRef.current) {
+      try {
+        await supabaseRef.current.from('issues').delete().neq('id', 'dummy_clean_id');
+      } catch (err) {
+        console.warn('Failed to wipe Supabase issues table:', err);
+      }
+    }
+
+    addAuditLog('تفريغ كافة التذاكر', 'تم مسح وتفريغ كافة التذاكر من المنظومة والسحابة نهائياً.');
   };
 
   // Resolve Ticket with Reason
@@ -2920,6 +2974,7 @@ export default function App() {
             onQuickStatusChange={handleQuickStatusChange}
             onBulkChangeStatus={handleBulkChangeStatus}
             onBulkDelete={handleBulkDelete}
+            onClearAllTickets={handleClearAllTickets}
             onOpenCustomerProfile={handleOpenCustomerProfile}
             onOpenMergeModal={handleOpenMergeModal}
             onUpdatePhone={handleUpdateIssuePhone}

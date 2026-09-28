@@ -46,6 +46,7 @@ interface IssuesViewProps {
   onOpenMergeModal?: (ticketIds: string[]) => void;
   initialFilterStatus?: string;
   onUpdatePhone?: (issueId: string, phone: string) => void;
+  onClearAllTickets?: () => void;
   appSkin?: 'standard' | 'amethyst' | 'cyberpunk' | 'ocean';
 }
 
@@ -77,6 +78,7 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
   onOpenMergeModal,
   initialFilterStatus = 'ALL',
   onUpdatePhone,
+  onClearAllTickets,
   appSkin = 'standard',
 }) => {
   const [search, setSearch] = useState('');
@@ -580,15 +582,29 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
               </button>
               <button
                 onClick={() => {
-                  if (confirm(`هل أنت متأكد من حذف ${selectedIds.length} تذكرة محددة؟`)) {
+                  if (confirm(`هل أنت متأكد من حذف ${selectedIds.length} تذكرة محددة نهائياً من السحابة والشبكة؟`)) {
                     onBulkDelete(selectedIds);
                     setSelectedIds([]);
                   }
                 }}
-                className="px-2.5 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-bold transition"
+                className="px-2.5 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-bold transition shadow shadow-rose-600/20"
               >
                 حذف المحدد 🗑️
               </button>
+
+              {onClearAllTickets && (
+                <button
+                  onClick={() => {
+                    if (confirm('⚠️ تحذير نهائي: هل أنت متأكد من مسح وتفريغ كافة التذاكر والبلاغات نهائياً من المنظومة وقاعدة البيانات وسحابة Supabase؟ لا يمكن استرجاعها بعد الحذف.')) {
+                      onClearAllTickets();
+                      setSelectedIds([]);
+                    }
+                  }}
+                  className="px-2.5 py-1 bg-rose-700 hover:bg-rose-800 text-white rounded-lg text-xs font-bold transition border border-rose-400/40 shadow"
+                >
+                  تفريغ كافة التذاكر 💥
+                </button>
+              )}
             </div>
           </div>
         )}

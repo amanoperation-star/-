@@ -37,6 +37,7 @@ let state: {
   slaSettings: any;
   cabActivities: any[];
   supabaseConfig: any;
+  isSeeded?: boolean;
 } = {
   issues: [],
   categories: [],
@@ -50,6 +51,7 @@ let state: {
   slaSettings: null,
   cabActivities: [],
   supabaseConfig: DEFAULT_SUPABASE_CONFIG,
+  isSeeded: false,
 };
 
 const DEFAULT_SLA_SETTINGS = {
@@ -111,6 +113,11 @@ const loadDatabase = () => {
       const raw = fs.readFileSync(DB_FILE, 'utf-8');
       const parsed = JSON.parse(raw);
       state = { ...state, ...parsed };
+      if (parsed.isSeeded !== undefined) {
+        state.isSeeded = parsed.isSeeded;
+      } else if (Array.isArray(state.issues) && state.issues.length > 0) {
+        state.isSeeded = true;
+      }
       if (!Array.isArray(state.externalVendors) || state.externalVendors.length === 0) {
         state.externalVendors = DEFAULT_EXTERNAL_VENDORS;
       }
@@ -153,6 +160,161 @@ const saveDatabase = () => {
 
 loadDatabase();
 
+async function deleteIssuesFromSupabase(issueIds: string[]) {
+  if (!issueIds || issueIds.length === 0) return;
+  const url = (state.supabaseConfig?.url || DEFAULT_SUPABASE_CONFIG.url || '').replace(/\/+$/, '');
+  const key = state.supabaseConfig?.key || DEFAULT_SUPABASE_CONFIG.key;
+  if (!url || !key || !url.startsWith('https://')) return;
+
+  const filter = `id=in.(${issueIds.map((id) => encodeURIComponent(id)).join(',')})`;
+  try {
+    await fetch(`${url}/rest/v1/issues?${filter}`, {
+      method: 'DELETE',
+      headers: { apikey: key, Authorization: `Bearer ${key}` },
+    });
+  } catch (err) {
+    console.warn('[Supabase-Delete] Failed to delete issues:', err);
+  }
+}
+
+async function deleteUserFromSupabase(userId: string) {
+  const url = (state.supabaseConfig?.url || DEFAULT_SUPABASE_CONFIG.url || '').replace(/\/+$/, '');
+  const key = state.supabaseConfig?.key || DEFAULT_SUPABASE_CONFIG.key;
+  if (!url || !key || !url.startsWith('https://')) return;
+
+  try {
+    await fetch(`${url}/rest/v1/app_users?id=eq.${encodeURIComponent(userId)}`, {
+      method: 'DELETE',
+      headers: { apikey: key, Authorization: `Bearer ${key}` },
+    });
+  } catch (err) {
+    console.warn('[Supabase-Delete] Failed to delete user:', err);
+  }
+}
+
+async function pushUsersToSupabase(usersList: any[]) {
+  if (!usersList || usersList.length === 0) return;
+  const url = (state.supabaseConfig?.url || DEFAULT_SUPABASE_CONFIG.url || '').replace(/\/+$/, '');
+  const key = state.supabaseConfig?.key || DEFAULT_SUPABASE_CONFIG.key;
+  if (!url || !key || !url.startsWith('https://')) return;
+
+  const headers = {
+    apikey: key,
+    Authorization: `Bearer ${key}`,
+    'Content-Type': 'application/json',
+    Prefer: 'resolution=merge-duplicates',
+  };
+
+  const payload = usersList.map((u) => ({
+    id: u.id,
+    name: u.name,
+    username: u.username,
+    email: u.email,
+    role: u.role,
+    department: u.department,
+    avatar: u.avatar || '',
+    permissions: u.permissions || [],
+    password: u.password || '123456',
+  }));
+
+  try {
+    await fetch(`${url}/rest/v1/app_users`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+    });
+  } catch (err) {
+    console.warn('[Supabase-Push] Failed to push users to Supabase:', err);
+  }
+}
+
+async function deleteCabActivityFromSupabase(cabId: string) {
+  const url = (state.supabaseConfig?.url || DEFAULT_SUPABASE_CONFIG.url || '').replace(/\/+$/, '');
+  const key = state.supabaseConfig?.key || DEFAULT_SUPABASE_CONFIG.key;
+  if (!url || !key || !url.startsWith('https://')) return;
+
+  try {
+    await fetch(`${url}/rest/v1/cab_activities?id=eq.${encodeURIComponent(cabId)}`, {
+      method: 'DELETE',
+      headers: { apikey: key, Authorization: `Bearer ${key}` },
+    });
+  } catch (err) {
+    console.warn('[Supabase-Delete] Failed to delete CAB activity:', err);
+  }
+}
+
+async function pushCabActivitiesToSupabase(cabList: any[]) {
+  if (!cabList || cabList.length === 0) return;
+  const url = (state.supabaseConfig?.url || DEFAULT_SUPABASE_CONFIG.url || '').replace(/\/+$/, '');
+  const key = state.supabaseConfig?.key || DEFAULT_SUPABASE_CONFIG.key;
+  if (!url || !key || !url.startsWith('https://')) return;
+
+  const headers = {
+    apikey: key,
+    Authorization: `Bearer ${key}`,
+    'Content-Type': 'application/json',
+    Prefer: 'resolution=merge-duplicates',
+  };
+
+  const payload = cabList.map((c) => ({
+    id: c.id,
+    activity_name: c.activityName,
+    scope: c.scope,
+    impacted_services: c.impactedServices,
+    service_impact: c.serviceImpact,
+    stop_service_target_system: c.stopServiceTargetSystem,
+    stopped_system_name: c.stoppedSystemName,
+    downtime_required: c.downtimeRequired,
+    date: c.date,
+    start_time: c.startTime,
+    end_time: c.endTime,
+    maintenance_window: c.maintenanceWindow,
+    requestor: c.requestor,
+    tpm: c.tpm,
+    change_management: c.changeManagement,
+    status: c.status,
+    risk_level: c.riskLevel,
+    rollback_plan: c.rollbackPlan,
+    rollback_reason: c.rollbackReason,
+    comments: c.comments || [],
+    audit_trail: c.auditTrail || [],
+    created_at: c.createdAt || new Date().toISOString(),
+  }));
+
+  try {
+    await fetch(`${url}/rest/v1/cab_activities`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+    });
+  } catch (err) {
+    console.warn('[Supabase-Push] Failed to push CAB activities to Supabase:', err);
+  }
+}
+
+async function pushSystemStoreToSupabase(keyName: string, data: any) {
+  const url = (state.supabaseConfig?.url || DEFAULT_SUPABASE_CONFIG.url || '').replace(/\/+$/, '');
+  const key = state.supabaseConfig?.key || DEFAULT_SUPABASE_CONFIG.key;
+  if (!url || !key || !url.startsWith('https://')) return;
+
+  const headers = {
+    apikey: key,
+    Authorization: `Bearer ${key}`,
+    'Content-Type': 'application/json',
+    Prefer: 'resolution=merge-duplicates',
+  };
+
+  try {
+    await fetch(`${url}/rest/v1/system_cloud_store`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify([{ key: keyName, data, updated_at: new Date().toISOString() }]),
+    });
+  } catch (err) {
+    console.warn(`[Supabase-Push] Failed to push ${keyName} to system_cloud_store:`, err);
+  }
+}
+
 let lastSupabaseSync = 0;
 async function syncWithSupabase(force = false) {
   const now = Date.now();
@@ -178,81 +340,107 @@ async function syncWithSupabase(force = false) {
     if (issuesRes && issuesRes.ok) {
       const issuesData = await issuesRes.json();
       if (Array.isArray(issuesData)) {
-        state.issues = issuesData.map((row: any) => {
-          const existing = (state.issues || []).find((i: any) => i.id === row.id);
-          return {
-            id: row.id,
-            client: row.client || existing?.client || 'عميل',
-            clientEmail: row.client_email || existing?.clientEmail || undefined,
-            clientPhone: row.client_phone || existing?.clientPhone || undefined,
-            tag: row.tag || existing?.tag || 'VIP Client',
-            type: row.type || existing?.type || 'تقني / Technical',
-            desc: row.desc_text || existing?.desc || '',
-            assigned: row.assigned || existing?.assigned || 'فريق الدعم',
-            owner: row.owner || existing?.owner || 'محمد علي',
-            priority: row.priority || existing?.priority || 'Medium',
-            status: row.status || existing?.status || 'Open',
-            workTime: row.worktime ?? existing?.workTime ?? 0,
-            csat: row.csat ?? existing?.csat ?? 5,
-            createdAt: row.created_at || existing?.createdAt || new Date().toISOString(),
-            dueDate: row.due_date || existing?.dueDate || new Date().toISOString(),
-            timeline: Array.isArray(row.timeline) && row.timeline.length > 0 ? row.timeline : (existing?.timeline || []),
-            comments: Array.isArray(row.comments) && row.comments.length > 0 ? row.comments : (existing?.comments || []),
-            resolutionReason: existing?.resolutionReason || undefined,
-            resolvedAt: existing?.resolvedAt || undefined,
-            attachment: row.attachment || existing?.attachment || undefined,
-          };
-        });
-        changed = true;
+        if (state.isSeeded && (!state.issues || state.issues.length === 0)) {
+          // System was explicitly cleared / emptied. Clean up orphaned rows in Supabase if any exist.
+          if (issuesData.length > 0) {
+            const orphanIds = issuesData.map((row: any) => row.id).filter(Boolean);
+            deleteIssuesFromSupabase(orphanIds).catch(() => {});
+          }
+        } else if (issuesData.length > 0) {
+          state.issues = issuesData.map((row: any) => {
+            const existing = (state.issues || []).find((i: any) => i.id === row.id);
+            return {
+              id: row.id,
+              client: row.client || existing?.client || 'عميل',
+              clientEmail: row.client_email || existing?.clientEmail || undefined,
+              clientPhone: row.client_phone || existing?.clientPhone || undefined,
+              tag: row.tag || existing?.tag || 'VIP Client',
+              type: row.type || existing?.type || 'تقني / Technical',
+              desc: row.desc_text || existing?.desc || '',
+              assigned: row.assigned || existing?.assigned || 'فريق الدعم',
+              owner: row.owner || existing?.owner || 'محمد علي',
+              priority: row.priority || existing?.priority || 'Medium',
+              status: row.status || existing?.status || 'Open',
+              workTime: row.worktime ?? existing?.workTime ?? 0,
+              csat: row.csat ?? existing?.csat ?? 5,
+              createdAt: row.created_at || existing?.createdAt || new Date().toISOString(),
+              dueDate: row.due_date || existing?.dueDate || new Date().toISOString(),
+              timeline: Array.isArray(row.timeline) && row.timeline.length > 0 ? row.timeline : (existing?.timeline || []),
+              comments: Array.isArray(row.comments) && row.comments.length > 0 ? row.comments : (existing?.comments || []),
+              resolutionReason: existing?.resolutionReason || undefined,
+              resolvedAt: existing?.resolvedAt || undefined,
+              attachment: row.attachment || existing?.attachment || undefined,
+            };
+          });
+          state.isSeeded = true;
+          changed = true;
+        }
       }
     }
 
     if (usersRes && usersRes.ok) {
       const usersData = await usersRes.json();
-      if (Array.isArray(usersData) && usersData.length > 0) {
-        state.users = usersData.map((row: any) => ({
-          id: row.id,
-          name: row.name,
-          username: row.username,
-          email: row.email,
-          role: row.role,
-          department: row.department,
-          avatar: row.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces',
-          permissions: Array.isArray(row.permissions) ? row.permissions : [],
-          password: row.password || '123456',
-        }));
-        changed = true;
+      if (Array.isArray(usersData)) {
+        if (state.isSeeded && Array.isArray(state.users) && state.users.length > 0) {
+          // Server state is authoritative: clean up orphaned users deleted locally
+          const localUserIds = new Set(state.users.map((u: any) => u.id));
+          const orphans = usersData.filter((row: any) => !localUserIds.has(row.id));
+          for (const orphan of orphans) {
+            deleteUserFromSupabase(orphan.id).catch(() => {});
+          }
+        } else if (usersData.length > 0) {
+          state.users = usersData.map((row: any) => ({
+            id: row.id,
+            name: row.name,
+            username: row.username,
+            email: row.email,
+            role: row.role,
+            department: row.department,
+            avatar: row.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces',
+            permissions: Array.isArray(row.permissions) ? row.permissions : [],
+            password: row.password || '123456',
+          }));
+          changed = true;
+        }
       }
     }
 
     if (cabRes && cabRes.ok) {
       const cabData = await cabRes.json();
-      if (Array.isArray(cabData) && cabData.length > 0) {
-        state.cabActivities = cabData.map((row: any) => ({
-          id: row.id,
-          activityName: row.activity_name || row.activityName || 'نشاط صيانة',
-          scope: row.scope,
-          impactedServices: row.impacted_services || row.impactedServices,
-          serviceImpact: row.service_impact || row.serviceImpact,
-          stopServiceTargetSystem: row.stop_service_target_system || row.stopServiceTargetSystem,
-          stoppedSystemName: row.stopped_system_name || row.stoppedSystemName,
-          downtimeRequired: row.downtime_required || row.downtimeRequired || 'No',
-          date: row.date,
-          startTime: row.start_time || row.startTime,
-          endTime: row.end_time || row.endTime,
-          maintenanceWindow: row.maintenance_window || row.maintenanceWindow,
-          requestor: row.requestor,
-          tpm: row.tpm,
-          changeManagement: row.change_management || row.changeManagement,
-          status: row.status || 'Pending Approval',
-          riskLevel: row.risk_level || row.riskLevel || 'Low',
-          rollbackPlan: row.rollback_plan || row.rollbackPlan,
-          rollbackReason: row.rollback_reason || row.rollbackReason,
-          comments: row.comments || [],
-          auditTrail: row.audit_trail || row.auditTrail || [],
-          createdAt: row.created_at || row.createdAt || new Date().toISOString(),
-        }));
-        changed = true;
+      if (Array.isArray(cabData)) {
+        if (state.isSeeded && Array.isArray(state.cabActivities) && state.cabActivities.length === 0) {
+          if (cabData.length > 0) {
+            for (const orphan of cabData) {
+              deleteCabActivityFromSupabase(orphan.id).catch(() => {});
+            }
+          }
+        } else if (cabData.length > 0) {
+          state.cabActivities = cabData.map((row: any) => ({
+            id: row.id,
+            activityName: row.activity_name || row.activityName || 'نشاط صيانة',
+            scope: row.scope,
+            impactedServices: row.impacted_services || row.impactedServices,
+            serviceImpact: row.service_impact || row.serviceImpact,
+            stopServiceTargetSystem: row.stop_service_target_system || row.stopServiceTargetSystem,
+            stoppedSystemName: row.stopped_system_name || row.stoppedSystemName,
+            downtimeRequired: row.downtime_required || row.downtimeRequired || 'No',
+            date: row.date,
+            startTime: row.start_time || row.startTime,
+            endTime: row.end_time || row.endTime,
+            maintenanceWindow: row.maintenance_window || row.maintenanceWindow,
+            requestor: row.requestor,
+            tpm: row.tpm,
+            changeManagement: row.change_management || row.changeManagement,
+            status: row.status || 'Pending Approval',
+            riskLevel: row.risk_level || row.riskLevel || 'Low',
+            rollbackPlan: row.rollback_plan || row.rollbackPlan,
+            rollbackReason: row.rollback_reason || row.rollbackReason,
+            comments: row.comments || [],
+            auditTrail: row.audit_trail || row.auditTrail || [],
+            createdAt: row.created_at || row.createdAt || new Date().toISOString(),
+          }));
+          changed = true;
+        }
       }
     }
 
@@ -261,29 +449,45 @@ async function syncWithSupabase(force = false) {
       if (Array.isArray(storeData)) {
         for (const item of storeData) {
           if (item.key === 'categories' && Array.isArray(item.data)) {
-            state.categories = item.data;
-            changed = true;
+            if (!state.isSeeded || !state.categories || state.categories.length === 0) {
+              state.categories = item.data;
+              changed = true;
+            }
           } else if (item.key === 'tags' && Array.isArray(item.data)) {
-            state.tags = item.data;
-            changed = true;
+            if (!state.isSeeded || !state.tags || state.tags.length === 0) {
+              state.tags = item.data;
+              changed = true;
+            }
           } else if (item.key === 'canned_responses' && Array.isArray(item.data)) {
-            state.cannedResponses = item.data;
-            changed = true;
+            if (!state.isSeeded || !state.cannedResponses || state.cannedResponses.length === 0) {
+              state.cannedResponses = item.data;
+              changed = true;
+            }
           } else if (item.key === 'general_settings' && item.data) {
-            state.generalSettings = item.data;
-            changed = true;
+            if (!state.generalSettings) {
+              state.generalSettings = item.data;
+              changed = true;
+            }
           } else if (item.key === 'sound_settings' && item.data) {
-            state.soundSettings = item.data;
-            changed = true;
+            if (!state.soundSettings) {
+              state.soundSettings = item.data;
+              changed = true;
+            }
           } else if (item.key === 'external_vendors' && Array.isArray(item.data)) {
-            state.externalVendors = item.data;
-            changed = true;
+            if (!state.externalVendors || state.externalVendors.length === 0) {
+              state.externalVendors = item.data;
+              changed = true;
+            }
           } else if (item.key === 'sla_settings' && item.data) {
-            state.slaSettings = item.data;
-            changed = true;
+            if (!state.slaSettings) {
+              state.slaSettings = item.data;
+              changed = true;
+            }
           } else if (item.key === 'audit_logs' && Array.isArray(item.data)) {
-            state.auditLogs = item.data;
-            changed = true;
+            if (!state.auditLogs || state.auditLogs.length === 0) {
+              state.auditLogs = item.data;
+              changed = true;
+            }
           }
         }
       }
@@ -477,8 +681,8 @@ app.get('/api/collisions', (_req, res) => {
 // API: Initialize or seed server state if empty
 app.post('/api/init-seed', (req, res) => {
   const initialData = req.body;
-  if (!state.issues || state.issues.length === 0) {
-    if (initialData.issues && initialData.issues.length > 0) {
+  if (!state.isSeeded) {
+    if (initialData.issues && Array.isArray(initialData.issues)) {
       state.issues = initialData.issues;
     }
     if (initialData.categories && initialData.categories.length > 0) {
@@ -502,6 +706,7 @@ app.post('/api/init-seed', (req, res) => {
     if (initialData.supabaseConfig && !state.supabaseConfig) {
       state.supabaseConfig = initialData.supabaseConfig;
     }
+    state.isSeeded = true;
     saveDatabase();
     console.log(`[Database] Seeded with ${state.issues.length} tickets, ${state.cabActivities?.length || 0} CAB activities from client.`);
   } else {
@@ -653,12 +858,13 @@ app.post('/api/issues/:id/comments', (req, res) => {
   }
 });
 
-// API: Delete a ticket
+// API: Delete a single ticket
 app.delete('/api/issues/:id', (req, res) => {
   const { id } = req.params;
   const { actor } = req.query;
 
   state.issues = (state.issues || []).filter((i) => i.id !== id);
+  state.isSeeded = true;
 
   const newLog = {
     id: `a-${Date.now()}`,
@@ -670,15 +876,7 @@ app.delete('/api/issues/:id', (req, res) => {
   state.auditLogs = [newLog, ...(state.auditLogs || []).slice(0, 99)];
 
   saveDatabase();
-
-  const sbUrl = (state.supabaseConfig?.url || DEFAULT_SUPABASE_CONFIG.url || '').replace(/\/+$/, '');
-  const sbKey = state.supabaseConfig?.key || DEFAULT_SUPABASE_CONFIG.key;
-  if (sbUrl && sbKey && sbUrl.startsWith('https://')) {
-    fetch(`${sbUrl}/rest/v1/issues?id=eq.${encodeURIComponent(id)}`, {
-      method: 'DELETE',
-      headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}` }
-    }).catch(() => {});
-  }
+  deleteIssuesFromSupabase([id]).catch(() => {});
 
   broadcast({
     type: 'ticket:deleted',
@@ -689,20 +887,164 @@ app.delete('/api/issues/:id', (req, res) => {
   res.json({ status: 'ok', message: 'Ticket deleted' });
 });
 
+// API: Bulk Delete Tickets
+app.delete('/api/issues/bulk', async (req, res) => {
+  const { issueIds, actor } = req.body || {};
+  if (!Array.isArray(issueIds) || issueIds.length === 0) {
+    res.status(400).json({ error: 'issueIds must be a non-empty array' });
+    return;
+  }
+
+  const idsSet = new Set(issueIds);
+  state.issues = (state.issues || []).filter((i) => !idsSet.has(i.id));
+  state.isSeeded = true;
+
+  const newLog = {
+    id: `a-${Date.now()}`,
+    time: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+    user: (actor as string) || 'مدير النظام',
+    action: 'حذف جماعي للتذاكر',
+    details: `تم حذف ${issueIds.length} تذكرة نهائياً من الخادم والشبكة`,
+  };
+  state.auditLogs = [newLog, ...(state.auditLogs || []).slice(0, 99)];
+
+  saveDatabase();
+  deleteIssuesFromSupabase(issueIds).catch(() => {});
+
+  broadcast({
+    type: 'state:synced',
+    state,
+    actor: actor || 'مدير النظام',
+  });
+
+  res.json({ status: 'ok', message: `${issueIds.length} tickets deleted successfully` });
+});
+
+// API: Delete ALL Tickets (Complete Reset / Clear)
+app.delete('/api/issues/all', async (req, res) => {
+  const { actor } = req.body || {};
+  const previousCount = state.issues?.length || 0;
+  state.issues = [];
+  state.isSeeded = true;
+
+  const newLog = {
+    id: `a-${Date.now()}`,
+    time: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+    user: (actor as string) || 'مدير النظام',
+    action: 'تفريغ كافة التذاكر',
+    details: `تم مسح ووايب جميع التذاكر (${previousCount} تذكرة) نهائياً`,
+  };
+  state.auditLogs = [newLog, ...(state.auditLogs || []).slice(0, 99)];
+
+  saveDatabase();
+
+  const url = (state.supabaseConfig?.url || DEFAULT_SUPABASE_CONFIG.url || '').replace(/\/+$/, '');
+  const key = state.supabaseConfig?.key || DEFAULT_SUPABASE_CONFIG.key;
+  if (url && key && url.startsWith('https://')) {
+    try {
+      await fetch(`${url}/rest/v1/issues?id=neq.dummy_clean_id`, {
+        method: 'DELETE',
+        headers: { apikey: key, Authorization: `Bearer ${key}` },
+      });
+    } catch (err) {
+      console.warn('[Supabase-Wipe] Delete all error:', err);
+    }
+  }
+
+  broadcast({
+    type: 'state:synced',
+    state,
+    actor: actor || 'مدير النظام',
+  });
+
+  res.json({ status: 'ok', message: 'All tickets wiped successfully' });
+});
+
 // API: Bulk sync / full replace
 app.post('/api/sync-all', (req, res) => {
   const payload = req.body;
-  if (Array.isArray(payload.issues)) state.issues = payload.issues;
-  if (Array.isArray(payload.categories)) state.categories = payload.categories;
-  if (Array.isArray(payload.users)) state.users = payload.users;
-  if (Array.isArray(payload.tags)) state.tags = payload.tags;
-  if (Array.isArray(payload.cannedResponses)) state.cannedResponses = payload.cannedResponses;
-  if (payload.generalSettings) state.generalSettings = payload.generalSettings;
-  if (payload.soundSettings) state.soundSettings = payload.soundSettings;
-  if (Array.isArray(payload.auditLogs)) state.auditLogs = payload.auditLogs;
-  if (Array.isArray(payload.externalVendors)) state.externalVendors = payload.externalVendors;
-  if (payload.slaSettings) state.slaSettings = payload.slaSettings;
-  if (Array.isArray(payload.cabActivities)) state.cabActivities = payload.cabActivities;
+  state.isSeeded = true;
+
+  if (Array.isArray(payload.issues)) {
+    const oldIds = (state.issues || []).map((i) => i.id);
+    const newIds = new Set(payload.issues.map((i: any) => i.id));
+    const removedIds = oldIds.filter((id) => !newIds.has(id));
+
+    state.issues = payload.issues;
+
+    if (removedIds.length > 0) {
+      deleteIssuesFromSupabase(removedIds).catch(() => {});
+    }
+  }
+
+  if (Array.isArray(payload.users)) {
+    const oldUserIds = (state.users || []).map((u) => u.id);
+    const newUserIds = new Set(payload.users.map((u: any) => u.id));
+    const removedUserIds = oldUserIds.filter((id) => !newUserIds.has(id));
+
+    state.users = payload.users;
+    for (const uid of removedUserIds) {
+      deleteUserFromSupabase(uid).catch(() => {});
+    }
+    if (payload.users.length > 0) {
+      pushUsersToSupabase(payload.users).catch(() => {});
+    }
+  }
+
+  if (Array.isArray(payload.categories)) {
+    state.categories = payload.categories;
+    pushSystemStoreToSupabase('categories', payload.categories).catch(() => {});
+  }
+
+  if (Array.isArray(payload.tags)) {
+    state.tags = payload.tags;
+    pushSystemStoreToSupabase('tags', payload.tags).catch(() => {});
+  }
+
+  if (Array.isArray(payload.cannedResponses)) {
+    state.cannedResponses = payload.cannedResponses;
+    pushSystemStoreToSupabase('canned_responses', payload.cannedResponses).catch(() => {});
+  }
+
+  if (payload.generalSettings) {
+    state.generalSettings = payload.generalSettings;
+    pushSystemStoreToSupabase('general_settings', payload.generalSettings).catch(() => {});
+  }
+
+  if (payload.soundSettings) {
+    state.soundSettings = payload.soundSettings;
+    pushSystemStoreToSupabase('sound_settings', payload.soundSettings).catch(() => {});
+  }
+
+  if (Array.isArray(payload.auditLogs)) {
+    state.auditLogs = payload.auditLogs;
+    pushSystemStoreToSupabase('audit_logs', payload.auditLogs.slice(0, 100)).catch(() => {});
+  }
+
+  if (Array.isArray(payload.externalVendors)) {
+    state.externalVendors = payload.externalVendors;
+    pushSystemStoreToSupabase('external_vendors', payload.externalVendors).catch(() => {});
+  }
+
+  if (payload.slaSettings) {
+    state.slaSettings = payload.slaSettings;
+    pushSystemStoreToSupabase('sla_settings', payload.slaSettings).catch(() => {});
+  }
+
+  if (Array.isArray(payload.cabActivities)) {
+    const oldCabIds = (state.cabActivities || []).map((c) => c.id);
+    const newCabIds = new Set(payload.cabActivities.map((c: any) => c.id));
+    const removedCabIds = oldCabIds.filter((id) => !newCabIds.has(id));
+
+    state.cabActivities = payload.cabActivities;
+    for (const cid of removedCabIds) {
+      deleteCabActivityFromSupabase(cid).catch(() => {});
+    }
+    if (payload.cabActivities.length > 0) {
+      pushCabActivitiesToSupabase(payload.cabActivities).catch(() => {});
+    }
+  }
+
   if (payload.supabaseConfig) state.supabaseConfig = payload.supabaseConfig;
 
   saveDatabase();
