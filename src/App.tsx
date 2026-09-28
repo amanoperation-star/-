@@ -474,33 +474,24 @@ export default function App() {
     return () => clearInterval(timer);
   }, []);
 
-  // Instant Central Cloud Hydration: fetch central server state and direct Supabase immediately on page load
+  // Instant Central Cloud Hydration: fetch direct Supabase data immediately on page load
   useEffect(() => {
     let isMounted = true;
     const hydrateCloudData = async () => {
       try {
         const client = supabaseRef.current || createClient(DEFAULT_SUPABASE_PROJECT_URL, DEFAULT_SUPABASE_PUBLISHABLE_KEY);
 
-        // Fetch from server and direct Supabase in parallel
-        const [serverRes, sbIssuesRes, sbUsersRes, sbCabRes] = await Promise.all([
-          fetch('/api/state?fresh=1').catch(() => null),
+        // Fetch direct Supabase tables in parallel
+        const [sbIssuesRes, sbUsersRes, sbCabRes, sbStoreRes] = await Promise.all([
           Promise.resolve(client.from('issues').select('*').order('created_at', { ascending: false })).catch(() => null),
           Promise.resolve(client.from('app_users').select('*')).catch(() => null),
           Promise.resolve(client.from('cab_activities').select('*')).catch(() => null),
+          Promise.resolve(client.from('system_cloud_store').select('*')).catch(() => null),
         ]);
 
         if (!isMounted) return;
 
-        let serverData: any = null;
-        if (serverRes && serverRes.ok) {
-          try {
-            serverData = await serverRes.json();
-          } catch {}
-        }
-        const serverState = serverData?.state;
-        const serverIssues: Issue[] = Array.isArray(serverState?.issues) ? serverState.issues : [];
-
-        // 1. Issues: prefer live Supabase if available and merge with server issues to keep timeline, comments, resolutionReason
+        // 1. Issues: prefer live Supabase if available
         if (sbIssuesRes && !sbIssuesRes.error && Array.isArray(sbIssuesRes.data)) {
           if (sbIssuesRes.data.length === 0) {
             // Supabase table is connected and empty (all tickets deleted on Supabase!)
@@ -509,50 +500,36 @@ export default function App() {
               localStorage.setItem(STORAGE_KEY + '_ISSUES', '[]');
             } catch {}
           } else {
-            const mappedIssues: Issue[] = sbIssuesRes.data.map((row: any) => {
-              const existing = serverIssues.find((s) => s.id === row.id);
-              return {
-                id: row.id,
-                client: row.client || existing?.client || 'عميل',
-                clientEmail: row.client_email || existing?.clientEmail || undefined,
-                clientPhone: row.client_phone || existing?.clientPhone || undefined,
-                tag: row.tag || existing?.tag || 'VIP Client',
-                type: row.type || existing?.type || 'تقني / Technical',
-                desc: row.desc_text || existing?.desc || '',
-                assigned: row.assigned || existing?.assigned || 'فريق الدعم',
-                owner: row.owner || existing?.owner || 'محمد علي',
-                priority: (row.priority as Priority) || existing?.priority || 'Medium',
-                status: (row.status as IssueStatus) || existing?.status || 'Open',
-                workTime: row.worktime ?? existing?.workTime ?? 0,
-                csat: row.csat ?? existing?.csat ?? 5,
-                createdAt: row.created_at || existing?.createdAt || new Date().toISOString(),
-                dueDate: row.due_date || existing?.dueDate || new Date().toISOString(),
-                timeline: Array.isArray(row.timeline) && row.timeline.length > 0 ? row.timeline : (existing?.timeline || []),
-                comments: Array.isArray(row.comments) && row.comments.length > 0 ? row.comments : (existing?.comments || []),
-                resolutionReason: existing?.resolutionReason || undefined,
-                resolvedAt: existing?.resolvedAt || undefined,
-                attachment: row.attachment || existing?.attachment || undefined,
-              };
-            });
+            const mappedIssues: Issue[] = sbIssuesRes.data.map((row: any) => ({
+              id: row.id,
+              client: row.client || 'عميل',
+              clientEmail: row.client_email || undefined,
+              clientPhone: row.client_phone || undefined,
+              tag: row.tag || 'VIP Client',
+              type: row.type || 'تقني / Technical',
+              desc: row.desc_text || '',
+              assigned: row.assigned || 'فريق الدعم',
+              owner: row.owner || 'محمد علي',
+              priority: (row.priority as Priority) || 'Medium',
+              status: (row.status as IssueStatus) || 'Open',
+              workTime: row.worktime ?? 0,
+              csat: row.csat ?? 5,
+              createdAt: row.created_at || new Date().toISOString(),
+              dueDate: row.due_date || new Date().toISOString(),
+              timeline: Array.isArray(row.timeline) ? row.timeline : [],
+              comments: Array.isArray(row.comments) ? row.comments : [],
+              resolutionReason: row.resolution_reason || undefined,
+              resolvedAt: row.resolved_at || undefined,
+              attachment: row.attachment || undefined,
+            }));
             setIssues(mappedIssues);
             try {
               localStorage.setItem(STORAGE_KEY + '_ISSUES', JSON.stringify(mappedIssues));
             } catch {}
           }
-        } else if (serverState?.isSeeded && serverIssues.length === 0) {
-          // If server database was explicitly cleared, enforce empty tickets state
-          setIssues([]);
-          try {
-            localStorage.setItem(STORAGE_KEY + '_ISSUES', '[]');
-          } catch {}
-        } else if (serverState && Array.isArray(serverState.issues)) {
-          setIssues(serverIssues);
-          try {
-            localStorage.setItem(STORAGE_KEY + '_ISSUES', JSON.stringify(serverIssues));
-          } catch {}
         }
 
-        // 2. Users: prefer live Supabase if available, fallback to serverState
+        // 2. Users: prefer live Supabase if available
         if (sbUsersRes && Array.isArray(sbUsersRes.data) && sbUsersRes.data.length > 0) {
           const mappedUsers: AppUser[] = sbUsersRes.data.map((row: any) => ({
             id: row.id,
@@ -569,14 +546,9 @@ export default function App() {
           try {
             localStorage.setItem(STORAGE_KEY + '_USERS', JSON.stringify(mappedUsers));
           } catch {}
-        } else if (serverState && Array.isArray(serverState.users)) {
-          setUsers(serverState.users);
-          try {
-            localStorage.setItem(STORAGE_KEY + '_USERS', JSON.stringify(serverState.users));
-          } catch {}
         }
 
-        // 3. CAB Activities: prefer live Supabase if available, fallback to serverState
+        // 3. CAB Activities: prefer live Supabase if available
         if (sbCabRes && Array.isArray(sbCabRes.data) && sbCabRes.data.length > 0) {
           const mappedCab: CabBusinessActivity[] = sbCabRes.data.map((row: any) => ({
             id: row.id,
@@ -606,68 +578,36 @@ export default function App() {
           try {
             localStorage.setItem(STORAGE_KEY + '_CAB_ACTIVITIES', JSON.stringify(mappedCab));
           } catch {}
-        } else if (serverState && Array.isArray(serverState.cabActivities)) {
-          setCabActivities(serverState.cabActivities);
-          try {
-            localStorage.setItem(STORAGE_KEY + '_CAB_ACTIVITIES', JSON.stringify(serverState.cabActivities));
-          } catch {}
         }
 
-        // 4. Server state integration for settings, categories, tags, canned responses
-        if (serverState) {
-          if (Array.isArray(serverState.categories)) {
-            setCategories(serverState.categories);
-            try {
-              localStorage.setItem(STORAGE_KEY + '_CATEGORIES', JSON.stringify(serverState.categories));
-            } catch {}
-          }
-          if (Array.isArray(serverState.tags)) {
-            setTags(serverState.tags);
-            try {
-              localStorage.setItem(STORAGE_KEY + '_TAGS', JSON.stringify(serverState.tags));
-            } catch {}
-          }
-          if (Array.isArray(serverState.cannedResponses)) {
-            setCannedResponses(serverState.cannedResponses);
-            try {
-              localStorage.setItem(STORAGE_KEY + '_CANNED', JSON.stringify(serverState.cannedResponses));
-            } catch {}
-          }
-          if (serverState.generalSettings) {
-            setGeneralSettings(serverState.generalSettings);
-            try {
-              localStorage.setItem(STORAGE_KEY + '_GENERAL', JSON.stringify(serverState.generalSettings));
-            } catch {}
-          }
-          if (serverState.soundSettings) {
-            setSoundSettings(serverState.soundSettings);
-            try {
-              localStorage.setItem(STORAGE_KEY + '_SOUND', JSON.stringify(serverState.soundSettings));
-            } catch {}
-          }
-          if (Array.isArray(serverState.auditLogs)) {
-            setAuditLogs(serverState.auditLogs);
-            try {
-              localStorage.setItem(STORAGE_KEY + '_AUDIT', JSON.stringify(serverState.auditLogs));
-            } catch {}
-          }
-          if (Array.isArray(serverState.externalVendors)) {
-            setExternalVendors(serverState.externalVendors);
-            try {
-              localStorage.setItem(STORAGE_KEY + '_EXTERNAL_VENDORS', JSON.stringify(serverState.externalVendors));
-            } catch {}
-          }
-          if (serverState.slaSettings) {
-            setSlaSettings(serverState.slaSettings);
-            try {
-              localStorage.setItem(STORAGE_KEY + '_SLA_SETTINGS', JSON.stringify(serverState.slaSettings));
-            } catch {}
-          }
-          if (serverState.supabaseConfig && serverState.supabaseConfig.url) {
-            setSupabaseConfig(serverState.supabaseConfig);
-            try {
-              localStorage.setItem(STORAGE_KEY + '_SUPABASE', JSON.stringify(serverState.supabaseConfig));
-            } catch {}
+        // 4. system_cloud_store integration for settings, categories, tags, canned responses, etc.
+        if (sbStoreRes && !sbStoreRes.error && Array.isArray(sbStoreRes.data)) {
+          for (const row of sbStoreRes.data) {
+            if (row.key === 'categories' && Array.isArray(row.data)) {
+              setCategories(row.data);
+              try { localStorage.setItem(STORAGE_KEY + '_CATEGORIES', JSON.stringify(row.data)); } catch {}
+            } else if (row.key === 'tags' && Array.isArray(row.data)) {
+              setTags(row.data);
+              try { localStorage.setItem(STORAGE_KEY + '_TAGS', JSON.stringify(row.data)); } catch {}
+            } else if (row.key === 'canned_responses' && Array.isArray(row.data)) {
+              setCannedResponses(row.data);
+              try { localStorage.setItem(STORAGE_KEY + '_CANNED', JSON.stringify(row.data)); } catch {}
+            } else if (row.key === 'general_settings' && row.data && typeof row.data === 'object') {
+              setGeneralSettings(row.data);
+              try { localStorage.setItem(STORAGE_KEY + '_GENERAL', JSON.stringify(row.data)); } catch {}
+            } else if (row.key === 'sound_settings' && row.data && typeof row.data === 'object') {
+              setSoundSettings(row.data);
+              try { localStorage.setItem(STORAGE_KEY + '_SOUND', JSON.stringify(row.data)); } catch {}
+            } else if (row.key === 'audit_logs' && Array.isArray(row.data)) {
+              setAuditLogs(row.data);
+              try { localStorage.setItem(STORAGE_KEY + '_AUDIT', JSON.stringify(row.data)); } catch {}
+            } else if (row.key === 'external_vendors' && Array.isArray(row.data)) {
+              setExternalVendors(row.data);
+              try { localStorage.setItem(STORAGE_KEY + '_EXTERNAL_VENDORS', JSON.stringify(row.data)); } catch {}
+            } else if (row.key === 'sla_settings' && row.data && typeof row.data === 'object') {
+              setSlaSettings(row.data);
+              try { localStorage.setItem(STORAGE_KEY + '_SLA_SETTINGS', JSON.stringify(row.data)); } catch {}
+            }
           }
         }
         isHydratedRef.current = true;
@@ -1086,80 +1026,77 @@ export default function App() {
     setSlaSettings(newSettings);
     try {
       localStorage.setItem(STORAGE_KEY + '_SLA_SETTINGS', JSON.stringify(newSettings));
-      await fetch('/api/sla-settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newSettings),
-      });
-    } catch (err) {
-      console.error('Failed to save SLA settings to server:', err);
+    } catch {}
+
+    if (supabaseRef.current) {
+      try {
+        await supabaseRef.current
+          .from('system_cloud_store')
+          .upsert([{ key: 'sla_settings', data: newSettings, updated_at: new Date().toISOString() }], { onConflict: 'key' });
+      } catch (err) {
+        console.warn('Failed to save SLA settings to Supabase:', err);
+      }
     }
     addAuditLog('تحديث قواعد SLA', 'تم تحديث سياسات وقواعد اتفاقيات مستوى الخدمة (SLA)');
   };
 
   // External Vendors Directory Handlers
   const handleAddExternalVendor = async (vendor: Omit<ExternalVendor, 'id'>) => {
+    const newVendor: ExternalVendor = { id: `ext-${Date.now()}`, ...vendor };
+    const nextList = [...externalVendors, newVendor];
+    setExternalVendors(nextList);
     try {
-      const res = await fetch('/api/external-vendors', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(vendor),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data.externalVendors)) {
-          setExternalVendors(data.externalVendors);
-          try {
-            localStorage.setItem(STORAGE_KEY + '_EXTERNAL_VENDORS', JSON.stringify(data.externalVendors));
-          } catch {}
-        }
+      localStorage.setItem(STORAGE_KEY + '_EXTERNAL_VENDORS', JSON.stringify(nextList));
+    } catch {}
+
+    if (supabaseRef.current) {
+      try {
+        await supabaseRef.current
+          .from('system_cloud_store')
+          .upsert([{ key: 'external_vendors', data: nextList, updated_at: new Date().toISOString() }], { onConflict: 'key' });
+      } catch (err) {
+        console.warn('Failed to add external vendor to Supabase:', err);
       }
-      addAuditLog('إضافة شريك خارجي', `تمت إضافة (${vendor.name} - ${vendor.company}) إلى دليل الشركاء الخارجيين`);
-    } catch (err) {
-      console.error('Failed to add external vendor:', err);
     }
+    addAuditLog('إضافة شريك خارجي', `تمت إضافة (${vendor.name} - ${vendor.company}) إلى دليل الشركاء الخارجيين`);
   };
 
   const handleUpdateExternalVendor = async (id: string, updates: Partial<ExternalVendor>) => {
+    const nextList = externalVendors.map((v) => (v.id === id ? { ...v, ...updates } : v));
+    setExternalVendors(nextList);
     try {
-      const res = await fetch(`/api/external-vendors/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data.externalVendors)) {
-          setExternalVendors(data.externalVendors);
-          try {
-            localStorage.setItem(STORAGE_KEY + '_EXTERNAL_VENDORS', JSON.stringify(data.externalVendors));
-          } catch {}
-        }
+      localStorage.setItem(STORAGE_KEY + '_EXTERNAL_VENDORS', JSON.stringify(nextList));
+    } catch {}
+
+    if (supabaseRef.current) {
+      try {
+        await supabaseRef.current
+          .from('system_cloud_store')
+          .upsert([{ key: 'external_vendors', data: nextList, updated_at: new Date().toISOString() }], { onConflict: 'key' });
+      } catch (err) {
+        console.warn('Failed to update external vendor in Supabase:', err);
       }
-      addAuditLog('تعديل شريك خارجي', `تم تحديث بيانات الشريك الخارجي في الدليل`);
-    } catch (err) {
-      console.error('Failed to update external vendor:', err);
     }
+    addAuditLog('تعديل شريك خارجي', `تم تحديث بيانات الشريك الخارجي في الدليل`);
   };
 
   const handleDeleteExternalVendor = async (id: string) => {
+    const nextList = externalVendors.filter((v) => v.id !== id);
+    setExternalVendors(nextList);
     try {
-      const res = await fetch(`/api/external-vendors/${id}`, {
-        method: 'DELETE',
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data.externalVendors)) {
-          setExternalVendors(data.externalVendors);
-          try {
-            localStorage.setItem(STORAGE_KEY + '_EXTERNAL_VENDORS', JSON.stringify(data.externalVendors));
-          } catch {}
-        }
+      localStorage.setItem(STORAGE_KEY + '_EXTERNAL_VENDORS', JSON.stringify(nextList));
+    } catch {}
+
+    if (supabaseRef.current) {
+      try {
+        await supabaseRef.current
+          .from('system_cloud_store')
+          .upsert([{ key: 'external_vendors', data: nextList, updated_at: new Date().toISOString() }], { onConflict: 'key' });
+      } catch (err) {
+        console.warn('Failed to delete external vendor from Supabase:', err);
       }
-      addAuditLog('حذف شريك خارجي', `تم حذف شريك خارجي من الدليل`);
-    } catch (err) {
-      console.error('Failed to delete external vendor:', err);
     }
+    addAuditLog('حذف شريك خارجي', `تم حذف شريك خارجي من الدليل`);
   };
 
   // Helper to immediately save/upsert a single ticket into Supabase Table Editor
