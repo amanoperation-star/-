@@ -177,7 +177,7 @@ async function syncWithSupabase(force = false) {
 
     if (issuesRes && issuesRes.ok) {
       const issuesData = await issuesRes.json();
-      if (Array.isArray(issuesData) && issuesData.length > 0) {
+      if (Array.isArray(issuesData)) {
         state.issues = issuesData.map((row: any) => {
           const existing = (state.issues || []).find((i: any) => i.id === row.id);
           return {

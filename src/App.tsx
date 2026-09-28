@@ -68,11 +68,10 @@ export default function App() {
       });
 
       const saved = localStorage.getItem(STORAGE_KEY + '_ISSUES');
-      if (saved) {
+      if (saved !== null) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const sanitized = parsed.filter((i: any) => i && i.id && i.id !== 'INC-1007');
-          if (sanitized.length > 0) return sanitized;
+        if (Array.isArray(parsed)) {
+          return parsed.filter((i: any) => i && i.id && i.id !== 'INC-1007');
         }
       }
       return INITIAL_ISSUES;
@@ -508,7 +507,7 @@ export default function App() {
         const serverIssues: Issue[] = Array.isArray(serverState?.issues) ? serverState.issues : [];
 
         // 1. Issues: prefer live Supabase if available and merge with server issues to keep timeline, comments, resolutionReason
-        if (sbIssuesRes && Array.isArray(sbIssuesRes.data) && sbIssuesRes.data.length > 0) {
+        if (sbIssuesRes && !sbIssuesRes.error && Array.isArray(sbIssuesRes.data)) {
           const mappedIssues: Issue[] = sbIssuesRes.data.map((row: any) => {
             const existing = serverIssues.find((s) => s.id === row.id);
             return {
@@ -538,7 +537,7 @@ export default function App() {
           try {
             localStorage.setItem(STORAGE_KEY + '_ISSUES', JSON.stringify(mappedIssues));
           } catch {}
-        } else if (serverIssues.length > 0) {
+        } else if (serverState && Array.isArray(serverState.issues)) {
           setIssues(serverIssues);
           try {
             localStorage.setItem(STORAGE_KEY + '_ISSUES', JSON.stringify(serverIssues));
