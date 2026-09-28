@@ -541,42 +541,50 @@ export default function App() {
           }
         }
 
-        // 1. Issues: prefer live Supabase if available
+        // 1. Issues: merge Supabase with local state intelligently
         if (sbIssuesRes && !sbIssuesRes.error && Array.isArray(sbIssuesRes.data)) {
           const validRows = sbIssuesRes.data.filter((row: any) => !deletedIssueIdsRef.current.has(row.id));
-          if (validRows.length === 0) {
-            setIssues([]);
+          const cloudMapped: Issue[] = validRows.map((row: any) => ({
+            id: row.id,
+            client: row.client || 'عميل',
+            clientEmail: row.client_email || undefined,
+            clientPhone: row.client_phone || undefined,
+            tag: row.tag || 'VIP Client',
+            type: row.type || 'تقني / Technical',
+            desc: row.desc_text || '',
+            assigned: row.assigned || 'فريق الدعم',
+            owner: row.owner || 'محمد علي',
+            priority: (row.priority as Priority) || 'Medium',
+            status: (row.status as IssueStatus) || 'Open',
+            workTime: row.worktime ?? 0,
+            csat: row.csat ?? 5,
+            createdAt: row.created_at || new Date().toISOString(),
+            dueDate: row.due_date || new Date().toISOString(),
+            timeline: Array.isArray(row.timeline) ? row.timeline : [],
+            comments: Array.isArray(row.comments) ? row.comments : [],
+            resolutionReason: row.resolution_reason || undefined,
+            resolvedAt: row.resolved_at || undefined,
+            attachment: row.attachment || undefined,
+          }));
+
+          setIssues((prevLocal) => {
+            const map = new Map<string, Issue>();
+            cloudMapped.forEach((i) => map.set(i.id, i));
+            prevLocal.forEach((loc) => {
+              if (!deletedIssueIdsRef.current.has(loc.id)) {
+                if (!map.has(loc.id)) {
+                  map.set(loc.id, loc);
+                }
+              }
+            });
+            const merged = Array.from(map.values()).sort(
+              (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            );
             try {
-              localStorage.setItem(STORAGE_KEY + '_ISSUES', '[]');
+              localStorage.setItem(STORAGE_KEY + '_ISSUES', JSON.stringify(merged));
             } catch {}
-          } else {
-            const mappedIssues: Issue[] = validRows.map((row: any) => ({
-              id: row.id,
-              client: row.client || 'عميل',
-              clientEmail: row.client_email || undefined,
-              clientPhone: row.client_phone || undefined,
-              tag: row.tag || 'VIP Client',
-              type: row.type || 'تقني / Technical',
-              desc: row.desc_text || '',
-              assigned: row.assigned || 'فريق الدعم',
-              owner: row.owner || 'محمد علي',
-              priority: (row.priority as Priority) || 'Medium',
-              status: (row.status as IssueStatus) || 'Open',
-              workTime: row.worktime ?? 0,
-              csat: row.csat ?? 5,
-              createdAt: row.created_at || new Date().toISOString(),
-              dueDate: row.due_date || new Date().toISOString(),
-              timeline: Array.isArray(row.timeline) ? row.timeline : [],
-              comments: Array.isArray(row.comments) ? row.comments : [],
-              resolutionReason: row.resolution_reason || undefined,
-              resolvedAt: row.resolved_at || undefined,
-              attachment: row.attachment || undefined,
-            }));
-            setIssues(mappedIssues);
-            try {
-              localStorage.setItem(STORAGE_KEY + '_ISSUES', JSON.stringify(mappedIssues));
-            } catch {}
-          }
+            return merged;
+          });
         }
 
         // 2. Users: prefer live Supabase if available
