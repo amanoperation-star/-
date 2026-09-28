@@ -433,7 +433,7 @@ export default function App() {
     }
   }, [supabaseConfig.url, supabaseConfig.key]);
 
-  // Supabase Realtime DB Changes Subscription
+  // Supabase Realtime DB Changes Subscription & Auto-Sync Polling
   useEffect(() => {
     const client = supabaseRef.current;
     if (!client) return;
@@ -445,8 +445,14 @@ export default function App() {
       })
       .subscribe();
 
+    // Lightweight background sync interval (every 4 seconds) to guarantee instant team-wide updates without refresh
+    const syncInterval = setInterval(() => {
+      handlePullSupabaseNow(true);
+    }, 4000);
+
     return () => {
       client.removeChannel(channel);
+      clearInterval(syncInterval);
     };
   }, [supabaseConfig.url, supabaseConfig.key]);
 
