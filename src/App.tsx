@@ -31,6 +31,8 @@ import {
   CabBusinessActivity
 } from './types';
 import { realtimeSync, ActiveUserPresence, SyncConnectionStatus } from './utils/realtimeSync';
+import { realtimeHub } from './utils/realtimeHub';
+import { playNotificationChime } from './utils/audioChime';
 import { 
   INITIAL_USERS, 
   INITIAL_CATEGORIES, 
@@ -280,21 +282,21 @@ export default function App() {
 
   const handleAddCabActivity = (act: CabBusinessActivity) => {
     setCabActivities((prev) => [act, ...prev]);
-    realtimeSync.broadcastCabCreate(act, currentUser.name);
+    realtimeHub.broadcast('cab:created', { activity: act }, currentUser.name);
     upsertSingleCabActivityToSupabase(act);
     addAuditLog('إضافة نشاط CAB', `تم تسجيل نشاط التغيير ${act.id} (${act.activityName}) ومزامنته سحابياً`);
   };
 
   const handleUpdateCabActivity = (act: CabBusinessActivity) => {
     setCabActivities((prev) => prev.map((a) => (a.id === act.id ? act : a)));
-    realtimeSync.broadcastCabUpdate(act, currentUser.name, `تحديث نشاط ${act.id}`);
+    realtimeHub.broadcast('cab:updated', { activity: act, details: `تحديث نشاط ${act.id}` }, currentUser.name);
     upsertSingleCabActivityToSupabase(act);
     addAuditLog('تعديل نشاط CAB', `تم تحديث نشاط التغيير ${act.id}`);
   };
 
   const handleDeleteCabActivity = (id: string) => {
     setCabActivities((prev) => prev.filter((a) => a.id !== id));
-    realtimeSync.broadcastCabDelete(id, currentUser.name);
+    realtimeHub.broadcast('cab:deleted', { activityId: id }, currentUser.name);
     deleteSingleCabActivityFromSupabase(id);
     addAuditLog('حذف نشاط CAB', `تم حذف نشاط التغيير ${id}`);
   };
@@ -338,14 +340,15 @@ export default function App() {
     author: string;
     location?: string;
   } | null>(null);
+  const [isToastPaused, setIsToastPaused] = useState(false);
 
-  // Auto-dismiss live toast after 7 seconds
+  // Auto-dismiss live toast after 25 seconds, paused when hovered so user has ample time to interact
   useEffect(() => {
-    if (liveToast) {
-      const timer = setTimeout(() => setLiveToast(null), 7000);
+    if (liveToast && !isToastPaused) {
+      const timer = setTimeout(() => setLiveToast(null), 25000);
       return () => clearTimeout(timer);
     }
-  }, [liveToast]);
+  }, [liveToast, isToastPaused]);
 
   // Sync theme with document element and storage
   useEffect(() => {
@@ -1002,6 +1005,157 @@ export default function App() {
 
   // Real-Time Multi-Region Sync WebSocket Initialization
   useEffect(() => {
+    // 1. Subscribe to Universal Realtime Hub (Supabase Broadcast + Cross-Tab + WebSockets)
+    const unsubscribeHub = realtimeHub.subscribe((payload) => {
+      console.log('[RealtimeHub Received in App]:', payload.event, payload);
+      switch (payload.event) {
+        case 'ticket:created': {
+          const { issue, location } = payload.data || {};
+          if (issue && issue.id && !deletedIssueIdsRef.current.has(issue.id)) {
+            setIssues((prev) => {
+              if (prev.some((i) => i.id === issue.id)) return prev;
+              return [issue, ...prev];
+            });
+
+            // Trigger floating live visual alert and audio chime
+            setLiveToast({
+              id: `toast-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+              title: `تذكرة جديدة واردة الآن [${issue.id}] 🚀`,
+              desc: `للعميل: ${issue.client || 'عميل'} • الأولوية: ${issue.priority}`,
+              ticketId: issue.id,
+              author: payload.senderName || 'عضو في الفريق',
+              location: location || 'الفرع المتصل',
+            });
+
+            addNotification(
+              `تذكرة جديدة [${issue.id}] 📢`,
+              `تم استلام بلاغ جديد بواسطة ${payload.senderName} (${location || 'فرع متصل'}) للعميل ${issue.client}`,
+              issue.id,
+              'info'
+            );
+
+            if (!soundSettingsRef.current.muted) {
+              playNotificationChime(soundSettingsRef.current.volume || 0.8, soundSettingsRef.current.customNotificationUrl);
+            }
+          }
+          break;
+        }
+
+        case 'ticket:updated': {
+          const { issue, changeType, details } = payload.data || {};
+          if (issue && issue.id) {
+            setIssues((prev) =>
+              prev.map((i) => (i.id === issue.id ? { ...i, ...issue } : i))
+            );
+            if (detailIssueRef.current?.id === issue.id) {
+              setDetailIssue((prev) => (prev ? { ...prev, ...issue } : prev));
+            }
+            addNotification(
+              `تحديث في التذكرة [${issue.id}] 🔄`,
+              `قام ${payload.senderName} بالتحديث: ${details || changeType || issue.status}`,
+              issue.id,
+              'info'
+            );
+          }
+          break;
+        }
+
+        case 'ticket:deleted': {
+          const { issueId } = payload.data || {};
+          if (issueId) {
+            deletedIssueIdsRef.current.add(issueId);
+            saveDeletedIssueIds(deletedIssueIdsRef.current);
+            setIssues((prev) => prev.filter((i) => i.id !== issueId));
+            if (detailIssueRef.current?.id === issueId) {
+              setShowDetailsModal(false);
+              setDetailIssue(null);
+            }
+            addNotification('حذف تذكرة 🗑️', `قام ${payload.senderName} بحذف التذكرة ${issueId}`, undefined, 'warning');
+          }
+          break;
+        }
+
+        case 'ticket:bulk_deleted': {
+          const { issueIds } = payload.data || {};
+          if (Array.isArray(issueIds)) {
+            issueIds.forEach((id: string) => deletedIssueIdsRef.current.add(id));
+            saveDeletedIssueIds(deletedIssueIdsRef.current);
+            setIssues((prev) => prev.filter((i) => !issueIds.includes(i.id)));
+            if (detailIssueRef.current && issueIds.includes(detailIssueRef.current.id)) {
+              setShowDetailsModal(false);
+              setDetailIssue(null);
+            }
+            addNotification('حذف جماعي 🗑️', `قام ${payload.senderName} بحذف ${issueIds.length} تذكرة`, undefined, 'warning');
+          }
+          break;
+        }
+
+        case 'ticket:comment': {
+          const { issueId, comment } = payload.data || {};
+          if (issueId && comment) {
+            setIssues((prev) =>
+              prev.map((i) => {
+                if (i.id === issueId) {
+                  const exists = (i.comments || []).some((c: any) => c.id === comment.id);
+                  if (exists) return i;
+                  return { ...i, comments: [...(i.comments || []), comment] };
+                }
+                return i;
+              })
+            );
+            if (detailIssueRef.current?.id === issueId) {
+              setDetailIssue((prev) =>
+                prev ? { ...prev, comments: [...(prev.comments || []), comment] } : prev
+              );
+            }
+            addNotification(
+              `رد جديد في [${issueId}] 💬`,
+              `أضاف ${payload.senderName}: ${comment.text ? comment.text.substring(0, 50) : 'ملاحظة'}`,
+              issueId,
+              'info'
+            );
+          }
+          break;
+        }
+
+        case 'cab:created': {
+          const { activity } = payload.data || {};
+          if (activity && activity.id) {
+            setCabActivities((prev) => {
+              if (prev.some((a) => a.id === activity.id)) return prev;
+              return [activity, ...prev];
+            });
+            addNotification('نشاط CAB جديد 📋', `قام ${payload.senderName} بإضافة نشاط التغيير ${activity.id} (${activity.activityName})`, undefined, 'info');
+          }
+          break;
+        }
+
+        case 'cab:updated': {
+          const { activity, details } = payload.data || {};
+          if (activity && activity.id) {
+            setCabActivities((prev) =>
+              prev.map((a) => (a.id === activity.id ? { ...a, ...activity } : a))
+            );
+            addNotification('تحديث نشاط CAB 🔄', `قام ${payload.senderName} بتحديث نشاط ${activity.id}: ${details || activity.status}`, undefined, 'info');
+          }
+          break;
+        }
+
+        case 'cab:deleted': {
+          const { activityId } = payload.data || {};
+          if (activityId) {
+            setCabActivities((prev) => prev.filter((a) => a.id !== activityId));
+            addNotification('حذف نشاط CAB 🗑️', `قام ${payload.senderName} بحذف نشاط التغيير ${activityId}`, undefined, 'warning');
+          }
+          break;
+        }
+
+        default:
+          break;
+      }
+    });
+
+    // 2. Initialize local WebSocket connection
     realtimeSync.init(
       {
         onTicketCreated: (newIssue: Issue, author: string, location?: string) => {
@@ -1028,14 +1182,7 @@ export default function App() {
           );
 
           if (!soundSettingsRef.current.muted) {
-            try {
-              const soundUrl = soundSettingsRef.current.customNotificationUrl || soundSettingsRef.current.alarmUrl;
-              if (soundUrl) {
-                const sound = new Audio(soundUrl);
-                sound.volume = soundSettingsRef.current.volume || 0.8;
-                sound.play().catch(() => {});
-              }
-            } catch {}
+            playNotificationChime(soundSettingsRef.current.volume || 0.8, soundSettingsRef.current.customNotificationUrl);
           }
         },
 
@@ -1306,7 +1453,64 @@ export default function App() {
 
     return () => {
       realtimeSync.destroy();
+      unsubscribeHub();
     };
+  }, []);
+
+  // Real-Time Intelligent Poller Fallback (every 4 seconds)
+  // Guarantees all team members receive new tickets and updates without needing page refresh
+  useEffect(() => {
+    const poller = setInterval(async () => {
+      try {
+        const client = supabase;
+        if (!client) return;
+        const { data: latestRows, error } = await client
+          .from('issues')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(20);
+
+        if (!error && Array.isArray(latestRows)) {
+          const freshIssues = latestRows
+            .map(mapSingleRowToIssue)
+            .filter((i) => !deletedIssueIdsRef.current.has(i.id));
+
+          setIssues((prev) => {
+            const prevIds = new Set(prev.map((i) => i.id));
+            const newIncoming: Issue[] = [];
+            const now = Date.now();
+
+            freshIssues.forEach((fi) => {
+              if (!prevIds.has(fi.id)) {
+                newIncoming.push(fi);
+                // If created in the last 45 seconds and not created by this user in this millisecond, trigger live toast!
+                const createdTime = new Date(fi.createdAt).getTime();
+                if (now - createdTime < 45000) {
+                  setLiveToast({
+                    id: `toast-${fi.id}`,
+                    title: `تذكرة جديدة واردة الآن [${fi.id}] 🚀`,
+                    desc: `للعميل: ${fi.client || 'عميل'} • الأولوية: ${fi.priority}`,
+                    ticketId: fi.id,
+                    author: fi.owner || 'زميل في الفريق',
+                    location: 'الفرع المتصل',
+                  });
+                  if (!soundSettingsRef.current.muted) {
+                    playNotificationChime(soundSettingsRef.current.volume || 0.8, soundSettingsRef.current.customNotificationUrl);
+                  }
+                }
+              }
+            });
+
+            if (newIncoming.length > 0) {
+              return [...newIncoming, ...prev];
+            }
+            return prev;
+          });
+        }
+      } catch {}
+    }, 4000);
+
+    return () => clearInterval(poller);
   }, []);
 
   // Update client phone on issue
@@ -1329,11 +1533,10 @@ export default function App() {
     if (updatedIssueToPersist) {
       upsertSingleIssueToSupabase(updatedIssueToPersist);
     }
-    realtimeSync.broadcastTicketUpdate(
-      { id: issueId, clientPhone: trimmed } as any,
-      currentUser.name,
-      'تحديث هاتف العميل',
-      `تم تحديث رقم هاتف التذكرة إلى ${trimmed}`
+    realtimeHub.broadcast(
+      'ticket:updated',
+      { issue: { id: issueId, clientPhone: trimmed }, details: `تم تحديث رقم هاتف التذكرة إلى ${trimmed}` },
+      currentUser.name
     );
     addAuditLog('تحديث هاتف العميل', `تم تحديث هاتف العميل للتذكرة ${issueId} إلى ${trimmed}`);
   };
@@ -1713,11 +1916,14 @@ export default function App() {
       );
 
       // Broadcast update across team
-      realtimeSync.broadcastTicketUpdate(
-        updatedIssue,
-        currentUser.name,
-        'تعديل تذكرة',
-        `تم تحديث بيانات التذكرة ${editingIssue.id}`
+      realtimeHub.broadcast(
+        'ticket:updated',
+        {
+          issue: updatedIssue,
+          changeType: 'تعديل تذكرة',
+          details: `تم تحديث بيانات التذكرة ${editingIssue.id}`,
+        },
+        currentUser.name
       );
 
       // Immediately save/upsert to Supabase Table Editor!
@@ -1857,11 +2063,11 @@ export default function App() {
             ...prev.map((i) => (i.isWorkingNow ? { ...i, isWorkingNow: false, activeWorker: null } : i)),
           ]);
 
-          // Broadcast across team via WebSocket Realtime
-          realtimeSync.broadcastTicketCreate(
-            savedIssue,
-            currentUser.name,
-            currentUser.department || 'الفرع الرئيسي'
+          // Broadcast across team via realtimeHub (Supabase Broadcast + Cross-Tab + WebSockets)
+          realtimeHub.broadcast(
+            'ticket:created',
+            { issue: savedIssue, location: currentUser.department || 'الفرع الرئيسي' },
+            currentUser.name
           );
 
           // Trigger live toast notification from the attached image!
@@ -1905,7 +2111,7 @@ export default function App() {
           console.error('Supabase DB Insert Exception:', err);
           // Fallback: Ensure ticket is never lost even if network drops
           setIssues((prev) => [newIssue, ...prev]);
-          realtimeSync.broadcastTicketCreate(newIssue, currentUser.name, currentUser.department || 'الفرع الرئيسي');
+          realtimeHub.broadcast('ticket:created', { issue: newIssue, location: currentUser.department || 'الفرع الرئيسي' }, currentUser.name);
           setLiveToast({
             id: `toast-${Date.now()}`,
             title: `تذكرة جديدة واردة الآن [${newIssue.id}] 🚀`,
@@ -2133,7 +2339,7 @@ export default function App() {
     });
 
     await deleteBulkIssuesFromSupabase(issueIds);
-    realtimeSync.broadcastBulkTicketDelete(issueIds, currentUser.name);
+    realtimeHub.broadcast('ticket:bulk_deleted', { issueIds }, currentUser.name);
     addAuditLog('حذف جماعي', `تم حذف ${issueIds.length} تذكرة نهائياً.`);
   };
 
@@ -2150,7 +2356,7 @@ export default function App() {
     });
 
     await deleteSingleIssueFromSupabase(issueId);
-    realtimeSync.broadcastTicketDelete(issueId, currentUser.name);
+    realtimeHub.broadcast('ticket:deleted', { issueId }, currentUser.name);
     addAuditLog('حذف تذكرة', `تم حذف التذكرة ${issueId} نهائياً.`);
   };
 
@@ -2317,7 +2523,7 @@ export default function App() {
     }
 
     // Broadcast new comment to all team members
-    realtimeSync.broadcastComment(issueId, newComment, currentUser.name);
+    realtimeHub.broadcast('ticket:comment', { issueId, comment: newComment }, currentUser.name);
   };
 
   // User Management
@@ -3343,7 +3549,11 @@ export default function App() {
 
       {/* Floating Multi-Region Live Notification Toast */}
       {liveToast && (
-        <div className="fixed bottom-6 left-6 z-50 max-w-sm w-full bg-white dark:bg-slate-900 border-2 border-emerald-500 rounded-2xl shadow-[0_10px_35px_rgba(16,185,129,0.35)] p-4 animate-scaleUp">
+        <div
+          onMouseEnter={() => setIsToastPaused(true)}
+          onMouseLeave={() => setIsToastPaused(false)}
+          className="fixed bottom-6 left-6 z-50 max-w-sm w-full bg-white dark:bg-slate-900 border-2 border-emerald-500 rounded-2xl shadow-[0_10px_35px_rgba(16,185,129,0.35)] p-4 animate-scaleUp transition-all duration-300 backdrop-blur-md"
+        >
           <div className="flex items-start justify-between gap-3">
             <div className="p-2 rounded-xl bg-emerald-100 dark:bg-emerald-950/70 text-emerald-600 dark:text-emerald-400">
               <span className="relative flex h-3 w-3">
@@ -3352,22 +3562,31 @@ export default function App() {
               </span>
             </div>
             <div className="flex-1">
-              <h4 className="font-black text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
-                <span>تنبيه سحابي فوري 🌐</span>
-              </h4>
+              <div className="flex items-center justify-between">
+                <h4 className="font-black text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
+                  <span>تنبيه سحابي فوري 🌐</span>
+                </h4>
+                {isToastPaused && (
+                  <span className="text-[10px] bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 font-bold px-1.5 py-0.5 rounded">
+                    مثبّت للقراءة 📌
+                  </span>
+                )}
+              </div>
               <p className="font-bold text-emerald-600 dark:text-emerald-400 text-xs mt-0.5">
                 {liveToast.title}
               </p>
               <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
                 {liveToast.desc}
               </p>
-              <div className="text-[10px] text-slate-400 mt-1">
-                بواسطة: {liveToast.author} {liveToast.location ? `• ${liveToast.location}` : ''}
+              <div className="text-[10px] text-slate-400 mt-1 flex items-center justify-between">
+                <span>بواسطة: {liveToast.author} {liveToast.location ? `• ${liveToast.location}` : ''}</span>
+                <span className="font-mono text-emerald-500 font-bold">الآن ⚡</span>
               </div>
             </div>
             <button
               onClick={() => setLiveToast(null)}
-              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 text-xs font-bold"
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 text-xs font-bold cursor-pointer"
+              title="إغلاق التنبيه"
             >
               ✕
             </button>
@@ -3378,16 +3597,20 @@ export default function App() {
                 handleSelectTicketById(liveToast.ticketId);
                 setLiveToast(null);
               }}
-              className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow shadow-emerald-600/20 active:scale-95"
+              className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow shadow-emerald-600/20 active:scale-95 cursor-pointer"
             >
               فتح وعرض التذكرة الآن 👁️
             </button>
             <button
               onClick={() => setLiveToast(null)}
-              className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-bold transition"
+              className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-bold transition cursor-pointer"
             >
               تجاهل
             </button>
+          </div>
+          {/* Active Status Pulse Bar */}
+          <div className="w-full bg-slate-100 dark:bg-slate-800 h-1 rounded-full overflow-hidden mt-2.5">
+            <div className={`h-full bg-emerald-500 rounded-full transition-all duration-300 ${isToastPaused ? 'w-full' : 'animate-pulse w-full'}`} />
           </div>
         </div>
       )}
