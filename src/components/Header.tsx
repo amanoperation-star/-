@@ -954,19 +954,19 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
       )}
-      {/* Sections Directory & Workspaces Hub Modal (نافذة مدمجة فائقة الضغط والصغر تناسب الشاشة تماماً) */}
+      {/* Sections Directory & Workspaces Hub Modal (نافذة مدمجة مصغرة جداً تناسب الشاشة تماماً بدون شريط علوي) */}
       {showSectionsHub && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-2 animate-fadeIn">
-          <div className="bg-[#080e1a] border border-slate-800 w-full max-w-4xl rounded-2xl shadow-2xl p-2.5 space-y-2 text-right max-h-[85vh] overflow-y-auto custom-scrollbar">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between pb-1 border-b border-slate-800/90 gap-2">
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-3 animate-fadeIn">
+          <div className="bg-[#080e1a] border border-slate-800 w-full max-w-3xl rounded-2xl shadow-2xl p-2.5 space-y-2 text-right my-auto">
+            {/* Modal Simple Header */}
+            <div className="flex items-center justify-between pb-1.5 border-b border-slate-800/90 gap-2">
               <div className="flex items-center gap-1.5">
-                <div className="w-6 h-6 rounded-md bg-blue-600/20 text-blue-400 flex items-center justify-center border border-blue-500/30 shrink-0">
-                  <Compass className="w-3 h-3" />
+                <div className="w-5 h-5 rounded-md bg-blue-600/20 text-blue-400 flex items-center justify-center border border-blue-500/30 shrink-0">
+                  <Compass className="w-3 h-3 animate-spin-slow" />
                 </div>
                 <h3 className="font-extrabold text-[11px] sm:text-xs text-white flex items-center gap-1.5">
                   <span>بطاقات التنقل وخريطة الأقسام ({SYSTEM_SECTIONS.length} أقسام)</span>
-                  <span className="text-[8.5px] bg-blue-950 text-blue-300 border border-blue-800/80 px-1.5 py-0.2 rounded-full font-mono">
+                  <span className="text-[8.5px] bg-blue-950 text-blue-300 border border-blue-800/80 px-1.5 py-0.2 rounded-full font-mono font-bold">
                     مصغر ذكي ⚡
                   </span>
                 </h3>
@@ -975,283 +975,137 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 type="button"
                 onClick={() => setShowSectionsHub(false)}
-                className="w-5 h-5 rounded-md bg-slate-800/80 hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition cursor-pointer border border-slate-700/60 text-xs font-bold shrink-0"
+                className="w-5 h-5 rounded-md bg-slate-800/80 hover:bg-slate-700 flex items-center justify-center text-slate-300 hover:text-white transition cursor-pointer border border-slate-700/60 text-xs font-bold shrink-0"
                 title="إغلاق"
               >
                 <X className="w-3 h-3" />
               </button>
             </div>
 
-            {/* Density Control Switcher Toolbar */}
-            <div className="flex items-center justify-between gap-1 px-2 py-1 rounded-lg bg-[#0b1322] border border-slate-800/80 text-[10px]">
-              <div className="flex items-center gap-1 text-slate-300 font-bold text-[9.5px]">
-                <Sliders className="w-2.5 h-2.5 text-indigo-400" />
-                <span>نمط العرض:</span>
-              </div>
-              <div className="flex items-center gap-1">
-                {[
-                  { id: 'compact' as const, label: '⚡ مصغر جداً' },
-                  { id: 'micro' as const, label: '🔬 سطر واحد' },
-                  { id: 'horizontal_bar' as const, label: '↔️ شريط' },
-                  { id: 'standard' as const, label: '📋 كامل' },
-                ].map((d) => (
-                  <button
-                    key={d.id}
-                    type="button"
-                    onClick={() => setSelectedDensity(d.id)}
-                    className={`px-1.5 py-0.5 rounded text-[8.5px] font-bold transition cursor-pointer ${
-                      selectedDensity === d.id
-                        ? 'bg-blue-600 text-white shadow-xs'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
+            {/* Navigation Cards Container: Ultra Compact Nano Grid Layout */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+              {[
+                {
+                  id: 'issues' as const,
+                  title: 'سجل المشاكل والبلاغات',
+                  badgeText: `${activeTicketsCount} تذكرة`,
+                  badgeStyle: 'bg-[#13284f] border-[#1e40af]/60 text-blue-300',
+                  iconBoxStyle: 'bg-[#132c54] border-[#1d4ed8]/50 text-blue-400',
+                  icon: ListTodo,
+                  adminOnly: false,
+                },
+                {
+                  id: 'analytics' as const,
+                  title: 'التحليلات والرسوم',
+                  badgeText: 'محدث اليوم',
+                  badgeStyle: 'bg-[#182235] border-slate-700/70 text-slate-300',
+                  iconBoxStyle: 'bg-[#241738] border-purple-800/50 text-purple-400',
+                  icon: BarChart3,
+                  adminOnly: true,
+                },
+                {
+                  id: 'dashboard' as const,
+                  title: 'لوحة المؤشرات العامة',
+                  badgeText: '98.5% أداء',
+                  badgeStyle: 'bg-[#14292e] border-teal-800/50 text-teal-300',
+                  iconBoxStyle: 'bg-[#112d28] border-emerald-700/50 text-emerald-400',
+                  icon: LayoutDashboard,
+                  adminOnly: true,
+                },
+                {
+                  id: 'sla' as const,
+                  title: 'إدارة اتفاقيات SLA',
+                  badgeText: breachedCount > 0 ? `${breachedCount} متأخرة` : '100% التزام',
+                  badgeStyle: breachedCount > 0 ? 'bg-[#3b1515] border-rose-800/60 text-rose-300' : 'bg-[#2c1d10] border-amber-800/50 text-amber-300',
+                  iconBoxStyle: breachedCount > 0 ? 'bg-[#3b1515] border-rose-700/50 text-rose-400' : 'bg-[#33200d] border-amber-700/50 text-amber-400',
+                  icon: Clock,
+                  adminOnly: false,
+                },
+                {
+                  id: 'customer' as const,
+                  title: 'بوابة العميل',
+                  badgeText: 'خدمة ذاتية',
+                  badgeStyle: 'bg-[#26153b] border-purple-800/50 text-purple-300',
+                  iconBoxStyle: 'bg-[#2b1338] border-pink-700/50 text-pink-400',
+                  icon: Globe,
+                  adminOnly: false,
+                },
+                {
+                  id: 'cab' as const,
+                  title: 'اعتماد التغييرات (CAB)',
+                  badgeText: 'إدارة مخاطر',
+                  badgeStyle: 'bg-[#12283a] border-cyan-800/50 text-cyan-300',
+                  iconBoxStyle: 'bg-[#0f2938] border-cyan-700/50 text-cyan-400',
+                  icon: Layers,
+                  adminOnly: false,
+                },
+                {
+                  id: 'admin' as const,
+                  title: 'لوحة الإدارة والضبط',
+                  badgeText: 'تحكم كامل',
+                  badgeStyle: 'bg-[#162a22] border-emerald-800/50 text-emerald-300',
+                  iconBoxStyle: 'bg-[#132e22] border-emerald-700/50 text-emerald-400',
+                  icon: ShieldCheck,
+                  adminOnly: true,
+                },
+              ].map((card) => {
+                const isCurrent = currentTab === card.id;
+                const IconComponent = card.icon;
+                const isRestricted = card.adminOnly && currentUser.role !== 'Admin';
+
+                return (
+                  <div
+                    key={card.id}
+                    onClick={() => {
+                      if (isRestricted) return;
+                      setCurrentTab(card.id);
+                      setShowSectionsHub(false);
+                    }}
+                    className={`p-1.5 rounded-lg transition-all duration-150 flex flex-col justify-between select-none relative ${
+                      isRestricted
+                        ? 'opacity-50 bg-[#080d19] border border-slate-800/80 cursor-not-allowed'
+                        : isCurrent
+                        ? 'bg-[#0e1b33] border-2 border-blue-500 shadow-xs ring-1 ring-blue-500/50 cursor-pointer'
+                        : 'bg-[#0c1322] border border-slate-800/90 hover:border-slate-700 hover:bg-[#0e1628] cursor-pointer'
                     }`}
                   >
-                    {d.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Navigation Cards Container: Nano Grid Layout */}
-            {selectedDensity === 'horizontal_bar' ? (
-              /* HORIZONTAL BAR DENSITY: Full width strip list */
-              <div className="space-y-1">
-                {[
-                  {
-                    id: 'issues' as const,
-                    title: 'سجل المشاكل والبلاغات',
-                    subtitle: 'متابعة وإدارة التذاكر والبلاغات الفنية الواردة لحظياً',
-                    badgeText: `${activeTicketsCount} تذكرة`,
-                    badgeStyle: 'bg-[#13284f] border-[#1e40af]/60 text-blue-300',
-                    iconBoxStyle: 'bg-[#132c54] border-[#1d4ed8]/50 text-blue-400',
-                    icon: ListTodo,
-                    adminOnly: false,
-                  },
-                  {
-                    id: 'analytics' as const,
-                    title: 'التحليلات والرسوم البيانية',
-                    subtitle: 'تقارير أداء النظام ورسوم بيانية لمعدلات الإنجاز وتوزيع التذاكر',
-                    badgeText: 'حُدّثت اليوم',
-                    badgeStyle: 'bg-[#182235] border-slate-700/70 text-slate-300',
-                    iconBoxStyle: 'bg-[#241738] border-purple-800/50 text-purple-400',
-                    icon: BarChart3,
-                    adminOnly: true,
-                  },
-                  {
-                    id: 'dashboard' as const,
-                    title: 'لوحة المؤشرات العامة',
-                    subtitle: 'مؤشرات الأداء الرئيسية (KPIs) ونسب رضا العملاء',
-                    badgeText: '98.5% أداء',
-                    badgeStyle: 'bg-[#14292e] border-teal-800/50 text-teal-300',
-                    iconBoxStyle: 'bg-[#112d28] border-emerald-700/50 text-emerald-400',
-                    icon: LayoutDashboard,
-                    adminOnly: true,
-                  },
-                  {
-                    id: 'sla' as const,
-                    title: 'إدارة اتفاقيات SLA',
-                    subtitle: 'رصد المواعيد والتنبيهات الاستباقية للحل وتفادي المتأخرات',
-                    badgeText: breachedCount > 0 ? `${breachedCount} متأخرة` : '100% التزام',
-                    badgeStyle: breachedCount > 0 ? 'bg-[#3b1515] border-rose-800/60 text-rose-300' : 'bg-[#2c1d10] border-amber-800/50 text-amber-300',
-                    iconBoxStyle: breachedCount > 0 ? 'bg-[#3b1515] border-rose-700/50 text-rose-400' : 'bg-[#33200d] border-amber-700/50 text-amber-400',
-                    icon: Clock,
-                    adminOnly: false,
-                  },
-                  {
-                    id: 'customer' as const,
-                    title: 'بوابة متابعة العميل',
-                    subtitle: 'منصة الخدمة الذاتية وتتبع البلاغات عبر واتساب المباشر',
-                    badgeText: 'خدمة ذاتية',
-                    badgeStyle: 'bg-[#26153b] border-purple-800/50 text-purple-300',
-                    iconBoxStyle: 'bg-[#2b1338] border-pink-700/50 text-pink-400',
-                    icon: Globe,
-                    adminOnly: false,
-                  },
-                  {
-                    id: 'cab' as const,
-                    title: 'اعتماد التغييرات (CAB)',
-                    subtitle: 'جدولة أعمال الصيانة والتحديثات التقنية وإدارة المخاطر وسجل ITIL',
-                    badgeText: 'إدارة المخاطر',
-                    badgeStyle: 'bg-[#12283a] border-cyan-800/50 text-cyan-300',
-                    iconBoxStyle: 'bg-[#0f2938] border-cyan-700/50 text-cyan-400',
-                    icon: Layers,
-                    adminOnly: false,
-                  },
-                  {
-                    id: 'admin' as const,
-                    title: 'لوحة الإدارة والضبط الشامل',
-                    subtitle: 'إدارة صلاحيات المستخدمين والنسخ السحابي وقواعد البيانات',
-                    badgeText: 'تحكم كامل',
-                    badgeStyle: 'bg-[#162a22] border-emerald-800/50 text-emerald-300',
-                    iconBoxStyle: 'bg-[#132e22] border-emerald-700/50 text-emerald-400',
-                    icon: ShieldCheck,
-                    adminOnly: true,
-                  },
-                ].map((card) => {
-                  const isCurrent = currentTab === card.id;
-                  const IconComponent = card.icon;
-                  const isRestricted = card.adminOnly && currentUser.role !== 'Admin';
-
-                  return (
-                    <div
-                      key={card.id}
-                      onClick={() => {
-                        if (isRestricted) return;
-                        setCurrentTab(card.id);
-                        setShowSectionsHub(false);
-                      }}
-                      className={`px-2 py-1 rounded-lg transition-all duration-150 flex items-center justify-between gap-2 select-none ${
-                        isRestricted
-                          ? 'opacity-50 bg-[#080d19] border border-slate-800/80 cursor-not-allowed'
-                          : isCurrent
-                          ? 'bg-[#0e1b33] border-2 border-blue-500 shadow-xs ring-1 ring-blue-500/50 cursor-pointer'
-                          : 'bg-[#0c1322] border border-slate-800/90 hover:border-slate-700 hover:bg-[#0e1628] cursor-pointer'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className={`w-5 h-5 rounded-md flex items-center justify-center border shrink-0 ${card.iconBoxStyle}`}>
-                          <IconComponent className="w-2.5 h-2.5" />
-                        </div>
-                        <div className="min-w-0">
-                          <h4 className="text-[10px] font-bold text-white truncate">{card.title}</h4>
-                          <p className="text-[8.5px] text-slate-400 truncate">{card.subtitle}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <span className={`px-1.5 py-0.2 rounded text-[8px] font-bold border ${card.badgeStyle}`}>
-                          {card.badgeText}
-                        </span>
-                        <ArrowLeft className="w-2.5 h-2.5 text-slate-400 rtl:rotate-0" />
+                    {/* Header Row: Badge on Left, Icon Box on Right */}
+                    <div className="flex items-center justify-between gap-1 mb-1">
+                      <span className={`px-1 py-0.2 rounded text-[8px] font-bold border shrink-0 ${card.badgeStyle}`}>
+                        {card.badgeText}
+                      </span>
+                      <div className={`w-4 h-4 rounded-md flex items-center justify-center border shrink-0 ${card.iconBoxStyle}`}>
+                        <IconComponent className="w-2.5 h-2.5" />
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            ) : (
-              /* NANO COMPACT GRID: Extremely space efficient 4-column compact grid */
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1.5">
-                {[
-                  {
-                    id: 'issues' as const,
-                    title: 'سجل المشاكل والبلاغات',
-                    badgeText: `${activeTicketsCount} تذكرة`,
-                    badgeStyle: 'bg-[#13284f] border-[#1e40af]/60 text-blue-300',
-                    iconBoxStyle: 'bg-[#132c54] border-[#1d4ed8]/50 text-blue-400',
-                    icon: ListTodo,
-                    adminOnly: false,
-                  },
-                  {
-                    id: 'analytics' as const,
-                    title: 'التحليلات والرسوم',
-                    badgeText: 'محدث اليوم',
-                    badgeStyle: 'bg-[#182235] border-slate-700/70 text-slate-300',
-                    iconBoxStyle: 'bg-[#241738] border-purple-800/50 text-purple-400',
-                    icon: BarChart3,
-                    adminOnly: true,
-                  },
-                  {
-                    id: 'dashboard' as const,
-                    title: 'لوحة المؤشرات العامة',
-                    badgeText: '98.5% أداء',
-                    badgeStyle: 'bg-[#14292e] border-teal-800/50 text-teal-300',
-                    iconBoxStyle: 'bg-[#112d28] border-emerald-700/50 text-emerald-400',
-                    icon: LayoutDashboard,
-                    adminOnly: true,
-                  },
-                  {
-                    id: 'sla' as const,
-                    title: 'إدارة اتفاقيات SLA',
-                    badgeText: breachedCount > 0 ? `${breachedCount} متأخرة` : '100% التزام',
-                    badgeStyle: breachedCount > 0 ? 'bg-[#3b1515] border-rose-800/60 text-rose-300' : 'bg-[#2c1d10] border-amber-800/50 text-amber-300',
-                    iconBoxStyle: breachedCount > 0 ? 'bg-[#3b1515] border-rose-700/50 text-rose-400' : 'bg-[#33200d] border-amber-700/50 text-amber-400',
-                    icon: Clock,
-                    adminOnly: false,
-                  },
-                  {
-                    id: 'customer' as const,
-                    title: 'بوابة العميل',
-                    badgeText: 'خدمة ذاتية',
-                    badgeStyle: 'bg-[#26153b] border-purple-800/50 text-purple-300',
-                    iconBoxStyle: 'bg-[#2b1338] border-pink-700/50 text-pink-400',
-                    icon: Globe,
-                    adminOnly: false,
-                  },
-                  {
-                    id: 'cab' as const,
-                    title: 'اعتماد التغييرات (CAB)',
-                    badgeText: 'إدارة مخاطر',
-                    badgeStyle: 'bg-[#12283a] border-cyan-800/50 text-cyan-300',
-                    iconBoxStyle: 'bg-[#0f2938] border-cyan-700/50 text-cyan-400',
-                    icon: Layers,
-                    adminOnly: false,
-                  },
-                  {
-                    id: 'admin' as const,
-                    title: 'لوحة الإدارة والضبط',
-                    badgeText: 'تحكم كامل',
-                    badgeStyle: 'bg-[#162a22] border-emerald-800/50 text-emerald-300',
-                    iconBoxStyle: 'bg-[#132e22] border-emerald-700/50 text-emerald-400',
-                    icon: ShieldCheck,
-                    adminOnly: true,
-                  },
-                ].map((card) => {
-                  const isCurrent = currentTab === card.id;
-                  const IconComponent = card.icon;
-                  const isRestricted = card.adminOnly && currentUser.role !== 'Admin';
 
-                  return (
-                    <div
-                      key={card.id}
-                      onClick={() => {
-                        if (isRestricted) return;
-                        setCurrentTab(card.id);
-                        setShowSectionsHub(false);
-                      }}
-                      className={`p-1.5 sm:p-2 rounded-lg transition-all duration-150 flex flex-col justify-between select-none relative ${
-                        isRestricted
-                          ? 'opacity-50 bg-[#080d19] border border-slate-800/80 cursor-not-allowed'
-                          : isCurrent
-                          ? 'bg-[#0e1b33] border-2 border-blue-500 shadow-xs ring-1 ring-blue-500/50 cursor-pointer'
-                          : 'bg-[#0c1322] border border-slate-800/90 hover:border-slate-700 hover:bg-[#0e1628] cursor-pointer'
-                      }`}
-                    >
-                      {/* Header Row: Badge on Left, Icon Box on Right */}
-                      <div className="flex items-center justify-between gap-1 mb-1">
-                        <span className={`px-1 py-0.2 rounded text-[8px] font-bold border shrink-0 ${card.badgeStyle}`}>
-                          {card.badgeText}
+                    {/* Body: Title */}
+                    <div className="mb-1 text-right">
+                      <h4 className="text-[10px] font-extrabold text-white group-hover:text-blue-400 transition-colors truncate">
+                        {card.title}
+                      </h4>
+                    </div>
+
+                    {/* Footer Row: Action Text on Right, Arrow on Left */}
+                    <div className="flex items-center justify-between text-[8px] font-bold pt-1 border-t border-slate-800/70">
+                      {isRestricted ? (
+                        <span className="text-rose-400 text-[8px] flex items-center gap-1">
+                          <Lock className="w-2 h-2" />
+                          <span>يتطلب Admin</span>
                         </span>
-                        <div className={`w-5 h-5 rounded-md flex items-center justify-center border shrink-0 ${card.iconBoxStyle}`}>
-                          <IconComponent className="w-2.5 h-2.5" />
-                        </div>
-                      </div>
-
-                      {/* Body: Title */}
-                      <div className="mb-1 text-right">
-                        <h4 className="text-[10px] sm:text-[10.5px] font-extrabold text-white group-hover:text-blue-400 transition-colors truncate">
-                          {card.title}
-                        </h4>
-                      </div>
-
-                      {/* Footer Row: Action Text on Right, Arrow on Left */}
-                      <div className="flex items-center justify-between text-[8.5px] font-bold pt-1 border-t border-slate-800/70">
-                        {isRestricted ? (
-                          <span className="text-rose-400 text-[8px] flex items-center gap-1">
-                            <Lock className="w-2 h-2" />
-                            <span>يتطلب Admin</span>
+                      ) : (
+                        <>
+                          <ArrowLeft className={`w-2 h-2 rtl:rotate-0 transition-transform ${isCurrent ? 'text-blue-400 -translate-x-0.5' : 'text-slate-400 group-hover:text-white'}`} />
+                          <span className={isCurrent ? 'text-blue-400 font-bold' : 'text-slate-400 group-hover:text-white'}>
+                            {isCurrent ? 'القسم الحالي' : 'انتقال'}
                           </span>
-                        ) : (
-                          <>
-                            <ArrowLeft className={`w-2 h-2 rtl:rotate-0 transition-transform ${isCurrent ? 'text-blue-400 -translate-x-0.5' : 'text-slate-400 group-hover:text-white'}`} />
-                            <span className={isCurrent ? 'text-blue-400 font-bold' : 'text-slate-400 group-hover:text-white'}>
-                              {isCurrent ? 'القسم الحالي' : 'انتقال'}
-                            </span>
-                          </>
-                        )}
-                      </div>
+                        </>
+                      )}
                     </div>
-                  );
-                })}
-              </div>
-            )}
+                  </div>
+                );
+              })}
+            </div>
 
             {/* Modal Footer */}
             <div className="pt-1 border-t border-slate-800 flex items-center justify-between text-[9px] text-slate-400">
@@ -1259,7 +1113,7 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 type="button"
                 onClick={() => setShowSectionsHub(false)}
-                className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded transition cursor-pointer border border-slate-700/60 text-[10px]"
+                className="px-2.5 py-0.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-lg transition cursor-pointer border border-slate-700/60 text-[10px]"
               >
                 إغلاق
               </button>
