@@ -189,6 +189,7 @@ export const INITIAL_GENERAL_SETTINGS: GeneralSettings = {
   customFooterNote: 'نظام إدارة البلاغات والتذاكر المؤسسي الموحد',
   badgeStyle: 'clean-arabic',
   cabDesignStyle: 'dynamic_table',
+  navCardDensity: 'compact',
   lightThemeBgColor: 'default',
   lightCardBgColor: 'default',
   lightHeaderBgColor: 'default',

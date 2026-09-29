@@ -15,6 +15,8 @@ import {
   FileText, 
   Eye,
   Tag,
+  Compass,
+  Grid,
   Sparkles as SparklesIcon
 } from 'lucide-react';
 import { GeneralSettings, BadgeStyleType, Priority, IssueStatus } from '../types';
@@ -700,6 +702,111 @@ export const GeneralSettingsTab: React.FC<GeneralSettingsTabProps> = ({
               </div>
             </div>
           </div>
+          {/* Section 4.5: Navigation Cards Size & Density Settings */}
+          <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-5 md:col-span-2">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
+                  <Compass className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                    <span>حجم وتنسيق بطاقات التنقل والخريطة الرئيسية (Navigation Cards Display)</span>
+                    <span className="text-[10px] bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-bold px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
+                      4 أنماط كثافة ⚡
+                    </span>
+                  </h4>
+                  <p className="text-[11px] text-slate-400">
+                    التحكم الكامل بحجم وشكل بطاقات التنقل الخمسة/السبعة لضمان وضوح الأيقونات والعناوين ومطابقتها للصفحة الرئيسية
+                  </p>
+                </div>
+              </div>
+
+              <div className="text-[11px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
+                <span className="text-slate-400">التنسيق النشط:</span>
+                <span className="text-blue-600 dark:text-blue-400 font-black">
+                  {(formData.navCardDensity || 'compact') === 'compact'
+                    ? '✨ المدمج الأنيق (Smart Compact)'
+                    : (formData.navCardDensity || 'compact') === 'micro'
+                    ? '⚡ المصغر الفائق (Micro Cards)'
+                    : (formData.navCardDensity || 'compact') === 'horizontal_bar'
+                    ? '↔️ الشريط الأفقي (Horizontal Strip)'
+                    : '📋 المفصل الشامل (Standard Detailed)'}
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {[
+                {
+                  id: 'compact' as const,
+                  title: '✨ مدمج أنيق (Smart)',
+                  badgeLabel: 'الموصى به للوضوح ⚡',
+                  desc: 'شبكة 4 أعمدة مدمجة وأنيقة تناسب شاشة الصفحة الرئيسية بدون أي قص للأيقونات',
+                },
+                {
+                  id: 'micro' as const,
+                  title: '⚡ مصغر فائق (Micro)',
+                  badgeLabel: 'أقصى توفير للمساحة 🔬',
+                  desc: 'صفوف مصغرة في سطر واحد تجمع الأيقونة والاسم والشارة بكثافة عالية جداً',
+                },
+                {
+                  id: 'horizontal_bar' as const,
+                  title: '↔️ شريط أفقي',
+                  badgeLabel: 'تنسيق قراءة متسلسل ↔️',
+                  desc: 'شريط متكامل يعرض الأقسام بترتيب أفقي مع تفاصيل سريعة وسهم انتقال',
+                },
+                {
+                  id: 'standard' as const,
+                  title: '📋 مفصل كامل',
+                  badgeLabel: 'بطاقات عريضة 🗂️',
+                  desc: 'بطاقات تقليدية بحجم قياسي تحوي شرحاً تفصيلياً مع قائمة مميزات كل قسم',
+                },
+              ].map((item) => {
+                const isSelected = (formData.navCardDensity || 'compact') === item.id;
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => setFormData({ ...formData, navCardDensity: item.id })}
+                    className={`cursor-pointer rounded-2xl p-3.5 border transition-all duration-200 flex flex-col justify-between text-right relative group ${
+                      isSelected
+                        ? 'border-blue-600 bg-blue-50/50 dark:bg-blue-950/30 ring-2 ring-blue-500 shadow-md scale-[1.01]'
+                        : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-slate-50/40 dark:bg-slate-950/40 hover:bg-white dark:hover:bg-slate-900/60'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <div
+                          className={`w-4 h-4 rounded-full flex items-center justify-center border transition ${
+                            isSelected
+                              ? 'border-blue-600 bg-blue-600 text-white'
+                              : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800'
+                          }`}
+                        >
+                          {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                        </div>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                          {item.badgeLabel}
+                        </span>
+                      </div>
+                      <h5 className="text-xs font-black text-slate-900 dark:text-white mb-1">
+                        {item.title}
+                      </h5>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
+                        {item.desc}
+                      </p>
+                    </div>
+
+                    <div className="mt-3 pt-2 border-t border-slate-200 dark:border-slate-800 text-[10px] text-blue-600 dark:text-blue-400 font-bold flex items-center justify-between">
+                      <span>النمط: {item.id}</span>
+                      {isSelected && <span>🟢 النمط المطبق</span>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Section 5: CAB Design Style Switcher (مبدل نمط وتصميم لوحة اعتماد التغييرات الفنية) */}
           <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-5 md:col-span-2">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">

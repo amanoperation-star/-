@@ -153,6 +153,8 @@ export type BadgeStyleType = 'clean-arabic' | 'bilingual' | 'modern-pill';
 
 export type CabDesignStyle = 'dynamic_table' | 'itil_cards';
 
+export type NavCardDensity = 'compact' | 'micro' | 'standard' | 'horizontal_bar';
+
 export interface GeneralSettings {
   appName: string;
   appBadge: string;
@@ -167,6 +169,7 @@ export interface GeneralSettings {
   customFooterNote: string;
   badgeStyle?: BadgeStyleType;
   cabDesignStyle?: CabDesignStyle;
+  navCardDensity?: NavCardDensity;
   lightThemeBgColor?: string; // 'default' | 'pure_white' | 'soft_gray' | 'warm_beige' | 'ice_blue' | 'soft_mint' | 'custom'
   lightCardBgColor?: string; // 'default' | 'custom'
   lightHeaderBgColor?: string; // 'default' | 'custom'
