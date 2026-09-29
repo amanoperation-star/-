@@ -381,6 +381,27 @@ export default function App() {
     return new Set<string>();
   })());
 
+  const categoriesRef = useRef(categories);
+  categoriesRef.current = categories;
+  const tagsRef = useRef(tags);
+  tagsRef.current = tags;
+  const cannedResponsesRef = useRef(cannedResponses);
+  cannedResponsesRef.current = cannedResponses;
+  const generalSettingsRef = useRef(generalSettings);
+  generalSettingsRef.current = generalSettings;
+  const soundSettingsRef = useRef(soundSettings);
+  soundSettingsRef.current = soundSettings;
+  const auditLogsRef = useRef(auditLogs);
+  auditLogsRef.current = auditLogs;
+  const externalVendorsRef = useRef(externalVendors);
+  externalVendorsRef.current = externalVendors;
+  const slaSettingsRef = useRef(slaSettings);
+  slaSettingsRef.current = slaSettings;
+  const currentUserRef = useRef(currentUser);
+  currentUserRef.current = currentUser;
+  const detailIssueRef = useRef(detailIssue);
+  detailIssueRef.current = detailIssue;
+
   const saveDeletedIssueIds = (idsSet: Set<string>) => {
     try {
       const arr = Array.from(idsSet);
@@ -420,7 +441,7 @@ export default function App() {
       } catch (err) {
         console.warn('[Auto-Cloud-Sync] Background persist error:', err);
       }
-    }, 600); // 600ms debounce to batch rapid changes smoothly
+    }, 1500); // 1500ms debounce to batch rapid changes smoothly and avoid churn
 
     return () => clearTimeout(timer);
   }, [
@@ -435,7 +456,6 @@ export default function App() {
     externalVendors,
     slaSettings,
     cabActivities,
-    supabaseConfig,
   ]);
 
   // Initialize Supabase and pull data on load
@@ -599,21 +619,37 @@ export default function App() {
     if ((payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') && payload.new) {
       const { key, data } = payload.new;
       if (key === 'categories' && Array.isArray(data)) {
-        setCategories(data);
+        if (JSON.stringify(categoriesRef.current) !== JSON.stringify(data)) {
+          setCategories(data);
+        }
       } else if (key === 'tags' && Array.isArray(data)) {
-        setTags(data);
+        if (JSON.stringify(tagsRef.current) !== JSON.stringify(data)) {
+          setTags(data);
+        }
       } else if (key === 'canned_responses' && Array.isArray(data)) {
-        setCannedResponses(data);
+        if (JSON.stringify(cannedResponsesRef.current) !== JSON.stringify(data)) {
+          setCannedResponses(data);
+        }
       } else if (key === 'general_settings' && data && typeof data === 'object') {
-        setGeneralSettings(data);
+        if (JSON.stringify(generalSettingsRef.current) !== JSON.stringify(data)) {
+          setGeneralSettings(data);
+        }
       } else if (key === 'sound_settings' && data && typeof data === 'object') {
-        setSoundSettings(data);
+        if (JSON.stringify(soundSettingsRef.current) !== JSON.stringify(data)) {
+          setSoundSettings(data);
+        }
       } else if (key === 'audit_logs' && Array.isArray(data)) {
-        setAuditLogs(data);
+        if (JSON.stringify(auditLogsRef.current) !== JSON.stringify(data)) {
+          setAuditLogs(data);
+        }
       } else if (key === 'external_vendors' && Array.isArray(data)) {
-        setExternalVendors(data);
+        if (JSON.stringify(externalVendorsRef.current) !== JSON.stringify(data)) {
+          setExternalVendors(data);
+        }
       } else if (key === 'sla_settings' && data && typeof data === 'object') {
-        setSlaSettings(data);
+        if (JSON.stringify(slaSettingsRef.current) !== JSON.stringify(data)) {
+          setSlaSettings(data);
+        }
       }
     }
   };
@@ -920,18 +956,15 @@ export default function App() {
     setNotifications((prev) => [newNotif, ...prev.slice(0, 49)]);
   };
 
-  const currentUserRef = useRef(currentUser);
   useEffect(() => {
     currentUserRef.current = currentUser;
     realtimeSync.updateCurrentUser(currentUser);
   }, [currentUser]);
 
-  const soundSettingsRef = useRef(soundSettings);
   useEffect(() => {
     soundSettingsRef.current = soundSettings;
   }, [soundSettings]);
 
-  const detailIssueRef = useRef(detailIssue);
   useEffect(() => {
     detailIssueRef.current = detailIssue;
   }, [detailIssue]);
@@ -2594,11 +2627,13 @@ export default function App() {
         console.warn('Store sync note:', storeError);
       }
 
-      setSupabaseConfig((prev) => ({
-        ...prev,
-        connected: true,
-        lastSync: new Date().toLocaleTimeString('ar-EG'),
-      }));
+      if (!silent) {
+        setSupabaseConfig((prev) => ({
+          ...prev,
+          connected: true,
+          lastSync: new Date().toLocaleTimeString('ar-EG'),
+        }));
+      }
 
       if (!silent) {
         alert(

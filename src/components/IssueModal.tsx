@@ -144,66 +144,71 @@ export const IssueModal: React.FC<IssueModalProps> = ({
     }
   }, [isOpen, initialData?.id, currentUser]);
 
-  const hasInitializedRef = useRef(false);
+  const activeSessionKeyRef = useRef<string | null>(null);
 
-  // Synchronize on modal open or data change (State-Locked Initialization)
+  // Synchronize ONLY on modal open or when explicitly switching ticket to edit
   useEffect(() => {
     if (!isOpen) {
-      hasInitializedRef.current = false;
+      activeSessionKeyRef.current = null;
       return;
     }
 
-    if (isOpen && !hasInitializedRef.current) {
-      if (initialData) {
-        setClient(initialData.client || '');
-        setClientEmail(initialData.clientEmail || '');
-        setClientPhone(initialData.clientPhone || '');
-        setTag(initialData.tag || tags[0] || 'VIP Client');
-        setType(initialData.type || categories[0]?.name || 'تقني / Technical');
-        setDesc(initialData.desc || '');
-        setAssigned(initialData.assigned || categories[0]?.assignedTeam || 'فريق الدعم البرمجي');
-        setOwner(initialData.owner || categories[0]?.defaultOwner || 'محمد علي');
-        setIsExternalOwner(Boolean(initialData.isExternalOwner));
-        setSelectedVendorId(initialData.externalOwnerDetails?.vendorId || '');
-        setSaveToDirectory(false);
-        setExtName(initialData.externalOwnerDetails?.name || (initialData.isExternalOwner ? initialData.owner : ''));
-        setExtCompany(initialData.externalOwnerDetails?.company || '');
-        setExtRole(initialData.externalOwnerDetails?.role || 'مورد معتمد (Vendor)');
-        setExtPhone(initialData.externalOwnerDetails?.phone || '');
-        setExtEmail(initialData.externalOwnerDetails?.email || '');
-        setExtTicketId(initialData.externalOwnerDetails?.externalTicketId || '');
-        setExtNotes(initialData.externalOwnerDetails?.notes || '');
-        setPriority(initialData.priority || 'Medium');
-        setStatus(initialData.status || 'Open');
-        setAttachment(initialData.attachment);
-      } else {
-        setClient('');
-        setClientEmail('');
-        setClientPhone('');
-        setTag(tags[0] || 'VIP Client');
-        const firstCat = categories[0];
-        setType(firstCat?.name || 'تقني / Technical');
-        setAssigned(firstCat?.assignedTeam || 'فريق الدعم البرمجي');
-        setOwner(firstCat?.defaultOwner || 'محمد علي');
-        setIsExternalOwner(false);
-        setSelectedVendorId('');
-        setSaveToDirectory(false);
-        setExtName('');
-        setExtCompany('');
-        setExtRole('مورد معتمد (Vendor)');
-        setExtPhone('');
-        setExtEmail('');
-        setExtTicketId('');
-        setExtNotes('');
-        setDesc('');
-        setPriority('Medium');
-        setStatus('Open');
-        setAttachment(undefined);
-      }
-      setWizardStep(1);
-      hasInitializedRef.current = true;
+    const currentSessionKey = initialData?.id || (initialData?.client ? `prefill_${initialData.client}` : 'new_ticket_session');
+    if (activeSessionKeyRef.current === currentSessionKey) {
+      // Modal is already open and initialized for this ticket - NEVER wipe user input!
+      return;
     }
-  }, [initialData, isOpen, categories, tags]);
+
+    activeSessionKeyRef.current = currentSessionKey;
+
+    if (initialData) {
+      setClient(initialData.client || '');
+      setClientEmail(initialData.clientEmail || '');
+      setClientPhone(initialData.clientPhone || '');
+      setTag(initialData.tag || tags[0] || 'VIP Client');
+      setType(initialData.type || categories[0]?.name || 'تقني / Technical');
+      setDesc(initialData.desc || '');
+      setAssigned(initialData.assigned || categories[0]?.assignedTeam || 'فريق الدعم البرمجي');
+      setOwner(initialData.owner || categories[0]?.defaultOwner || 'محمد علي');
+      setIsExternalOwner(Boolean(initialData.isExternalOwner));
+      setSelectedVendorId(initialData.externalOwnerDetails?.vendorId || '');
+      setSaveToDirectory(false);
+      setExtName(initialData.externalOwnerDetails?.name || (initialData.isExternalOwner ? initialData.owner : ''));
+      setExtCompany(initialData.externalOwnerDetails?.company || '');
+      setExtRole(initialData.externalOwnerDetails?.role || 'مورد معتمد (Vendor)');
+      setExtPhone(initialData.externalOwnerDetails?.phone || '');
+      setExtEmail(initialData.externalOwnerDetails?.email || '');
+      setExtTicketId(initialData.externalOwnerDetails?.externalTicketId || '');
+      setExtNotes(initialData.externalOwnerDetails?.notes || '');
+      setPriority(initialData.priority || 'Medium');
+      setStatus(initialData.status || 'Open');
+      setAttachment(initialData.attachment);
+    } else {
+      setClient('');
+      setClientEmail('');
+      setClientPhone('');
+      setTag(tags[0] || 'VIP Client');
+      const firstCat = categories[0];
+      setType(firstCat?.name || 'تقني / Technical');
+      setAssigned(firstCat?.assignedTeam || 'فريق الدعم البرمجي');
+      setOwner(firstCat?.defaultOwner || 'محمد علي');
+      setIsExternalOwner(false);
+      setSelectedVendorId('');
+      setSaveToDirectory(false);
+      setExtName('');
+      setExtCompany('');
+      setExtRole('مورد معتمد (Vendor)');
+      setExtPhone('');
+      setExtEmail('');
+      setExtTicketId('');
+      setExtNotes('');
+      setDesc('');
+      setPriority('Medium');
+      setStatus('Open');
+      setAttachment(undefined);
+    }
+    setWizardStep(1);
+  }, [isOpen, initialData?.id, initialData?.client]);
 
   // Handle design change and persist
   const handleSelectDesign = (design: ModalDesignType) => {

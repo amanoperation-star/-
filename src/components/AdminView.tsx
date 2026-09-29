@@ -275,12 +275,22 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [showSqlHelper, setShowSqlHelper] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
 
+  const isEditingSbRef = React.useRef(false);
+  const lastSbConfigRef = React.useRef({ url: supabaseConfig?.url || '', key: supabaseConfig?.key || '' });
+
   React.useEffect(() => {
     if (supabaseConfig) {
-      if (supabaseConfig.url) setSbUrl(supabaseConfig.url);
-      if (supabaseConfig.key) setSbKey(supabaseConfig.key);
+      const urlChanged = supabaseConfig.url !== lastSbConfigRef.current.url;
+      const keyChanged = supabaseConfig.key !== lastSbConfigRef.current.key;
+      if (urlChanged || keyChanged) {
+        lastSbConfigRef.current = { url: supabaseConfig.url || '', key: supabaseConfig.key || '' };
+        if (!isEditingSbRef.current) {
+          if (supabaseConfig.url) setSbUrl(supabaseConfig.url);
+          if (supabaseConfig.key) setSbKey(supabaseConfig.key);
+        }
+      }
     }
-  }, [supabaseConfig]);
+  }, [supabaseConfig?.url, supabaseConfig?.key]);
 
   // Sound URL state
   const [soundUrlInput, setSoundUrlInput] = useState(soundSettings.alarmUrl);

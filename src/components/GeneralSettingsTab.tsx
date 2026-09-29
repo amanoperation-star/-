@@ -91,17 +91,32 @@ export const GeneralSettingsTab: React.FC<GeneralSettingsTabProps> = ({
     badgeStyle: generalSettings.badgeStyle || 'clean-arabic',
   }));
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const isEditingRef = React.useRef(false);
+  const lastPropRef = React.useRef(JSON.stringify(generalSettings));
 
-  // Sync if prop updates externally
+  // Sync if prop updates externally and user is not actively typing
   React.useEffect(() => {
-    setFormData({
-      ...generalSettings,
-      badgeStyle: generalSettings.badgeStyle || 'clean-arabic',
-    });
+    const serialized = JSON.stringify(generalSettings);
+    if (serialized !== lastPropRef.current) {
+      lastPropRef.current = serialized;
+      if (!isEditingRef.current) {
+        setFormData({
+          ...generalSettings,
+          badgeStyle: generalSettings.badgeStyle || 'clean-arabic',
+        });
+      }
+    }
   }, [generalSettings]);
+
+  const handleFieldChange = (updates: Partial<GeneralSettings>) => {
+    isEditingRef.current = true;
+    setFormData((prev) => ({ ...prev, ...updates }));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    isEditingRef.current = false;
+    lastPropRef.current = JSON.stringify(formData);
     onUpdateGeneralSettings(formData);
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 3000);

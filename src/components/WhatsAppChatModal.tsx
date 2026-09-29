@@ -40,17 +40,23 @@ export const WhatsAppChatModal: React.FC<WhatsAppChatModalProps> = ({
   const [customMessage, setCustomMessage] = useState('');
   const [copied, setCopied] = useState(false);
   const [phoneSavedNotice, setPhoneSavedNotice] = useState(false);
+  const activeTicketSessionRef = React.useRef<string | null>(null);
 
-  // Sync state when issue changes or modal opens
+  // Sync state ONLY when opening modal or switching to a different ticket
   useEffect(() => {
-    if (issue) {
+    if (!isOpen) {
+      activeTicketSessionRef.current = null;
+      return;
+    }
+    if (issue && activeTicketSessionRef.current !== issue.id) {
+      activeTicketSessionRef.current = issue.id;
       setPhoneInput(issue.clientPhone || '');
       const defaultTemplate = WHATSAPP_TEMPLATES.find((t) => t.id === 'followup');
       if (defaultTemplate) {
         setCustomMessage(defaultTemplate.generateText(issue, currentUser.name, companyName));
       }
     }
-  }, [issue, currentUser.name, companyName, isOpen]);
+  }, [issue?.id, isOpen]);
 
   // Update text when template changes
   const handleSelectTemplate = (templateId: string) => {
