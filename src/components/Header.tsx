@@ -37,7 +37,8 @@ import {
   Lock,
   LogOut,
   BarChart3,
-  Download
+  Download,
+  BellOff
 } from 'lucide-react';
 import { AppUser, NotificationItem, SoundSettings, GeneralSettings } from '../types';
 import { ActiveUserPresence, SyncConnectionStatus } from '../utils/realtimeSync';
@@ -347,9 +348,19 @@ export const Header: React.FC<HeaderProps> = ({
                     )}
                   </div>
                 </div>
-                <div className="max-h-72 overflow-y-auto space-y-2 pr-0.5">
+                <div className="max-h-80 overflow-y-auto space-y-2 pr-0.5 custom-scrollbar">
                   {notifications.length === 0 ? (
-                    <p className="text-slate-400 text-center py-6">لا توجد إشعارات جديدة</p>
+                    <div className="py-8 px-3 text-center space-y-2.5">
+                      <div className="w-12 h-12 mx-auto rounded-2xl bg-slate-100 dark:bg-slate-700/60 flex items-center justify-center text-slate-400 dark:text-slate-500 shadow-inner">
+                        <BellOff className="w-6 h-6 stroke-[1.5]" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="font-bold text-slate-800 dark:text-slate-200 text-xs">لا توجد إشعارات حالياً</p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed max-w-[240px] mx-auto">
+                          ستظهر هنا التنبيهات الفورية تلقائياً لأي نشاط أو تعديل تجريه في المنظومة وبلاغات التيم المباشرة.
+                        </p>
+                      </div>
+                    </div>
                   ) : (
                     notifications.map((n) => {
                       const ticketMatch = n.ticketId || n.title.match(/(INC-\d+)/i)?.[1] || n.desc.match(/(INC-\d+)/i)?.[1];
@@ -362,7 +373,7 @@ export const Header: React.FC<HeaderProps> = ({
                               setShowNotifications(false);
                             }
                           }}
-                          className={`p-2.5 rounded-xl border space-y-1 transition duration-150 ${
+                          className={`p-2.5 rounded-xl border space-y-1.5 transition-all duration-150 relative ${
                             ticketMatch
                               ? 'cursor-pointer hover:border-indigo-400 dark:hover:border-indigo-500 hover:bg-indigo-50/70 dark:hover:bg-indigo-950/40 hover:shadow-xs group'
                               : ''
@@ -376,9 +387,9 @@ export const Header: React.FC<HeaderProps> = ({
                               : 'bg-slate-50 dark:bg-slate-900/80 border-slate-200 dark:border-slate-700/60'
                           }`}
                         >
-                          <div className="flex justify-between items-center">
+                          <div className="flex justify-between items-start gap-2">
                             <span
-                              className={`font-bold flex items-center gap-1.5 ${
+                              className={`font-bold flex items-center gap-1.5 text-xs leading-snug ${
                                 n.type === 'danger'
                                   ? 'text-rose-600 dark:text-rose-400'
                                   : n.type === 'warning'
@@ -389,11 +400,11 @@ export const Header: React.FC<HeaderProps> = ({
                               }`}
                             >
                               {ticketMatch && (
-                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-ping inline-block"></span>
+                                <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse inline-block shrink-0"></span>
                               )}
                               <span>{n.title}</span>
                             </span>
-                            <span className="text-[10px] text-slate-400 font-mono">{n.time}</span>
+                            <span className="text-[10px] text-slate-400 font-mono shrink-0 bg-slate-200/50 dark:bg-slate-800/80 px-1.5 py-0.5 rounded">{n.time}</span>
                           </div>
                           <p className="text-slate-600 dark:text-slate-300 text-[11px] leading-relaxed">
                             {n.desc}

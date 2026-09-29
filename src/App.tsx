@@ -208,31 +208,47 @@ export default function App() {
     }
   });
 
-  const [notifications, setNotifications] = useState<NotificationItem[]>([
-    {
-      id: 'notif-sla-1',
-      title: '🚨 تنبيه تجاوز SLA: INC-1001',
-      desc: 'تجاوزت التذكرة INC-1001 الحد الزمني لاتفاقية مستوى الخدمة، اضغط هنا لفتح التذكرة ومتابعتها فوراً',
-      time: 'الآن',
-      type: 'danger',
-      ticketId: 'INC-1001',
-    },
-    {
-      id: 'notif-sla-2',
-      title: 'تذكرة قيد المتابعة: INC-1002',
-      desc: 'تحديث حالة تذكرة العميل شركة الأمل للتجارة وتعيين المهندس المختص، انقر للتفاصيل',
-      time: 'منذ 15 د',
-      type: 'warning',
-      ticketId: 'INC-1002',
-    },
-    {
-      id: 'notif-1',
-      title: 'تم تشغيل النسخة الاحترافية',
-      desc: 'تم تفعيل التوجيه الذكي، عداد الوقت اللحظي، وإدارة السحابة والمشرفين.',
-      time: 'اليوم',
-      type: 'info',
-    },
-  ]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY + '_NOTIFICATIONS');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return [];
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY + '_NOTIFICATIONS', JSON.stringify(notifications));
+    } catch {}
+  }, [notifications]);
+
+  // Comprehensive Notification Helper - Bound to all live system and team actions
+  const addNotification = (
+    title: string,
+    desc: string,
+    ticketId?: string,
+    type: 'danger' | 'warning' | 'info' | 'success' = 'info'
+  ) => {
+    const timeStr = new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+    const newNotif: NotificationItem = {
+      id: `notif-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      title,
+      desc,
+      time: timeStr || 'الآن',
+      type,
+      ticketId,
+    };
+    setNotifications((prev) => {
+      const next = [newNotif, ...prev.filter((n) => n.id !== newNotif.id).slice(0, 49)];
+      try {
+        localStorage.setItem(STORAGE_KEY + '_NOTIFICATIONS', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     try {
@@ -285,6 +301,7 @@ export default function App() {
     realtimeHub.broadcast('cab:created', { activity: act }, currentUser.name);
     upsertSingleCabActivityToSupabase(act);
     addAuditLog('إضافة نشاط CAB', `تم تسجيل نشاط التغيير ${act.id} (${act.activityName}) ومزامنته سحابياً`);
+    addNotification('نشاط تغيير CAB جديد 📋', `تم تسجيل نشاط التغيير ${act.id} (${act.activityName})`, undefined, 'success');
   };
 
   const handleUpdateCabActivity = (act: CabBusinessActivity) => {
@@ -292,6 +309,7 @@ export default function App() {
     realtimeHub.broadcast('cab:updated', { activity: act, details: `تحديث نشاط ${act.id}` }, currentUser.name);
     upsertSingleCabActivityToSupabase(act);
     addAuditLog('تعديل نشاط CAB', `تم تحديث نشاط التغيير ${act.id}`);
+    addNotification('تحديث نشاط CAB 🔄', `تم تحديث بيانات نشاط التغيير ${act.id}`, undefined, 'info');
   };
 
   const handleDeleteCabActivity = (id: string) => {
@@ -299,6 +317,7 @@ export default function App() {
     realtimeHub.broadcast('cab:deleted', { activityId: id }, currentUser.name);
     deleteSingleCabActivityFromSupabase(id);
     addAuditLog('حذف نشاط CAB', `تم حذف نشاط التغيير ${id}`);
+    addNotification('حذف نشاط CAB 🗑️', `تم حذف نشاط التغيير ${id}`, undefined, 'warning');
   };
 
   // Enforce access control: non-admin users only see and access 'issues'
@@ -939,24 +958,6 @@ export default function App() {
     setAuditLogs((prev) => [newLog, ...prev.slice(0, 99)]);
   };
 
-  // Notification helper
-  const addNotification = (
-    title: string,
-    desc: string,
-    ticketId?: string,
-    type: 'danger' | 'warning' | 'info' = 'info'
-  ) => {
-    const newNotif: NotificationItem = {
-      id: `notif-${Date.now()}`,
-      title,
-      desc,
-      time: 'الآن',
-      type,
-      ticketId,
-    };
-    setNotifications((prev) => [newNotif, ...prev.slice(0, 49)]);
-  };
-
   // Manual trigger for the live toast notification from the user's attached image
   const handleTriggerDemoToast = () => {
     const targetIssue = issues[0] || {
@@ -1539,6 +1540,7 @@ export default function App() {
       currentUser.name
     );
     addAuditLog('تحديث هاتف العميل', `تم تحديث هاتف العميل للتذكرة ${issueId} إلى ${trimmed}`);
+    addNotification(`تحديث هاتف العميل [${issueId}] 📞`, `تم تحديث رقم الهاتف إلى: ${trimmed}`, issueId, 'info');
   };
 
   // General Ticket Updates (SLA extension, external ticket ID, pause, etc.)
@@ -1567,6 +1569,7 @@ export default function App() {
       `تم تحديث بيانات التذكرة #${issueId}`
     );
     addAuditLog('تحديث تذكرة', `تم تحديث بيانات التذكرة #${issueId}`);
+    addNotification(`تحديث التذكرة [${issueId}] 🔄`, 'تم حفظ تعديلات التذكرة ومزامنتها سحابياً', issueId, 'info');
   };
 
   // Update SLA Settings
@@ -1586,6 +1589,7 @@ export default function App() {
       }
     }
     addAuditLog('تحديث قواعد SLA', 'تم تحديث سياسات وقواعد اتفاقيات مستوى الخدمة (SLA)');
+    addNotification('إعدادات اتفاقية الخدمة SLA ⏱️', 'تم تحديث وحفظ سياسات اتفاقية مستوى الخدمة', undefined, 'info');
   };
 
   // External Vendors Directory Handlers
@@ -1607,6 +1611,7 @@ export default function App() {
       }
     }
     addAuditLog('إضافة شريك خارجي', `تمت إضافة (${vendor.name} - ${vendor.company}) إلى دليل الشركاء الخارجيين`);
+    addNotification('إضافة شريك خارجي 🏢', `تمت إضافة (${vendor.name} - ${vendor.company}) لدليل الشركاء`, undefined, 'success');
   };
 
   const handleUpdateExternalVendor = async (id: string, updates: Partial<ExternalVendor>) => {
@@ -1626,6 +1631,7 @@ export default function App() {
       }
     }
     addAuditLog('تعديل شريك خارجي', `تم تحديث بيانات الشريك الخارجي في الدليل`);
+    addNotification('تحديث شريك خارجي 🏢', 'تم تحديث بيانات الشريك الخارجي في الدليل بنجاح', undefined, 'info');
   };
 
   const handleDeleteExternalVendor = async (id: string) => {
@@ -1644,7 +1650,8 @@ export default function App() {
         console.warn('Failed to delete external vendor from Supabase:', err);
       }
     }
-    addAuditLog('حذف شريك خارجي', `تم حذف شريك خارجي من الدليل`);
+    addAuditLog('حذف شريك خارجي', `تم حذف الشريك الخارجي من الدليل`);
+    addNotification('حذف شريك خارجي 🗑️', 'تم حذف الشريك الخارجي من الدليل', undefined, 'warning');
   };
 
   // Helper to immediately save/upsert a single ticket into Supabase Table Editor
@@ -1931,6 +1938,12 @@ export default function App() {
       setTimeout(() => handleSyncSupabaseNow(true), 200);
 
       addAuditLog('تعديل تذكرة', `تم تحديث بيانات التذكرة ${editingIssue.id}`);
+      addNotification(
+        `تحديث التذكرة [${editingIssue.id}] 🔄`,
+        `تم تعديل بيانات التذكرة للعميل (${updatedIssue.client}) وحفظ التغييرات`,
+        editingIssue.id,
+        'info'
+      );
       setEditingIssue(null);
     } else {
       // Create new ticket and automatically broadcast to all team members!
@@ -2081,17 +2094,12 @@ export default function App() {
           });
 
           addAuditLog('إنشاء تذكرة', `تم تسجيل بلاغ جديد برقم ${savedIssue.id} للعميل ${savedIssue.client} وبدء عداد العمل فوراً`);
-          setNotifications((prev) => [
-            {
-              id: `n-${Date.now()}`,
-              title: `تذكرة جديدة [${savedIssue.id}]`,
-              desc: `تم استلام بلاغ ${savedIssue.id} للعميل ${savedIssue.client || 'عميل جديد'} وبدء العداد فوراً. انقر لفتح التذكرة`,
-              time: 'الآن',
-              type: 'info',
-              ticketId: savedIssue.id,
-            },
-            ...prev,
-          ]);
+          addNotification(
+            `تذكرة جديدة [${savedIssue.id}] 🚀`,
+            `تم استلام بلاغ ${savedIssue.id} للعميل ${savedIssue.client || 'عميل جديد'} وبدء العداد فوراً. انقر لفتح التذكرة`,
+            savedIssue.id,
+            'success'
+          );
 
           if (!soundSettingsRef.current.muted) {
             try {
@@ -2120,6 +2128,12 @@ export default function App() {
             author: currentUser.name,
             location: currentUser.department || 'الفرع الرئيسي',
           });
+          addNotification(
+            `تذكرة جديدة [${newIssue.id}] 🚀`,
+            `تم تسجيل التذكرة محلياً ${newIssue.id} للعميل (${newIssue.client})`,
+            newIssue.id,
+            'success'
+          );
           setDetailIssue(newIssue);
           setShowDetailsModal(true);
         }
@@ -2178,6 +2192,12 @@ export default function App() {
     );
 
     addAuditLog('بدء عداد تذكرة', `تشغيل مؤقت العمل للتذكرة ${issue.id}`);
+    addNotification(
+      `بدء مؤقت العمل [${issue.id}] ⏱️`,
+      `بدأ العمل الفعلي وحساب الوقت المستغرق للتذكرة ${issue.id}`,
+      issue.id,
+      'info'
+    );
   };
 
   // Explicitly Pause Work Timer on a ticket
@@ -2218,6 +2238,12 @@ export default function App() {
     );
 
     addAuditLog('إيقاف عداد تذكرة', `إيقاف مؤقت العمل للتذكرة ${issue.id}`);
+    addNotification(
+      `إيقاف مؤقت العمل [${issue.id}] ⏸️`,
+      `تم إيقاف مؤقت العمل مؤقتاً للتذكرة ${issue.id}`,
+      issue.id,
+      'warning'
+    );
   };
 
   // Toggle Work Timer on a ticket
@@ -2287,6 +2313,12 @@ export default function App() {
     }
 
     addAuditLog('تحديث حالة', `تحويل حالة التذكرة ${issue.id} إلى ${newStatus}`);
+    addNotification(
+      `تغيير حالة التذكرة [${issue.id}] 🔄`,
+      `تم تغيير الحالة إلى (${newStatus}) بنجاح`,
+      issue.id,
+      'warning'
+    );
   };
 
   // Bulk Status Change
@@ -2324,6 +2356,12 @@ export default function App() {
     );
     updatedIssuesToPersist.forEach((iss) => upsertSingleIssueToSupabase(iss));
     addAuditLog('تحديث جماعي', `تم تعديل حالة ${issueIds.length} تذكرة إلى ${newStatus}`);
+    addNotification(
+      `تحديث جماعي للحالة 🔄`,
+      `تم تحويل حالة ${issueIds.length} تذكرة إلى (${newStatus})`,
+      undefined,
+      'info'
+    );
   };
 
   // Bulk Delete Selected Tickets
@@ -2341,6 +2379,12 @@ export default function App() {
     await deleteBulkIssuesFromSupabase(issueIds);
     realtimeHub.broadcast('ticket:bulk_deleted', { issueIds }, currentUser.name);
     addAuditLog('حذف جماعي', `تم حذف ${issueIds.length} تذكرة نهائياً.`);
+    addNotification(
+      `حذف جماعي للتذاكر 🗑️`,
+      `تم حذف ${issueIds.length} تذكرة نهائياً من المنظومة`,
+      undefined,
+      'danger'
+    );
   };
 
   // Delete Single Issue
@@ -2358,6 +2402,12 @@ export default function App() {
     await deleteSingleIssueFromSupabase(issueId);
     realtimeHub.broadcast('ticket:deleted', { issueId }, currentUser.name);
     addAuditLog('حذف تذكرة', `تم حذف التذكرة ${issueId} نهائياً.`);
+    addNotification(
+      `حذف تذكرة [${issueId}] 🗑️`,
+      `تم حذف التذكرة ${issueId} نهائياً من المنظومة`,
+      undefined,
+      'danger'
+    );
   };
 
   // Delete ALL Tickets (Wipe All)
@@ -2381,6 +2431,12 @@ export default function App() {
 
     realtimeSync.broadcastClearAllTickets(currentUser.name);
     addAuditLog('تفريغ كافة التذاكر', 'تم مسح وتفريغ كافة التذاكر من المنظومة والسحابة نهائياً.');
+    addNotification(
+      `تفريغ كافة التذاكر 🗑️`,
+      'تم مسح وتفريغ كافة التذاكر من المنظومة وقاعدة البيانات',
+      undefined,
+      'danger'
+    );
   };
 
   // Resolve Ticket with Reason
@@ -2437,6 +2493,12 @@ export default function App() {
     }
 
     addAuditLog('حل تذكرة', `إغلاق التذكرة ${issueId} وسبب الحل: ${reason}`);
+    addNotification(
+      `حل وإغلاق التذكرة [${issueId}] 🟢`,
+      `تم اعتماد حل التذكرة: ${reason}`,
+      issueId,
+      'success'
+    );
     setResolvingIssue(null);
   };
 
@@ -2524,6 +2586,12 @@ export default function App() {
 
     // Broadcast new comment to all team members
     realtimeHub.broadcast('ticket:comment', { issueId, comment: newComment }, currentUser.name);
+    addNotification(
+      `إضافة ملاحظة [${issueId}] 💬`,
+      commentText ? (commentText.length > 50 ? commentText.substring(0, 50) + '...' : commentText) : 'تم إرفاق ملف توضيحي',
+      issueId,
+      'info'
+    );
   };
 
   // User Management
@@ -2563,6 +2631,12 @@ export default function App() {
       localStorage.setItem(STORAGE_KEY + '_CURRENT_USER_ID', user.id);
     } catch {}
     addAuditLog('تبديل مستخدم', `تم تبديل جلسة العمل إلى ${user.name} (${user.role})`);
+    addNotification(
+      `تبديل المستخدم 👤`,
+      `تم تبديل المستخدم الحالي إلى ${user.name} (${user.role})`,
+      undefined,
+      'info'
+    );
   };
 
   const handleUpdateUserPassword = (userId: string, newPassword: string) => {
@@ -2592,6 +2666,12 @@ export default function App() {
     setUsers((prev) => [...prev, newUser]);
     upsertSingleUserToSupabase(newUser);
     addAuditLog('إضافة موظف', `تم إنشاء حساب ${userData.name} بالدور ${userData.role} وتحديد كلمة المرور والصلاحيات`);
+    addNotification(
+      `إضافة موظف جديد 👤`,
+      `تم إنشاء حساب ${userData.name} بالدور (${userData.role})`,
+      undefined,
+      'success'
+    );
   };
 
   const handleUpdateUserPermissions = (userId: string, newPermissions: string[]) => {
@@ -2617,7 +2697,10 @@ export default function App() {
     const u = users.find((item) => item.id === userId);
     setUsers((prev) => prev.filter((item) => item.id !== userId));
     deleteSingleUserFromSupabase(userId);
-    if (u) addAuditLog('حذف مستخدم', `تم حذف الحساب ${u.name}`);
+    if (u) {
+      addAuditLog('حذف مستخدم', `تم حذف الحساب ${u.name}`);
+      addNotification(`حذف مستخدم 🗑️`, `تم حذف حساب المستخدم (${u.name})`, undefined, 'warning');
+    }
   };
 
   // Tag Management
@@ -2644,6 +2727,7 @@ export default function App() {
     };
     setCategories((prev) => [...prev, newCat]);
     addAuditLog('إضافة قسم جديد', `تمت إضافة قسم "${catData.name}" وتعيين فريق التوجيه "${catData.assignedTeam}"`);
+    addNotification(`إضافة قسم جديد 🏷️`, `تمت إضافة قسم "${catData.name}" بنجاح`, undefined, 'info');
   };
 
   const handleUpdateCategory = (updatedCat: CategoryRule) => {
@@ -2651,6 +2735,7 @@ export default function App() {
       prev.map((c) => (c.id === updatedCat.id ? updatedCat : c))
     );
     addAuditLog('تعديل قسم', `تم تحديث بيانات وقواعد توجيه القسم "${updatedCat.name}"`);
+    addNotification(`تعديل قسم 🏷️`, `تم تحديث بيانات وقواعد توجيه القسم "${updatedCat.name}"`, undefined, 'info');
   };
 
   const handleDeleteCategory = (catId: string) => {
@@ -2658,6 +2743,7 @@ export default function App() {
     setCategories((prev) => prev.filter((c) => c.id !== catId));
     if (target) {
       addAuditLog('حذف قسم', `تم حذف قسم "${target.name}" وقواعد توجيهه.`);
+      addNotification(`حذف قسم 🗑️`, `تم حذف قسم "${target.name}"`, undefined, 'warning');
     }
   };
 
@@ -3099,6 +3185,12 @@ export default function App() {
       } catch {}
     }
     addAuditLog('استيراد بيانات السحابة', `تم استيراد وتطبيق ${importedData.issues?.length || 0} تذكرة و ${importedData.users?.length || 0} مستخدم من Supabase`);
+    addNotification(
+      'استيراد بيانات السحابة ☁️',
+      `تم استيراد وتطبيق ${importedData.issues?.length || 0} تذكرة و ${importedData.users?.length || 0} مستخدم من Supabase`,
+      undefined,
+      'success'
+    );
   };
 
   // Open ticket directly by ID from notifications or direct click
@@ -3146,6 +3238,12 @@ export default function App() {
       if (backup.generalSettings) setGeneralSettings(backup.generalSettings);
       if (Array.isArray(backup.auditLogs)) setAuditLogs(backup.auditLogs);
       addAuditLog('استعادة نسخة احتياطية', `استبدال شامل لكافة بيانات المنظومة من نسخة احتياطية (${backup.issues?.length || 0} تذكرة)`);
+      addNotification(
+        'استعادة نسخة احتياطية 💾',
+        `تم استبدال واستعادة كافة بيانات المنظومة بنجاح (${backup.issues?.length || 0} تذكرة)`,
+        undefined,
+        'success'
+      );
     } else {
       // Merge mode: Add missing items without overwriting existing IDs
       if (Array.isArray(backup.issues)) {
@@ -3176,6 +3274,7 @@ export default function App() {
         setCannedResponses((prev) => Array.from(new Set([...prev, ...backup.cannedResponses])));
       }
       addAuditLog('دمج نسخة احتياطية', `تم دمج بيانات جديدة من نسخة احتياطية ذكياً`);
+      addNotification('دمج نسخة احتياطية 💾', 'تم دمج البيانات الجديدة من النسخة الاحتياطية بنجاح', undefined, 'success');
     }
   };
 
@@ -3206,6 +3305,7 @@ export default function App() {
       } catch (e) {
         console.error('Error clearing localStorage', e);
       }
+      addNotification('إعادة ضبط المصنع ⚠️', 'تمت استعادة الإعدادات والبيانات الأولية للمنظومة بنجاح', undefined, 'danger');
       alert('تمت استعادة المنظومة بنجاح إلى الإعدادات الأولية!');
     }
   };
