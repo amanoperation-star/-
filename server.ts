@@ -1432,6 +1432,63 @@ wss.on('connection', (ws, request) => {
           break;
         }
 
+        case 'ticket:delete': {
+          const { issueId, actor } = data;
+          if (issueId) {
+            state.issues = (state.issues || []).filter((i) => i.id !== issueId);
+            if (!state.deletedIssueIds) state.deletedIssueIds = [];
+            if (!state.deletedIssueIds.includes(issueId)) state.deletedIssueIds.push(issueId);
+            saveDatabase();
+            deleteIssuesFromSupabase([issueId]).catch(() => {});
+            broadcast(
+              {
+                type: 'ticket:deleted',
+                issueId,
+                actor: actor || clientInfo.name || 'مدير النظام',
+              },
+              ws
+            );
+          }
+          break;
+        }
+
+        case 'ticket:bulk_delete': {
+          const { issueIds, actor } = data;
+          if (Array.isArray(issueIds) && issueIds.length > 0) {
+            const idsSet = new Set(issueIds);
+            state.issues = (state.issues || []).filter((i) => !idsSet.has(i.id));
+            if (!state.deletedIssueIds) state.deletedIssueIds = [];
+            issueIds.forEach((id: string) => {
+              if (!state.deletedIssueIds!.includes(id)) state.deletedIssueIds!.push(id);
+            });
+            saveDatabase();
+            deleteIssuesFromSupabase(issueIds).catch(() => {});
+            broadcast(
+              {
+                type: 'ticket:bulk_deleted',
+                issueIds,
+                actor: actor || clientInfo.name || 'مدير النظام',
+              },
+              ws
+            );
+          }
+          break;
+        }
+
+        case 'tickets:clear': {
+          const { actor } = data;
+          state.issues = [];
+          saveDatabase();
+          broadcast(
+            {
+              type: 'tickets:cleared',
+              actor: actor || clientInfo.name || 'مدير النظام',
+            },
+            ws
+          );
+          break;
+        }
+
         case 'supabase:config_update': {
           const { config } = data;
           if (config) {

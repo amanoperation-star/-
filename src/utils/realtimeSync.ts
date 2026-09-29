@@ -1,4 +1,4 @@
-import { Issue, AppUser, CategoryRule, GeneralSettings, SoundSettings, AuditLog, ExternalVendor, CabBusinessActivity } from '../types';
+import { Issue, AppUser, CabBusinessActivity, ExternalVendor, SlaSettings } from '../types';
 
 export type SyncConnectionStatus = 'connected' | 'connecting' | 'disconnected' | 'offline';
 
@@ -30,52 +30,471 @@ export interface RealtimeEventHandlers {
 }
 
 class RealtimeSyncManager {
-  private status: SyncConnectionStatus = 'connected';
+  private socket: WebSocket | null = null;
+  private status: SyncConnectionStatus = 'connecting';
   private handlers: RealtimeEventHandlers | null = null;
   private currentUser: AppUser | null = null;
+  private reconnectTimer: any = null;
+  private heartbeatTimer: any = null;
+  private reconnectAttempts = 0;
+  private maxReconnectAttempts = 30;
+  private messageQueue: string[] = [];
+  private isDestroyed = false;
+  private lastPongTime = Date.now();
 
   public init(handlers: RealtimeEventHandlers, currentUser: AppUser) {
     this.handlers = handlers;
     this.currentUser = currentUser;
-    this.setStatus('connected');
+    this.isDestroyed = false;
+    this.reconnectAttempts = 0;
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', this.handleOnline);
+      window.addEventListener('offline', this.handleOffline);
+    }
+
+    this.connect();
   }
 
   public updateCurrentUser(user: AppUser) {
     this.currentUser = user;
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      this.send({
+        type: 'presence:join',
+        user: {
+          id: user.id,
+          name: user.name,
+          role: user.role,
+          department: user.department,
+          location: user.department || 'الفرع الرئيسي',
+        },
+      });
+    }
+  }
+
+  private handleOnline = () => {
+    console.log('[RealtimeSync] Network back online, reconnecting...');
+    this.setStatus('connecting');
+    this.connect();
+  };
+
+  private handleOffline = () => {
+    console.log('[RealtimeSync] Network offline');
+    this.setStatus('offline');
+    this.closeSocket();
+  };
+
+  private connect() {
+    if (this.isDestroyed || typeof window === 'undefined') return;
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      this.setStatus('offline');
+      return;
+    }
+
+    this.closeSocket();
+    this.setStatus('connecting');
+
+    try {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.host}/ws`;
+
+      this.socket = new WebSocket(wsUrl);
+
+      this.socket.onopen = () => {
+        if (this.isDestroyed) {
+          this.closeSocket();
+          return;
+        }
+        console.log('[RealtimeSync] WebSocket connected successfully to', wsUrl);
+        this.reconnectAttempts = 0;
+        this.setStatus('connected');
+        this.lastPongTime = Date.now();
+
+        // 1. Send Presence Join
+        if (this.currentUser) {
+          this.send({
+            type: 'presence:join',
+            user: {
+              id: this.currentUser.id,
+              name: this.currentUser.name,
+              role: this.currentUser.role,
+              department: this.currentUser.department,
+              location: this.currentUser.department || 'الفرع الرئيسي',
+            },
+          });
+        }
+
+        // 2. Flush queued messages
+        while (this.messageQueue.length > 0) {
+          const queued = this.messageQueue.shift();
+          if (queued) {
+            try {
+              this.socket?.send(queued);
+            } catch (err) {
+              console.warn('[RealtimeSync] Error sending queued message:', err);
+            }
+          }
+        }
+
+        // 3. Start Heartbeat
+        this.startHeartbeat();
+      };
+
+      this.socket.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          this.handleIncomingMessage(data);
+        } catch (err) {
+          console.error('[RealtimeSync] Error parsing incoming WS message:', err);
+        }
+      };
+
+      this.socket.onclose = (_event) => {
+        this.stopHeartbeat();
+        if (!this.isDestroyed) {
+          this.setStatus('disconnected');
+          this.scheduleReconnect();
+        }
+      };
+
+      this.socket.onerror = (err) => {
+        console.warn('[RealtimeSync] WebSocket connection error:', err);
+        this.stopHeartbeat();
+        if (!this.isDestroyed) {
+          this.setStatus('disconnected');
+        }
+      };
+    } catch (err) {
+      console.error('[RealtimeSync] Failed to instantiate WebSocket:', err);
+      this.setStatus('disconnected');
+      this.scheduleReconnect();
+    }
+  }
+
+  private handleIncomingMessage(data: any) {
+    if (!data || !data.type) return;
+
+    switch (data.type) {
+      case 'pong':
+        this.lastPongTime = Date.now();
+        break;
+
+      case 'init':
+        if (Array.isArray(data.activeUsers)) {
+          this.handlers?.onPresenceUpdated(data.activeUsers, data.totalConnections || 1);
+        }
+        if (data.collisions) {
+          this.handlers?.onCollisionsUpdated?.(data.collisions);
+        }
+        if (data.state) {
+          this.handlers?.onStateSynced(data.state);
+        }
+        break;
+
+      case 'presence:updated':
+        if (Array.isArray(data.activeUsers)) {
+          this.handlers?.onPresenceUpdated(data.activeUsers, data.totalConnections || 1);
+        }
+        break;
+
+      case 'collisions:updated':
+        if (data.collisions) {
+          this.handlers?.onCollisionsUpdated?.(data.collisions);
+        }
+        break;
+
+      case 'ticket:created':
+        if (data.issue) {
+          this.handlers?.onTicketCreated(data.issue, data.author || 'عضو في الفريق', data.location);
+        }
+        break;
+
+      case 'ticket:updated':
+        if (data.issue) {
+          this.handlers?.onTicketUpdated(data.issue, data.actor || 'عضو في الفريق', data.changeType, data.details);
+        }
+        break;
+
+      case 'ticket:comment_added':
+        if (data.issueId && data.comment) {
+          this.handlers?.onTicketCommentAdded(data.issueId, data.comment, data.actor || 'عضو في الفريق');
+        }
+        break;
+
+      case 'ticket:deleted':
+        if (data.issueId) {
+          this.handlers?.onTicketDeleted(data.issueId, data.actor || 'مدير النظام');
+        }
+        break;
+
+      case 'ticket:bulk_deleted':
+        if (Array.isArray(data.issueIds)) {
+          this.handlers?.onTicketBulkDeleted?.(data.issueIds, data.actor || 'مدير النظام');
+        }
+        break;
+
+      case 'tickets:cleared':
+        this.handlers?.onTicketsCleared?.(data.actor || 'مدير النظام');
+        break;
+
+      case 'cab:created':
+        if (data.activity) {
+          this.handlers?.onCabCreated?.(data.activity, data.author || 'عضو في الفريق');
+        }
+        break;
+
+      case 'cab:updated':
+        if (data.activity) {
+          this.handlers?.onCabUpdated?.(data.activity, data.author || 'عضو في الفريق', data.details);
+        }
+        break;
+
+      case 'cab:deleted':
+        if (data.activityId) {
+          this.handlers?.onCabDeleted?.(data.activityId, data.author || 'مدير النظام');
+        }
+        break;
+
+      case 'supabase:config_updated':
+        if (data.supabaseConfig) {
+          this.handlers?.onSupabaseConfigUpdated?.(data.supabaseConfig);
+        }
+        break;
+
+      case 'state:synced':
+        if (data.state) {
+          this.handlers?.onStateSynced(data.state);
+        }
+        break;
+
+      default:
+        break;
+    }
+  }
+
+  private startHeartbeat() {
+    this.stopHeartbeat();
+    this.heartbeatTimer = setInterval(() => {
+      if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+        // Send Ping
+        this.send({ type: 'ping' });
+        // Check if pong was missed for more than 40s
+        if (Date.now() - this.lastPongTime > 40000) {
+          console.warn('[RealtimeSync] Ping timeout, reconnecting...');
+          this.connect();
+        }
+      }
+    }, 20000);
+  }
+
+  private stopHeartbeat() {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+  }
+
+  private scheduleReconnect() {
+    if (this.reconnectTimer || this.isDestroyed) return;
+    this.reconnectAttempts++;
+    const delay = Math.min(1000 * Math.pow(1.5, Math.min(this.reconnectAttempts, 8)), 12000);
+
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      if (!this.isDestroyed) {
+        this.connect();
+      }
+    }, delay);
+  }
+
+  private closeSocket() {
+    this.stopHeartbeat();
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    if (this.socket) {
+      try {
+        this.socket.onopen = null;
+        this.socket.onclose = null;
+        this.socket.onerror = null;
+        this.socket.onmessage = null;
+        this.socket.close();
+      } catch {}
+      this.socket = null;
+    }
   }
 
   private setStatus(newStatus: SyncConnectionStatus) {
-    this.status = newStatus;
-    this.handlers?.onStatusChanged(newStatus);
+    if (this.status !== newStatus) {
+      this.status = newStatus;
+      this.handlers?.onStatusChanged(newStatus);
+    }
   }
 
   public getStatus(): SyncConnectionStatus {
     return this.status;
   }
 
-  // All broadcast and sync methods are now completely no-op to eliminate local Express server/WS dependencies.
-  // Real-time synchronization is handled directly and robustly via Supabase Postgres Changes and Broadcast channel subscriptions.
-  public async broadcastTicketCreate(_issue: Issue, _author: string, _location?: string) {}
-  public async broadcastTicketUpdate(_issue: Issue, _actor: string, _changeType?: string, _details?: string) {}
-  public async broadcastComment(_issueId: string, _comment: any, _actor: string) {}
-  public async broadcastTicketDelete(_issueId: string, _actor: string) {}
-  public async broadcastBulkTicketDelete(_issueIds: string[], _actor: string) {}
-  public async broadcastClearAllTickets(_actor: string) {}
-  public async broadcastCabCreate(_activity: CabBusinessActivity, _author: string) {}
-  public async broadcastCabUpdate(_activity: CabBusinessActivity, _author: string, _details?: string) {}
-  public async broadcastCabDelete(_activityId: string, _author: string) {}
-  
+  private send(payload: any) {
+    const raw = JSON.stringify(payload);
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      try {
+        this.socket.send(raw);
+      } catch (err) {
+        console.warn('[RealtimeSync] Failed to send message, queuing:', err);
+        this.enqueue(raw);
+      }
+    } else {
+      this.enqueue(raw);
+    }
+  }
+
+  private enqueue(raw: string) {
+    if (this.messageQueue.length > 50) {
+      this.messageQueue.shift();
+    }
+    this.messageQueue.push(raw);
+  }
+
+  // --- Broadcast methods called by the app ---
+
+  public async broadcastTicketCreate(issue: Issue, author: string, location?: string) {
+    this.send({
+      type: 'ticket:create',
+      issue,
+      author,
+      location,
+    });
+  }
+
+  public async broadcastTicketUpdate(issue: Issue, actor: string, changeType?: string, details?: string) {
+    this.send({
+      type: 'ticket:update',
+      issue,
+      actor,
+      changeType,
+      details,
+    });
+  }
+
+  public async broadcastComment(issueId: string, comment: any, actor: string) {
+    this.send({
+      type: 'ticket:comment',
+      issueId,
+      comment,
+      actor,
+    });
+  }
+
+  public async broadcastTicketDelete(issueId: string, actor: string) {
+    this.send({
+      type: 'ticket:delete',
+      issueId,
+      actor,
+    });
+  }
+
+  public async broadcastBulkTicketDelete(issueIds: string[], actor: string) {
+    this.send({
+      type: 'ticket:bulk_delete',
+      issueIds,
+      actor,
+    });
+  }
+
+  public async broadcastClearAllTickets(actor: string) {
+    this.send({
+      type: 'tickets:clear',
+      actor,
+    });
+  }
+
+  public async broadcastCabCreate(activity: CabBusinessActivity, author: string) {
+    this.send({
+      type: 'cab:create',
+      activity,
+      author,
+    });
+  }
+
+  public async broadcastCabUpdate(activity: CabBusinessActivity, author: string, details?: string) {
+    this.send({
+      type: 'cab:update',
+      activity,
+      author,
+      details,
+    });
+  }
+
+  public async broadcastCabDelete(activityId: string, author: string) {
+    this.send({
+      type: 'cab:delete',
+      activityId,
+      author,
+    });
+  }
+
+  public async broadcastSupabaseConfig(config: any) {
+    this.send({
+      type: 'supabase:config_update',
+      config,
+    });
+  }
+
+  public sendTicketFocus(ticketId: string, action: 'viewing' | 'editing' | 'working', user: any) {
+    this.send({
+      type: 'ticket:focus',
+      ticketId,
+      action,
+      user,
+    });
+  }
+
+  public sendTicketBlur(ticketId: string) {
+    this.send({
+      type: 'ticket:blur',
+      ticketId,
+    });
+  }
+
   public async fetchServerState() {
+    try {
+      const res = await fetch('/api/state');
+      if (res.ok) {
+        const fullState = await res.json();
+        if (this.handlers) {
+          this.handlers.onStateSynced(fullState);
+        }
+        return fullState;
+      }
+    } catch (err) {
+      console.warn('[RealtimeSync] fetchServerState error:', err);
+    }
     return null;
   }
 
-  public async seedInitialServerData(_data: any) {}
-  public async broadcastSupabaseConfig(_config: any) {}
-  
-  public sendTicketFocus(_ticketId: string, _action: 'viewing' | 'editing' | 'working', _user: any) {}
-  public sendTicketBlur(_ticketId: string) {}
-  
-  public destroy() {}
+  public async seedInitialServerData(data: any) {
+    try {
+      await fetch('/api/seed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+    } catch (err) {
+      console.warn('[RealtimeSync] seedInitialServerData error:', err);
+    }
+  }
+
+  public destroy() {
+    this.isDestroyed = true;
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('online', this.handleOnline);
+      window.removeEventListener('offline', this.handleOffline);
+    }
+    this.closeSocket();
+  }
 }
 
 export const realtimeSync = new RealtimeSyncManager();

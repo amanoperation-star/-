@@ -70,6 +70,7 @@ interface HeaderProps {
   onlineUsers?: ActiveUserPresence[];
   totalConnections?: number;
   onRefreshRealtime?: () => void;
+  onTriggerDemoToast?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -100,6 +101,7 @@ export const Header: React.FC<HeaderProps> = ({
   onlineUsers = [],
   totalConnections = 1,
   onRefreshRealtime,
+  onTriggerDemoToast,
 }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
@@ -276,8 +278,9 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Cloud Connection Light Indicator */}
           <div
-            className="px-2.5 py-1.5 rounded-xl flex items-center gap-1.5 text-xs font-bold transition-all duration-300 bg-emerald-500/15 dark:bg-emerald-950/70 border border-emerald-500/50 dark:border-emerald-400/50 text-emerald-700 dark:text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.3)] ring-1 ring-emerald-400/30 select-none"
-            title="السحابة المركزية مسجلة ومزامنة تلقائياً 🟢 - المزامنة اللحظية مفعلة بين جميع الأجهزة والمتصفحات فوراً بدون تسجيل"
+            onClick={onTriggerDemoToast}
+            className="px-2.5 py-1.5 rounded-xl flex items-center gap-1.5 text-xs font-bold transition-all duration-300 bg-emerald-500/15 dark:bg-emerald-950/70 border border-emerald-500/50 dark:border-emerald-400/50 text-emerald-700 dark:text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.3)] ring-1 ring-emerald-400/30 select-none cursor-pointer hover:bg-emerald-500/25 active:scale-95"
+            title="السحابة المركزية مسجلة ومزامنة تلقائياً 🟢 - المزامنة اللحظية مفعلة (انقر لتجربة التنبيه السحابي الفوري)"
             aria-label="حالة الاتصال السحابي: السحابة مسجلة ومتصلة تلقائياً"
           >
             <span className="relative flex h-2 w-2">
@@ -323,14 +326,26 @@ export const Header: React.FC<HeaderProps> = ({
                     <Bell className="w-3.5 h-3.5 text-indigo-500" />
                     <span>التنبيهات المباشرة ({notifications.length})</span>
                   </span>
-                  {notifications.length > 0 && (
-                    <button
-                      onClick={onClearNotifications}
-                      className="text-rose-500 hover:underline text-[10px] font-bold"
-                    >
-                      مسح الكل
-                    </button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {onTriggerDemoToast && (
+                      <button
+                        onClick={onTriggerDemoToast}
+                        className="text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-700 px-2 py-0.5 rounded-lg text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
+                        title="تجربة ظهور التنبيه السحابي الفوري من الصورة المرفقة"
+                      >
+                        <Radio className="w-2.5 h-2.5 animate-pulse text-emerald-500" />
+                        <span>تجربة التنبيه 🌐</span>
+                      </button>
+                    )}
+                    {notifications.length > 0 && (
+                      <button
+                        onClick={onClearNotifications}
+                        className="text-rose-500 hover:underline text-[10px] font-bold"
+                      >
+                        مسح الكل
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="max-h-72 overflow-y-auto space-y-2 pr-0.5">
                   {notifications.length === 0 ? (
