@@ -46,7 +46,7 @@ import {
   CheckCircle,
   HelpCircle as QuestionIcon
 } from 'lucide-react';
-import { AppUser, NotificationItem, SoundSettings, GeneralSettings } from '../types';
+import { AppUser, NotificationItem, SoundSettings, GeneralSettings, Issue } from '../types';
 import { ActiveUserPresence, SyncConnectionStatus } from '../utils/realtimeSync';
 
 interface HeaderProps {
@@ -54,6 +54,7 @@ interface HeaderProps {
   setCurrentTab: (tab: 'dashboard' | 'issues' | 'sla' | 'customer' | 'admin' | 'cab' | 'analytics') => void;
   currentUser: AppUser;
   users: AppUser[];
+  issues?: Issue[];
   onSwitchUser: (user: AppUser) => void;
   onLogout?: () => void;
   breachedCount: number;
@@ -205,6 +206,7 @@ export const Header: React.FC<HeaderProps> = ({
   setCurrentTab,
   currentUser,
   users,
+  issues = [],
   onSwitchUser,
   onLogout,
   breachedCount,
@@ -234,6 +236,8 @@ export const Header: React.FC<HeaderProps> = ({
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [showSectionsHub, setShowSectionsHub] = useState(false);
+
+  const activeTicketsCount = issues?.filter((i) => i.status !== 'Resolved' && i.status !== 'Closed').length ?? 0;
 
   // Switch User Password Modal state
   const [showSwitchModal, setShowSwitchModal] = useState(false);
@@ -644,23 +648,23 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Secondary Dedicated Navigation Bar (شريط التبويبات المطور - تصميم منطقي ومرتب وسهل الوصول لجميع الأقسام) */}
-      <div className="bg-slate-50/95 dark:bg-slate-950/90 border-t border-slate-200/90 dark:border-slate-800/90 px-4 py-2 shadow-xs select-none">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2.5">
-          {/* Main Navigation Tabs */}
-          <nav className="flex items-center flex-wrap gap-1.5 sm:gap-2">
-            {/* 1. Issues / Tickets List (Always Primary) */}
+      {/* Secondary Dedicated Navigation Bar (شريط التبويبات الفاخر - صف واحد مدمج بدون انكسار مع الحفاظ التام على زر دليل وخريطة الأقسام) */}
+      <div className="bg-[#090f1d]/95 dark:bg-[#070c18]/95 border-t border-b border-slate-800/80 px-4 py-2 select-none">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
+          {/* Main Navigation Tabs - Single Line Overflow Scroll Without Wrapping */}
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 min-w-0 flex-1">
+            {/* 1. Issues / Tickets List */}
             <button
               type="button"
               onClick={() => setCurrentTab('issues')}
-              className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-black transition-all duration-150 flex items-center gap-2 cursor-pointer shrink-0 ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 flex items-center gap-2 cursor-pointer shrink-0 ${
                 currentTab === 'issues'
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30 ring-2 ring-blue-400/30'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-800/70'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30 ring-1 ring-blue-400/40'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/70 border border-transparent'
               }`}
             >
-              <ListTodo className={`w-4 h-4 transition-transform ${currentTab === 'issues' ? 'scale-110 text-white' : 'text-blue-500 dark:text-blue-400'}`} />
-              <span>سجل المشاكل والبلاغات</span>
+              <ListTodo className={`w-3.5 h-3.5 ${currentTab === 'issues' ? 'text-white' : 'text-blue-400'}`} />
+              <span className="whitespace-nowrap">سجل المشاكل والبلاغات</span>
             </button>
 
             {/* 2. Dashboard (Admin only) */}
@@ -668,14 +672,14 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 type="button"
                 onClick={() => setCurrentTab('dashboard')}
-                className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-black transition-all duration-150 flex items-center gap-2 cursor-pointer shrink-0 ${
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 flex items-center gap-2 cursor-pointer shrink-0 ${
                   currentTab === 'dashboard'
-                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 ring-2 ring-indigo-400/30'
-                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-800/70'
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 ring-1 ring-indigo-400/40'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800/70 border border-transparent'
                 }`}
               >
-                <LayoutDashboard className={`w-4 h-4 transition-transform ${currentTab === 'dashboard' ? 'scale-110 text-white' : 'text-indigo-500 dark:text-indigo-400'}`} />
-                <span>لوحة المؤشرات العامة</span>
+                <LayoutDashboard className={`w-3.5 h-3.5 ${currentTab === 'dashboard' ? 'text-white' : 'text-indigo-400'}`} />
+                <span className="whitespace-nowrap">لوحة المؤشرات العامة</span>
               </button>
             )}
 
@@ -683,71 +687,69 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               type="button"
               onClick={() => setCurrentTab('sla')}
-              className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-black transition-all duration-150 flex items-center gap-2 cursor-pointer shrink-0 relative ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 flex items-center gap-2 cursor-pointer shrink-0 relative ${
                 currentTab === 'sla'
-                  ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30 ring-2 ring-amber-400/30'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-800/70'
+                  ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30 ring-1 ring-amber-400/40'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/70 border border-transparent'
               }`}
             >
-              <Clock className={`w-4 h-4 transition-transform ${currentTab === 'sla' ? 'scale-110 text-white' : 'text-amber-500 dark:text-amber-400'}`} />
-              <span>إدارة اتفاقيات SLA</span>
+              <Clock className={`w-3.5 h-3.5 ${currentTab === 'sla' ? 'text-white' : 'text-amber-400'}`} />
+              <span className="whitespace-nowrap">إدارة اتفاقيات SLA</span>
               {breachedCount > 0 && (
-                <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-rose-500 text-white font-mono font-black animate-pulse shadow-xs">
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-rose-500 text-white font-mono font-black animate-pulse">
                   {breachedCount}
                 </span>
               )}
             </button>
 
-            {/* Separator */}
-            <div className="h-5 w-px bg-slate-300 dark:bg-slate-700 mx-0.5 hidden sm:block shrink-0" />
+            {/* Vertical Separator Divider */}
+            <div className="h-4 w-px bg-slate-800 mx-1 shrink-0" />
 
             {/* 4. Customer Portal */}
             <button
               type="button"
               onClick={() => setCurrentTab('customer')}
-              className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-black transition-all duration-150 flex items-center gap-2 cursor-pointer shrink-0 ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 flex items-center gap-2 cursor-pointer shrink-0 ${
                 currentTab === 'customer'
-                  ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30 ring-2 ring-purple-400/30'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-800/70'
+                  ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30 ring-1 ring-purple-400/40'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/70 border border-transparent'
               }`}
             >
-              <Globe className={`w-4 h-4 transition-transform ${currentTab === 'customer' ? 'scale-110 text-white' : 'text-purple-500 dark:text-purple-400'}`} />
-              <span>بوابة متابعة العميل</span>
+              <Globe className={`w-3.5 h-3.5 ${currentTab === 'customer' ? 'text-white' : 'text-purple-400'}`} />
+              <span className="whitespace-nowrap">بوابة متابعة العميل</span>
             </button>
 
             {/* 5. CAB Board */}
             <button
               type="button"
               onClick={() => setCurrentTab('cab')}
-              className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-black transition-all duration-150 flex items-center gap-2 cursor-pointer shrink-0 ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 flex items-center gap-2 cursor-pointer shrink-0 ${
                 currentTab === 'cab'
-                  ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/30 ring-2 ring-cyan-400/30'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-800/70'
+                  ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/30 ring-1 ring-cyan-400/40'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/70 border border-transparent'
               }`}
             >
-              <Layers className={`w-4 h-4 transition-transform ${currentTab === 'cab' ? 'scale-110 text-white' : 'text-cyan-500 dark:text-cyan-400'}`} />
-              <span>اعتماد التغييرات (CAB)</span>
+              <Layers className={`w-3.5 h-3.5 ${currentTab === 'cab' ? 'text-white' : 'text-cyan-400'}`} />
+              <span className="whitespace-nowrap">اعتماد التغييرات (CAB)</span>
             </button>
+
+            {/* Vertical Separator Divider */}
+            {currentUser.role === 'Admin' && <div className="h-4 w-px bg-slate-800 mx-1 shrink-0" />}
 
             {/* 6. Analytics (Admin only) */}
             {currentUser.role === 'Admin' && (
               <button
                 type="button"
                 onClick={() => setCurrentTab('analytics')}
-                className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-black transition-all duration-150 flex items-center gap-2 cursor-pointer shrink-0 ${
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 flex items-center gap-2 cursor-pointer shrink-0 ${
                   currentTab === 'analytics'
-                    ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30 ring-2 ring-sky-400/30'
-                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-800/70'
+                    ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30 ring-1 ring-sky-400/40'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800/70 border border-transparent'
                 }`}
               >
-                <BarChart3 className={`w-4 h-4 transition-transform ${currentTab === 'analytics' ? 'scale-110 text-white' : 'text-sky-500 dark:text-sky-400'}`} />
-                <span>التحليلات والرسوم البيانية</span>
+                <BarChart3 className={`w-3.5 h-3.5 ${currentTab === 'analytics' ? 'text-white' : 'text-sky-400'}`} />
+                <span className="whitespace-nowrap">التحليلات والرسوم البيانية</span>
               </button>
-            )}
-
-            {/* Separator */}
-            {currentUser.role === 'Admin' && (
-              <div className="h-5 w-px bg-slate-300 dark:bg-slate-700 mx-0.5 hidden sm:block shrink-0" />
             )}
 
             {/* 7. Admin View (Admin only) */}
@@ -755,29 +757,29 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 type="button"
                 onClick={() => setCurrentTab('admin')}
-                className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-black transition-all duration-150 flex items-center gap-2 cursor-pointer shrink-0 ${
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 flex items-center gap-2 cursor-pointer shrink-0 ${
                   currentTab === 'admin'
-                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30 ring-2 ring-emerald-400/30'
-                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-800/70'
+                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30 ring-1 ring-emerald-400/40'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800/70 border border-transparent'
                 }`}
               >
-                <ShieldCheck className={`w-4 h-4 transition-transform ${currentTab === 'admin' ? 'scale-110 text-white' : 'text-emerald-500 dark:text-emerald-400'}`} />
-                <span>لوحة الإدارة الشاملة</span>
+                <ShieldCheck className={`w-3.5 h-3.5 ${currentTab === 'admin' ? 'text-white' : 'text-emerald-400'}`} />
+                <span className="whitespace-nowrap">لوحة الإدارة الشاملة</span>
               </button>
             )}
-          </nav>
+          </div>
 
-          {/* All Sections & Workspaces Hub Button */}
-          <div className="flex items-center gap-2 mr-auto">
+          {/* Fixed "دليل وخريطة الأقسام" Button on the side - Always Preserved & Unwrapped */}
+          <div className="shrink-0 flex items-center">
             <button
               type="button"
               onClick={() => setShowSectionsHub(true)}
-              className="px-3 py-1.5 rounded-xl bg-slate-200/80 hover:bg-indigo-100 dark:bg-slate-800/80 dark:hover:bg-indigo-950/60 text-slate-700 hover:text-indigo-700 dark:text-slate-200 dark:hover:text-indigo-300 text-xs font-bold transition flex items-center gap-1.5 border border-slate-300/80 dark:border-slate-700 shadow-2xs cursor-pointer active:scale-95"
+              className="px-3.5 py-1.5 rounded-xl bg-indigo-950/80 hover:bg-indigo-900/90 text-indigo-200 text-xs font-bold transition flex items-center gap-2 border border-indigo-700/60 shadow-sm cursor-pointer active:scale-95 whitespace-nowrap"
               title="عرض خريطة ودليل الأقسام الشامل لكافة خدمات المنظومة"
             >
-              <Compass className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 animate-spin-slow" />
+              <Compass className="w-4 h-4 text-indigo-400 animate-spin-slow" />
               <span>دليل وخريطة الأقسام</span>
-              <span className="bg-indigo-600 text-white text-[10px] px-1.5 py-0.2 rounded-md font-mono">
+              <span className="bg-indigo-600 text-white text-[10px] px-1.5 py-0.2 rounded-md font-mono font-black">
                 {currentUser.role === 'Admin' ? '7 أقسام' : '4 أقسام'}
               </span>
             </button>
@@ -938,27 +940,22 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
       )}
-      {/* Sections Directory & Workspaces Hub Modal (خريطة ودليل كافة الأقسام والخدمات بالمنظومة) */}
+      {/* Sections Directory & Workspaces Hub Modal (بطاقات التنقل بنفس الشكل والستايل المرفق بالصورة بدقة) */}
       {showSectionsHub && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 animate-fadeIn">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-4xl rounded-3xl shadow-2xl p-5 sm:p-6 space-y-5 text-right max-h-[90vh] overflow-y-auto custom-scrollbar">
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 animate-fadeIn">
+          <div className="bg-[#080e1a] border border-slate-800 w-full max-w-5xl rounded-3xl shadow-2xl p-5 sm:p-6 space-y-5 text-right max-h-[92vh] overflow-y-auto custom-scrollbar">
             {/* Modal Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-2xl bg-indigo-600/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-500/20 shadow-inner">
-                  <Compass className="w-6 h-6 animate-spin-slow" />
+                <div className="w-9 h-9 rounded-xl bg-blue-600/20 text-blue-400 flex items-center justify-center border border-blue-500/30">
+                  <Compass className="w-5 h-5" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-black text-base sm:text-lg text-slate-900 dark:text-white">
-                      دليل وخريطة أقسام المنظومة (Workspaces & Departments)
-                    </h3>
-                    <span className="text-[10px] font-bold bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full">
-                      نظام حديث ومتكامل
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    استعراض وتوجيه سريع لكافة أقسام وخدمات المنظومة مع توضيح مهام كل قسم وصلاحيات الوصول
+                  <h3 className="font-bold text-base sm:text-lg text-white">
+                    بطاقات التنقل وخريطة الأقسام
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    استعراض سريع لكافة أقسام وخدمات المنظومة — انقر على أي قسم للدخول المباشر
                   </p>
                 </div>
               </div>
@@ -966,258 +963,157 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 type="button"
                 onClick={() => setShowSectionsHub(false)}
-                className="w-9 h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white transition cursor-pointer"
-                title="إغلاق الدليل"
+                className="w-8 h-8 rounded-xl bg-slate-800/80 hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition cursor-pointer border border-slate-700/60"
+                title="إغلاق"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Hub Sections Grid Grouped Logically */}
-            <div className="space-y-6">
-              {/* Group 1: Operations */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                  <FolderKanban className="w-4 h-4 text-blue-500" />
-                  <span>1. أقسام العمليات والتشغيل الميداني</span>
-                  <div className="h-px bg-slate-200 dark:bg-slate-800 flex-1 mr-2" />
-                </div>
+            {/* Exact Navigation Cards Grid Matching User's Image */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {[
+                {
+                  id: 'issues' as const,
+                  title: 'سجل المشاكل والبلاغات',
+                  subtitle: 'متابعة وإدارة التذاكر والبلاغات الفنية الواردة لحظياً',
+                  badgeText: `${activeTicketsCount} تذكرة نشطة`,
+                  badgeStyle: 'bg-[#13284f] border-[#1e40af]/60 text-blue-300',
+                  iconBoxStyle: 'bg-[#132c54] border-[#1d4ed8]/50 text-blue-400',
+                  icon: ListTodo,
+                  adminOnly: false,
+                },
+                {
+                  id: 'analytics' as const,
+                  title: 'التحليلات والرسوم البيانية',
+                  subtitle: 'تقارير أداء النظام ورسوم بيانية شاملة لمعدلات الإنجاز',
+                  badgeText: 'حُدّثت اليوم',
+                  badgeStyle: 'bg-[#182235] border-slate-700/70 text-slate-300',
+                  iconBoxStyle: 'bg-[#241738] border-purple-800/50 text-purple-400',
+                  icon: BarChart3,
+                  adminOnly: true,
+                },
+                {
+                  id: 'dashboard' as const,
+                  title: 'لوحة المؤشرات العامة',
+                  subtitle: 'مؤشرات الأداء الرئيسية (KPIs) ونسب رضا العملاء',
+                  badgeText: '98.5% أداء',
+                  badgeStyle: 'bg-[#14292e] border-teal-800/50 text-teal-300',
+                  iconBoxStyle: 'bg-[#112d28] border-emerald-700/50 text-emerald-400',
+                  icon: LayoutDashboard,
+                  adminOnly: true,
+                },
+                {
+                  id: 'sla' as const,
+                  title: 'إدارة اتفاقيات SLA',
+                  subtitle: 'رصد المواعيد والتنبيهات الاستباقية لالتزام الخدمة وتفادي المتأخرات',
+                  badgeText: breachedCount > 0 ? `${breachedCount} متأخرة` : '100% التزام',
+                  badgeStyle: breachedCount > 0 ? 'bg-[#3b1515] border-rose-800/60 text-rose-300' : 'bg-[#2c1d10] border-amber-800/50 text-amber-300',
+                  iconBoxStyle: breachedCount > 0 ? 'bg-[#3b1515] border-rose-700/50 text-rose-400' : 'bg-[#33200d] border-amber-700/50 text-amber-400',
+                  icon: Clock,
+                  adminOnly: false,
+                },
+                {
+                  id: 'customer' as const,
+                  title: 'بوابة متابعة العميل',
+                  subtitle: 'منصة الخدمة الذاتية والتواصل المباشر وتتبع البلاغات عبر واتساب',
+                  badgeText: 'خدمة ذاتية',
+                  badgeStyle: 'bg-[#26153b] border-purple-800/50 text-purple-300',
+                  iconBoxStyle: 'bg-[#2b1338] border-pink-700/50 text-pink-400',
+                  icon: Globe,
+                  adminOnly: false,
+                },
+                {
+                  id: 'cab' as const,
+                  title: 'اعتماد التغييرات (CAB)',
+                  subtitle: 'جدولة أعمال الصيانة الدورية والتحديثات التقنية وإدارة المخاطر',
+                  badgeText: 'إدارة المخاطر',
+                  badgeStyle: 'bg-[#12283a] border-cyan-800/50 text-cyan-300',
+                  iconBoxStyle: 'bg-[#0f2938] border-cyan-700/50 text-cyan-400',
+                  icon: Layers,
+                  adminOnly: false,
+                },
+                {
+                  id: 'admin' as const,
+                  title: 'لوحة الإدارة والضبط الشامل',
+                  subtitle: 'إدارة صلاحيات المستخدمين والنسخ السحابي وقواعد البيانات والإنتاج',
+                  badgeText: 'تحكم كامل',
+                  badgeStyle: 'bg-[#162a22] border-emerald-800/50 text-emerald-300',
+                  iconBoxStyle: 'bg-[#132e22] border-emerald-700/50 text-emerald-400',
+                  icon: ShieldCheck,
+                  adminOnly: true,
+                },
+              ].map((card) => {
+                const isCurrent = currentTab === card.id;
+                const IconComponent = card.icon;
+                const isRestricted = card.adminOnly && currentUser.role !== 'Admin';
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  {SYSTEM_SECTIONS.filter((s) => s.category === 'operations').map((sec) => {
-                    const isCurrent = currentTab === sec.id;
-                    const IconComponent = sec.icon;
-                    return (
-                      <div
-                        key={sec.id}
-                        onClick={() => {
-                          setCurrentTab(sec.id);
-                          setShowSectionsHub(false);
-                        }}
-                        className={`group p-4 rounded-2xl border transition-all duration-200 flex flex-col justify-between cursor-pointer relative overflow-hidden ${
-                          isCurrent
-                            ? 'bg-blue-50/60 dark:bg-blue-950/30 border-blue-400 dark:border-blue-600 shadow-md ring-2 ring-blue-400/20'
-                            : 'bg-slate-50/70 dark:bg-slate-800/40 hover:bg-white dark:hover:bg-slate-800/90 border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-md'
-                        }`}
-                      >
-                        {isCurrent && (
-                          <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-600 text-white shadow-xs">
-                            أنت هنا الآن 📍
-                          </div>
-                        )}
-                        <div className="space-y-2.5">
-                          <div className="flex items-center gap-2.5">
-                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isCurrent ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-200/80 dark:bg-slate-700/80 group-hover:bg-blue-500 group-hover:text-white transition'}`}>
-                              <IconComponent className="w-5 h-5" />
-                            </div>
-                            <div>
-                              <h4 className="font-extrabold text-sm text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">
-                                {sec.title}
-                              </h4>
-                              <p className="text-[10px] text-slate-500 dark:text-slate-400">{sec.subtitle}</p>
-                            </div>
-                          </div>
-                          <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                            {sec.description}
-                          </p>
-                        </div>
+                return (
+                  <div
+                    key={card.id}
+                    onClick={() => {
+                      if (isRestricted) return;
+                      setCurrentTab(card.id);
+                      setShowSectionsHub(false);
+                    }}
+                    className={`group p-4 sm:p-5 rounded-2xl transition-all duration-200 flex flex-col justify-between select-none relative ${
+                      isRestricted
+                        ? 'opacity-50 bg-[#080d19] border border-slate-800/80 cursor-not-allowed'
+                        : isCurrent
+                        ? 'bg-[#0e1b33] border-2 border-blue-500 shadow-[0_0_24px_rgba(59,130,246,0.22)] ring-1 ring-blue-500/50 cursor-pointer'
+                        : 'bg-[#0c1322] border border-slate-800/90 hover:border-slate-700 hover:bg-[#0e1628] hover:shadow-lg cursor-pointer'
+                    }`}
+                  >
+                    {/* Top Header Row: Badge on the left, Icon Box on the right */}
+                    <div className="flex items-center justify-between gap-2 mb-4">
+                      <span className={`px-2.5 py-1 rounded-lg text-xs font-bold border ${card.badgeStyle}`}>
+                        {card.badgeText}
+                      </span>
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${card.iconBoxStyle}`}>
+                        <IconComponent className="w-5 h-5" />
+                      </div>
+                    </div>
 
-                        <div className="pt-3 mt-3 border-t border-slate-200/60 dark:border-slate-800/60 flex items-center justify-between text-[11px] font-bold">
-                          <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                            <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
-                            <span>متاح للتشغيل الفوري</span>
+                    {/* Middle Body: Title & Subtitle */}
+                    <div className="space-y-1 mb-5 text-right">
+                      <h4 className="text-base font-bold text-white group-hover:text-blue-400 transition-colors">
+                        {card.title}
+                      </h4>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        {card.subtitle}
+                      </p>
+                    </div>
+
+                    {/* Bottom Footer Row: Action Text on Right, Arrow on Left */}
+                    <div className="flex items-center justify-between text-xs font-bold pt-2 border-t border-slate-800/70">
+                      {isRestricted ? (
+                        <span className="text-rose-400 text-xs flex items-center gap-1">
+                          <Lock className="w-3.5 h-3.5" />
+                          <span>يتطلب صلاحية المشرف</span>
+                        </span>
+                      ) : (
+                        <>
+                          <ArrowLeft className={`w-4 h-4 rtl:rotate-0 transition-transform ${isCurrent ? 'text-blue-400 -translate-x-1' : 'text-slate-400 group-hover:text-white group-hover:-translate-x-1'}`} />
+                          <span className={isCurrent ? 'text-blue-400 font-bold' : 'text-slate-400 group-hover:text-white transition-colors'}>
+                            {isCurrent ? 'القسم النشط حالياً' : 'الانتقال للقسم'}
                           </span>
-                          <span className={`flex items-center gap-1 ${isCurrent ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400'} transition`}>
-                            <span>فتح القسم</span>
-                            <ArrowLeft className="w-3.5 h-3.5 rtl:rotate-180" />
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Group 2: Monitoring & SLA */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                  <Clock className="w-4 h-4 text-amber-500" />
-                  <span>2. أقسام المتابعة والحوكمة ومستوى الخدمة (SLA & KPI)</span>
-                  <div className="h-px bg-slate-200 dark:bg-slate-800 flex-1 mr-2" />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  {SYSTEM_SECTIONS.filter((s) => s.category === 'monitoring').map((sec) => {
-                    const isCurrent = currentTab === sec.id;
-                    const IconComponent = sec.icon;
-                    const isRestricted = sec.adminOnly && currentUser.role !== 'Admin';
-
-                    return (
-                      <div
-                        key={sec.id}
-                        onClick={() => {
-                          if (isRestricted) return;
-                          setCurrentTab(sec.id);
-                          setShowSectionsHub(false);
-                        }}
-                        className={`group p-4 rounded-2xl border transition-all duration-200 flex flex-col justify-between relative overflow-hidden ${
-                          isRestricted
-                            ? 'opacity-60 bg-slate-100 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 cursor-not-allowed'
-                            : isCurrent
-                            ? 'bg-amber-50/60 dark:bg-amber-950/30 border-amber-400 dark:border-amber-600 shadow-md ring-2 ring-amber-400/20 cursor-pointer'
-                            : 'bg-slate-50/70 dark:bg-slate-800/40 hover:bg-white dark:hover:bg-slate-800/90 border-slate-200 dark:border-slate-800 hover:border-amber-300 dark:hover:border-amber-700 hover:shadow-md cursor-pointer'
-                        }`}
-                      >
-                        {isCurrent && (
-                          <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-600 text-white shadow-xs">
-                            أنت هنا الآن 📍
-                          </div>
-                        )}
-                        <div className="space-y-2.5">
-                          <div className="flex items-center gap-2.5">
-                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isCurrent ? 'bg-amber-600 text-white shadow-sm' : 'bg-slate-200/80 dark:bg-slate-700/80 group-hover:bg-amber-500 group-hover:text-white transition'}`}>
-                              <IconComponent className="w-5 h-5" />
-                            </div>
-                            <div>
-                              <div className="flex items-center gap-1.5">
-                                <h4 className="font-extrabold text-sm text-slate-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition">
-                                  {sec.title}
-                                </h4>
-                                {sec.adminOnly && (
-                                  <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-md bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
-                                    Admin
-                                  </span>
-                                )}
-                              </div>
-                              <p className="text-[10px] text-slate-500 dark:text-slate-400">{sec.subtitle}</p>
-                            </div>
-                          </div>
-                          <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                            {sec.description}
-                          </p>
-                        </div>
-
-                        <div className="pt-3 mt-3 border-t border-slate-200/60 dark:border-slate-800/60 flex items-center justify-between text-[11px] font-bold">
-                          {isRestricted ? (
-                            <span className="text-rose-500 text-[10px] flex items-center gap-1">
-                              <Lock className="w-3 h-3" />
-                              <span>يتطلب صلاحيات المشرف Admin</span>
-                            </span>
-                          ) : (
-                            <>
-                              <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                                <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
-                                <span>مراقبة وتحليل لحظي</span>
-                              </span>
-                              <span className={`flex items-center gap-1 ${isCurrent ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400 group-hover:text-amber-600 dark:group-hover:text-amber-400'} transition`}>
-                                <span>عرض القسم</span>
-                                <ArrowLeft className="w-3.5 h-3.5 rtl:rotate-180" />
-                              </span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Group 3: Central Administration */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                  <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                  <span>3. أقسام الإدارة والتحكم المركزي</span>
-                  <div className="h-px bg-slate-200 dark:bg-slate-800 flex-1 mr-2" />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {SYSTEM_SECTIONS.filter((s) => s.category === 'management').map((sec) => {
-                    const isCurrent = currentTab === sec.id;
-                    const IconComponent = sec.icon;
-                    const isRestricted = sec.adminOnly && currentUser.role !== 'Admin';
-
-                    return (
-                      <div
-                        key={sec.id}
-                        onClick={() => {
-                          if (isRestricted) return;
-                          setCurrentTab(sec.id);
-                          setShowSectionsHub(false);
-                        }}
-                        className={`group p-4 rounded-2xl border transition-all duration-200 flex flex-col justify-between relative overflow-hidden ${
-                          isRestricted
-                            ? 'opacity-60 bg-slate-100 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 cursor-not-allowed'
-                            : isCurrent
-                            ? 'bg-emerald-50/60 dark:bg-emerald-950/30 border-emerald-400 dark:border-emerald-600 shadow-md ring-2 ring-emerald-400/20 cursor-pointer'
-                            : 'bg-slate-50/70 dark:bg-slate-800/40 hover:bg-white dark:hover:bg-slate-800/90 border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-700 hover:shadow-md cursor-pointer'
-                        }`}
-                      >
-                        {isCurrent && (
-                          <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-600 text-white shadow-xs">
-                            أنت هنا الآن 📍
-                          </div>
-                        )}
-                        <div className="space-y-2.5">
-                          <div className="flex items-center gap-2.5">
-                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isCurrent ? 'bg-emerald-600 text-white shadow-sm' : 'bg-slate-200/80 dark:bg-slate-700/80 group-hover:bg-emerald-500 group-hover:text-white transition'}`}>
-                              <IconComponent className="w-5 h-5" />
-                            </div>
-                            <div>
-                              <div className="flex items-center gap-1.5">
-                                <h4 className="font-extrabold text-sm text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition">
-                                  {sec.title}
-                                </h4>
-                                {sec.adminOnly && (
-                                  <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-md bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
-                                    Admin
-                                  </span>
-                                )}
-                              </div>
-                              <p className="text-[10px] text-slate-500 dark:text-slate-400">{sec.subtitle}</p>
-                            </div>
-                          </div>
-                          <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                            {sec.description}
-                          </p>
-                        </div>
-
-                        <div className="pt-3 mt-3 border-t border-slate-200/60 dark:border-slate-800/60 flex items-center justify-between text-[11px] font-bold">
-                          {isRestricted ? (
-                            <span className="text-rose-500 text-[10px] flex items-center gap-1">
-                              <Lock className="w-3 h-3" />
-                              <span>يتطلب صلاحيات المشرف Admin</span>
-                            </span>
-                          ) : (
-                            <>
-                              <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                                <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
-                                <span>تحكم أمني وإعدادات شاملة</span>
-                              </span>
-                              <span className={`flex items-center gap-1 ${isCurrent ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400'} transition`}>
-                                <span>لوحة الإدارة</span>
-                                <ArrowLeft className="w-3.5 h-3.5 rtl:rotate-180" />
-                              </span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             {/* Modal Footer */}
-            <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
-              <span className="text-slate-500 dark:text-slate-400 font-medium">
-                💡 يمكنك في أي وقت النقر على أي قسم للانتقال الفوري إليه دون فقدان بياناتك المدخلة.
-              </span>
+            <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+              <span>💡 انقر على أي بطاقة للانتقال المباشر للقسم المطلوب.</span>
               <button
                 type="button"
                 onClick={() => setShowSectionsHub(false)}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold rounded-xl transition cursor-pointer"
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl transition cursor-pointer border border-slate-700/60"
               >
-                إغلاق الدليل
+                إغلاق
               </button>
             </div>
           </div>

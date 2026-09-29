@@ -3737,6 +3737,7 @@ export default function App() {
         setCurrentTab={setCurrentTab}
         currentUser={currentUser}
         users={users}
+        issues={issues}
         onSwitchUser={handleSwitchUser}
         onLogout={handleLogout}
         breachedCount={breachedCount}
