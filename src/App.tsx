@@ -446,82 +446,212 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [supabaseConfig.url, supabaseConfig.key]);
 
+  const mapSingleRowToUser = (row: any): AppUser => {
+    return {
+      id: row.id,
+      name: row.name || 'مستخدم جديد',
+      username: row.username || row.email?.split('@')[0] || 'user',
+      email: row.email || '',
+      role: row.role || 'Agent',
+      department: row.department || 'الدعم الفني',
+      avatar: row.avatar || row.avatar_url || `https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces`,
+      permissions: Array.isArray(row.permissions) ? row.permissions : [],
+      password: row.password || '123456',
+    };
+  };
+
+  const mapSingleRowToCab = (row: any): CabBusinessActivity => {
+    return {
+      id: row.id,
+      activityName: row.activity_name || row.activityName || 'نشاط صيانة',
+      scope: row.scope || '',
+      impactedServices: row.impacted_services || row.impactedServices || '',
+      serviceImpact: row.service_impact || row.serviceImpact || '',
+      stopServiceTargetSystem: row.stop_service_target_system || row.stopServiceTargetSystem || 'No',
+      stoppedSystemName: row.stopped_system_name || row.stoppedSystemName || '',
+      downtimeRequired: row.downtime_required || row.downtimeRequired || 'No',
+      date: row.date || '',
+      startTime: row.start_time || row.startTime || '',
+      endTime: row.end_time || row.endTime || '',
+      maintenanceWindow: row.maintenance_window || row.maintenanceWindow || '',
+      requestor: row.requestor || '',
+      tpm: row.tpm || '',
+      changeManagement: row.change_management || row.changeManagement || 'IT Change Management',
+      status: row.status || 'Pending Approval',
+      riskLevel: row.risk_level || row.riskLevel || 'Low',
+      rollbackPlan: row.rollback_plan || row.rollbackPlan || '',
+      rollbackReason: row.rollback_reason || row.rollbackReason || '',
+      comments: row.comments || [],
+      auditTrail: row.audit_trail || row.auditTrail || [],
+      createdAt: row.created_at || row.createdAt || new Date().toISOString(),
+    };
+  };
+
+  const handleIssueRealtime = (payload: any) => {
+    console.log('[Realtime Event Received - issues]:', payload);
+    if (payload.eventType === 'INSERT' && payload.new) {
+      const incoming = mapSingleRowToIssue(payload.new);
+      if (deletedIssueIdsRef.current.has(incoming.id)) return;
+      setIssues((prev) => {
+        if (prev.some((item) => item.id === incoming.id)) return prev;
+        return [incoming, ...prev];
+      });
+
+      // Play sound and show toast if it was created by someone else
+      if (incoming.owner !== currentUserRef.current.name) {
+        setLiveToast({
+          id: `toast-${Date.now()}`,
+          title: `تذكرة جديدة واردة الآن [${incoming.id}] 🚀`,
+          desc: `للعميل: ${incoming.client || 'عميل'} • الأولوية: ${incoming.priority}`,
+          ticketId: incoming.id,
+          author: incoming.owner || 'زميل في الفريق',
+        });
+        
+        addNotification(
+          `تذكرة جديدة [${incoming.id}] 📢`,
+          `تم تسجيل بلاغ جديد للعميل ${incoming.client}`,
+          incoming.id,
+          'info'
+        );
+        
+        if (!soundSettingsRef.current.muted) {
+          try {
+            const soundUrl = soundSettingsRef.current.customNotificationUrl || soundSettingsRef.current.alarmUrl;
+            if (soundUrl) {
+              const sound = new Audio(soundUrl);
+              sound.volume = soundSettingsRef.current.volume || 0.8;
+              sound.play().catch(() => {});
+            }
+          } catch {}
+        }
+      }
+    } else if (payload.eventType === 'UPDATE' && payload.new) {
+      const updated = mapSingleRowToIssue(payload.new);
+      setIssues((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+      if (detailIssueRef.current && detailIssueRef.current.id === updated.id) {
+        setDetailIssue(updated);
+      }
+    } else if (payload.eventType === 'DELETE' && payload.old) {
+      const oldRow = payload.old;
+      if (oldRow && oldRow.id) {
+        deletedIssueIdsRef.current.add(oldRow.id);
+        saveDeletedIssueIds(deletedIssueIdsRef.current);
+        setIssues((prev) => prev.filter((item) => item.id !== oldRow.id));
+        if (detailIssueRef.current?.id === oldRow.id) {
+          setShowDetailsModal(false);
+          setDetailIssue(null);
+        }
+      }
+    }
+  };
+
+  const handleUserRealtime = (payload: any) => {
+    console.log('[Realtime Event Received - app_users]:', payload);
+    if (payload.eventType === 'INSERT' && payload.new) {
+      const incoming = mapSingleRowToUser(payload.new);
+      setUsers((prev) => {
+        if (prev.some((item) => item.id === incoming.id)) return prev;
+        return [...prev, incoming];
+      });
+    } else if (payload.eventType === 'UPDATE' && payload.new) {
+      const updated = mapSingleRowToUser(payload.new);
+      setUsers((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+    } else if (payload.eventType === 'DELETE' && payload.old) {
+      const oldRow = payload.old;
+      if (oldRow && oldRow.id) {
+        setUsers((prev) => prev.filter((item) => item.id !== oldRow.id));
+      }
+    }
+  };
+
+  const handleCabRealtime = (payload: any) => {
+    console.log('[Realtime Event Received - cab_activities]:', payload);
+    if (payload.eventType === 'INSERT' && payload.new) {
+      const incoming = mapSingleRowToCab(payload.new);
+      setCabActivities((prev) => {
+        if (prev.some((item) => item.id === incoming.id)) return prev;
+        return [incoming, ...prev];
+      });
+    } else if (payload.eventType === 'UPDATE' && payload.new) {
+      const updated = mapSingleRowToCab(payload.new);
+      setCabActivities((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+    } else if (payload.eventType === 'DELETE' && payload.old) {
+      const oldRow = payload.old;
+      if (oldRow && oldRow.id) {
+        setCabActivities((prev) => prev.filter((item) => item.id !== oldRow.id));
+      }
+    }
+  };
+
+  const handleAuditRealtime = (payload: any) => {
+    console.log('[Realtime Event Received - audit_logs]:', payload);
+    if (payload.eventType === 'INSERT' && payload.new) {
+      const newLog = payload.new;
+      setAuditLogs((prev) => {
+        if (prev.some((l) => l.id === newLog.id)) return prev;
+        return [newLog, ...prev.slice(0, 99)];
+      });
+    }
+  };
+
+  const handleStoreRealtime = (payload: any) => {
+    console.log('[Realtime Event Received - system_cloud_store]:', payload);
+    if ((payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') && payload.new) {
+      const { key, data } = payload.new;
+      if (key === 'categories' && Array.isArray(data)) {
+        setCategories(data);
+      } else if (key === 'tags' && Array.isArray(data)) {
+        setTags(data);
+      } else if (key === 'canned_responses' && Array.isArray(data)) {
+        setCannedResponses(data);
+      } else if (key === 'general_settings' && data && typeof data === 'object') {
+        setGeneralSettings(data);
+      } else if (key === 'sound_settings' && data && typeof data === 'object') {
+        setSoundSettings(data);
+      } else if (key === 'audit_logs' && Array.isArray(data)) {
+        setAuditLogs(data);
+      } else if (key === 'external_vendors' && Array.isArray(data)) {
+        setExternalVendors(data);
+      } else if (key === 'sla_settings' && data && typeof data === 'object') {
+        setSlaSettings(data);
+      }
+    }
+  };
+
   // Supabase Realtime DB Changes Subscription for all tables
   useEffect(() => {
     const client = supabase;
     if (!client) return;
 
     const channel = client
-      .channel('public:issues')
+      .channel('system:global_sync')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'issues' },
-        (payload) => {
-          console.log('[Realtime Event Received]:', payload);
-
-          if (payload.eventType === 'INSERT' && payload.new) {
-            const incoming = mapSingleRowToIssue(payload.new);
-            setIssues((prev) => {
-              if (prev.some((item) => item.id === incoming.id)) return prev;
-              return [incoming, ...prev];
-            });
-
-            // Play sound and show toast if it was created by someone else
-            if (incoming.owner !== currentUserRef.current.name) {
-              setLiveToast({
-                id: `toast-${Date.now()}`,
-                title: `تذكرة جديدة واردة الآن [${incoming.id}] 🚀`,
-                desc: `للعميل: ${incoming.client || 'عميل'} • الأولوية: ${incoming.priority}`,
-                ticketId: incoming.id,
-                author: incoming.owner || 'زميل في الفريق',
-              });
-              
-              addNotification(
-                `تذكرة جديدة [${incoming.id}] 📢`,
-                `تم تسجيل بلاغ جديد للعميل ${incoming.client}`,
-                incoming.id,
-                'info'
-              );
-              
-              if (!soundSettingsRef.current.muted) {
-                try {
-                  const soundUrl = soundSettingsRef.current.customNotificationUrl || soundSettingsRef.current.alarmUrl;
-                  if (soundUrl) {
-                    const sound = new Audio(soundUrl);
-                    sound.volume = soundSettingsRef.current.volume || 0.8;
-                    sound.play().catch(() => {});
-                  }
-                } catch {}
-              }
-            }
-          } else if (payload.eventType === 'UPDATE' && payload.new) {
-            const updated = mapSingleRowToIssue(payload.new);
-            setIssues((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
-            if (detailIssueRef.current && detailIssueRef.current.id === updated.id) {
-              setDetailIssue(updated);
-            }
-          } else if (payload.eventType === 'DELETE' && payload.old) {
-            const oldRow = payload.old;
-            if (oldRow && oldRow.id) {
-              deletedIssueIdsRef.current.add(oldRow.id);
-              saveDeletedIssueIds(deletedIssueIdsRef.current);
-              setIssues((prev) => prev.filter((item) => item.id !== oldRow.id));
-              if (detailIssueRef.current?.id === oldRow.id) {
-                setShowDetailsModal(false);
-                setDetailIssue(null);
-              }
-            }
-          }
-        }
+        (payload) => handleIssueRealtime(payload)
       )
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'app_users' }, () => {
-        handlePullSupabaseNow(true);
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'cab_activities' }, () => {
-        handlePullSupabaseNow(true);
-      })
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'app_users' },
+        (payload) => handleUserRealtime(payload)
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'cab_activities' },
+        (payload) => handleCabRealtime(payload)
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'audit_logs' },
+        (payload) => handleAuditRealtime(payload)
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'system_cloud_store' },
+        (payload) => handleStoreRealtime(payload)
+      )
       .subscribe((status) => {
-        console.log('[Supabase Realtime Channel Status]:', status);
+        console.log('[System Global Realtime Status]:', status);
       });
 
     return () => {
