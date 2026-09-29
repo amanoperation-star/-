@@ -940,22 +940,22 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
       )}
-      {/* Sections Directory & Workspaces Hub Modal (بطاقات التنقل بنفس الشكل والستايل المرفق بالصورة بدقة) */}
+      {/* Sections Directory & Workspaces Hub Modal (بطاقات التنقل بتصميم مدمج وأنيق يظهر كافة الأقسام معاً بدون قص) */}
       {showSectionsHub && (
-        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 animate-fadeIn">
-          <div className="bg-[#080e1a] border border-slate-800 w-full max-w-5xl rounded-3xl shadow-2xl p-5 sm:p-6 space-y-5 text-right max-h-[92vh] overflow-y-auto custom-scrollbar">
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-2.5 sm:p-4 animate-fadeIn">
+          <div className="bg-[#080e1a] border border-slate-800 w-full max-w-6xl rounded-2xl sm:rounded-3xl shadow-2xl p-4 sm:p-5 space-y-3.5 text-right max-h-[92vh] overflow-y-auto custom-scrollbar">
             {/* Modal Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-blue-600/20 text-blue-400 flex items-center justify-center border border-blue-500/30">
-                  <Compass className="w-5 h-5" />
+            <div className="flex items-center justify-between pb-2.5 border-b border-slate-800/90">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-blue-600/20 text-blue-400 flex items-center justify-center border border-blue-500/30">
+                  <Compass className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-base sm:text-lg text-white">
-                    بطاقات التنقل وخريطة الأقسام
+                  <h3 className="font-extrabold text-sm sm:text-base text-white">
+                    بطاقات التنقل وخريطة الأقسام ({SYSTEM_SECTIONS.length} أقسام)
                   </h3>
-                  <p className="text-xs text-slate-400">
-                    استعراض سريع لكافة أقسام وخدمات المنظومة — انقر على أي قسم للدخول المباشر
+                  <p className="text-[11px] text-slate-400">
+                    استعراض سريع ومباشر لكافة أقسام المنظومة — انقر على أي قسم للدخول المباشر
                   </p>
                 </div>
               </div>
@@ -963,15 +963,15 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 type="button"
                 onClick={() => setShowSectionsHub(false)}
-                className="w-8 h-8 rounded-xl bg-slate-800/80 hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition cursor-pointer border border-slate-700/60"
+                className="w-7 h-7 rounded-xl bg-slate-800/80 hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition cursor-pointer border border-slate-700/60 text-xs font-bold"
                 title="إغلاق"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Exact Navigation Cards Grid Matching User's Image */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Compact Navigation Cards Grid (4 Columns Layout - Fits All 7 Sections in 2 Compact Rows) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5">
               {[
                 {
                   id: 'issues' as const,
@@ -986,7 +986,7 @@ export const Header: React.FC<HeaderProps> = ({
                 {
                   id: 'analytics' as const,
                   title: 'التحليلات والرسوم البيانية',
-                  subtitle: 'تقارير أداء النظام ورسوم بيانية شاملة لمعدلات الإنجاز',
+                  subtitle: 'تقارير أداء النظام ورسوم بيانية لمعدلات الإنجاز',
                   badgeText: 'حُدّثت اليوم',
                   badgeStyle: 'bg-[#182235] border-slate-700/70 text-slate-300',
                   iconBoxStyle: 'bg-[#241738] border-purple-800/50 text-purple-400',
@@ -1006,7 +1006,7 @@ export const Header: React.FC<HeaderProps> = ({
                 {
                   id: 'sla' as const,
                   title: 'إدارة اتفاقيات SLA',
-                  subtitle: 'رصد المواعيد والتنبيهات الاستباقية لالتزام الخدمة وتفادي المتأخرات',
+                  subtitle: 'رصد المواعيد والتنبيهات الاستباقية وتفادي المتأخرات',
                   badgeText: breachedCount > 0 ? `${breachedCount} متأخرة` : '100% التزام',
                   badgeStyle: breachedCount > 0 ? 'bg-[#3b1515] border-rose-800/60 text-rose-300' : 'bg-[#2c1d10] border-amber-800/50 text-amber-300',
                   iconBoxStyle: breachedCount > 0 ? 'bg-[#3b1515] border-rose-700/50 text-rose-400' : 'bg-[#33200d] border-amber-700/50 text-amber-400',
@@ -1016,7 +1016,7 @@ export const Header: React.FC<HeaderProps> = ({
                 {
                   id: 'customer' as const,
                   title: 'بوابة متابعة العميل',
-                  subtitle: 'منصة الخدمة الذاتية والتواصل المباشر وتتبع البلاغات عبر واتساب',
+                  subtitle: 'منصة الخدمة الذاتية وتتبع البلاغات عبر واتساب',
                   badgeText: 'خدمة ذاتية',
                   badgeStyle: 'bg-[#26153b] border-purple-800/50 text-purple-300',
                   iconBoxStyle: 'bg-[#2b1338] border-pink-700/50 text-pink-400',
@@ -1026,7 +1026,7 @@ export const Header: React.FC<HeaderProps> = ({
                 {
                   id: 'cab' as const,
                   title: 'اعتماد التغييرات (CAB)',
-                  subtitle: 'جدولة أعمال الصيانة الدورية والتحديثات التقنية وإدارة المخاطر',
+                  subtitle: 'جدولة أعمال الصيانة والتحديثات التقنية وإدارة المخاطر',
                   badgeText: 'إدارة المخاطر',
                   badgeStyle: 'bg-[#12283a] border-cyan-800/50 text-cyan-300',
                   iconBoxStyle: 'bg-[#0f2938] border-cyan-700/50 text-cyan-400',
@@ -1036,7 +1036,7 @@ export const Header: React.FC<HeaderProps> = ({
                 {
                   id: 'admin' as const,
                   title: 'لوحة الإدارة والضبط الشامل',
-                  subtitle: 'إدارة صلاحيات المستخدمين والنسخ السحابي وقواعد البيانات والإنتاج',
+                  subtitle: 'إدارة صلاحيات المستخدمين والنسخ السحابي والإنتاج',
                   badgeText: 'تحكم كامل',
                   badgeStyle: 'bg-[#162a22] border-emerald-800/50 text-emerald-300',
                   iconBoxStyle: 'bg-[#132e22] border-emerald-700/50 text-emerald-400',
@@ -1056,44 +1056,44 @@ export const Header: React.FC<HeaderProps> = ({
                       setCurrentTab(card.id);
                       setShowSectionsHub(false);
                     }}
-                    className={`group p-4 sm:p-5 rounded-2xl transition-all duration-200 flex flex-col justify-between select-none relative ${
+                    className={`group p-3 sm:p-3.5 rounded-xl transition-all duration-200 flex flex-col justify-between select-none relative ${
                       isRestricted
                         ? 'opacity-50 bg-[#080d19] border border-slate-800/80 cursor-not-allowed'
                         : isCurrent
-                        ? 'bg-[#0e1b33] border-2 border-blue-500 shadow-[0_0_24px_rgba(59,130,246,0.22)] ring-1 ring-blue-500/50 cursor-pointer'
-                        : 'bg-[#0c1322] border border-slate-800/90 hover:border-slate-700 hover:bg-[#0e1628] hover:shadow-lg cursor-pointer'
+                        ? 'bg-[#0e1b33] border-2 border-blue-500 shadow-[0_0_18px_rgba(59,130,246,0.22)] ring-1 ring-blue-500/50 cursor-pointer'
+                        : 'bg-[#0c1322] border border-slate-800/90 hover:border-slate-700 hover:bg-[#0e1628] hover:shadow-md cursor-pointer'
                     }`}
                   >
-                    {/* Top Header Row: Badge on the left, Icon Box on the right */}
-                    <div className="flex items-center justify-between gap-2 mb-4">
-                      <span className={`px-2.5 py-1 rounded-lg text-xs font-bold border ${card.badgeStyle}`}>
+                    {/* Header Row: Badge on Left, Icon Box on Right */}
+                    <div className="flex items-center justify-between gap-2 mb-2.5">
+                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${card.badgeStyle}`}>
                         {card.badgeText}
                       </span>
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${card.iconBoxStyle}`}>
-                        <IconComponent className="w-5 h-5" />
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${card.iconBoxStyle}`}>
+                        <IconComponent className="w-4 h-4" />
                       </div>
                     </div>
 
-                    {/* Middle Body: Title & Subtitle */}
-                    <div className="space-y-1 mb-5 text-right">
-                      <h4 className="text-base font-bold text-white group-hover:text-blue-400 transition-colors">
+                    {/* Body: Title & Subtitle */}
+                    <div className="space-y-1 mb-3 text-right">
+                      <h4 className="text-xs sm:text-sm font-bold text-white group-hover:text-blue-400 transition-colors">
                         {card.title}
                       </h4>
-                      <p className="text-xs text-slate-400 leading-relaxed">
+                      <p className="text-[11px] text-slate-400 leading-snug line-clamp-2">
                         {card.subtitle}
                       </p>
                     </div>
 
-                    {/* Bottom Footer Row: Action Text on Right, Arrow on Left */}
-                    <div className="flex items-center justify-between text-xs font-bold pt-2 border-t border-slate-800/70">
+                    {/* Footer Row: Action Text on Right, Arrow on Left */}
+                    <div className="flex items-center justify-between text-[11px] font-bold pt-2 border-t border-slate-800/70">
                       {isRestricted ? (
-                        <span className="text-rose-400 text-xs flex items-center gap-1">
-                          <Lock className="w-3.5 h-3.5" />
-                          <span>يتطلب صلاحية المشرف</span>
+                        <span className="text-rose-400 text-[10px] flex items-center gap-1">
+                          <Lock className="w-3 h-3" />
+                          <span>يتطلب Admin</span>
                         </span>
                       ) : (
                         <>
-                          <ArrowLeft className={`w-4 h-4 rtl:rotate-0 transition-transform ${isCurrent ? 'text-blue-400 -translate-x-1' : 'text-slate-400 group-hover:text-white group-hover:-translate-x-1'}`} />
+                          <ArrowLeft className={`w-3.5 h-3.5 rtl:rotate-0 transition-transform ${isCurrent ? 'text-blue-400 -translate-x-1' : 'text-slate-400 group-hover:text-white group-hover:-translate-x-1'}`} />
                           <span className={isCurrent ? 'text-blue-400 font-bold' : 'text-slate-400 group-hover:text-white transition-colors'}>
                             {isCurrent ? 'القسم النشط حالياً' : 'الانتقال للقسم'}
                           </span>
@@ -1106,12 +1106,12 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
 
             {/* Modal Footer */}
-            <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+            <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
               <span>💡 انقر على أي بطاقة للانتقال المباشر للقسم المطلوب.</span>
               <button
                 type="button"
                 onClick={() => setShowSectionsHub(false)}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl transition cursor-pointer border border-slate-700/60"
+                className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl transition cursor-pointer border border-slate-700/60 text-xs"
               >
                 إغلاق
               </button>
