@@ -256,6 +256,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   // Edit Existing User Permissions Modal
   const [permissionModalUser, setPermissionModalUser] = useState<AppUser | null>(null);
   const [editUserPermissions, setEditUserPermissions] = useState<string[]>([]);
+  const [activePermCat, setActivePermCat] = useState<string>('ALL');
 
   // Edit Existing User Password Modal
   const [passwordModalUser, setPasswordModalUser] = useState<AppUser | null>(null);
@@ -2599,9 +2600,33 @@ create policy "Allow all on system_cloud_store" on system_cloud_store for all us
                   </div>
                 </div>
 
+                {/* Category Filter Pills Bar */}
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
+                  {[
+                    { id: 'ALL', label: 'الكل' },
+                    { id: 'تذاكر وعمليات', label: '🎯 تذاكر وعمليات' },
+                    { id: 'وقت ومتابعة', label: '⏱️ وقت ومتابعة' },
+                    { id: 'إدارة وتقارير', label: '📊 إدارة وتقارير' },
+                    { id: 'عناصر الصفحة والواجهة', label: '🖥️ عناصر الصفحة والواجهة' },
+                  ].map((cat) => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setActivePermCat(cat.id)}
+                      className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition shrink-0 border cursor-pointer ${
+                        activePermCat === cat.id
+                          ? 'bg-indigo-600 text-white border-indigo-500 shadow-xs'
+                          : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200'
+                      }`}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+
                 {/* Grid of Permission Squares */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-56 overflow-y-auto p-1.5 border border-slate-200 dark:border-slate-800 rounded-2xl bg-slate-50/50 dark:bg-slate-950/50">
-                  {ALL_PERMISSIONS.map((perm) => {
+                  {ALL_PERMISSIONS.filter(p => activePermCat === 'ALL' || p.category === activePermCat).map((perm) => {
                     const isChecked = selectedPermissions.includes(perm.id);
                     return (
                       <div
@@ -2733,9 +2758,33 @@ create policy "Allow all on system_cloud_store" on system_cloud_store for all us
                 </div>
               </div>
 
+              {/* Category Filter Pills Bar */}
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
+                {[
+                  { id: 'ALL', label: 'الكل' },
+                  { id: 'تذاكر وعمليات', label: '🎯 تذاكر وعمليات' },
+                  { id: 'وقت ومتابعة', label: '⏱️ وقت ومتابعة' },
+                  { id: 'إدارة وتقارير', label: '📊 إدارة وتقارير' },
+                  { id: 'عناصر الصفحة والواجهة', label: '🖥️ عناصر الصفحة والواجهة' },
+                ].map((cat) => (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setActivePermCat(cat.id)}
+                    className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition shrink-0 border cursor-pointer ${
+                      activePermCat === cat.id
+                        ? 'bg-indigo-600 text-white border-indigo-500 shadow-xs'
+                        : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200'
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+
               {/* Grid of Permission Squares */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-80 overflow-y-auto p-1.5 border border-slate-200 dark:border-slate-800 rounded-2xl bg-slate-50/50 dark:bg-slate-950/50">
-                {ALL_PERMISSIONS.map((perm) => {
+                {ALL_PERMISSIONS.filter(p => activePermCat === 'ALL' || p.category === activePermCat).map((perm) => {
                   const isChecked = editUserPermissions.includes(perm.id);
                   return (
                     <div

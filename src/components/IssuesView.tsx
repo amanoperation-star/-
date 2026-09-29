@@ -24,6 +24,7 @@ import {
 import { Issue, AppUser, Priority, IssueStatus } from '../types';
 import { isTicketSlaBreached, getRemainingTimeFormatted, formatSecondsToHMS } from '../utils/sla';
 import { exportTicketsToCSV } from '../utils/export';
+import { hasPermission } from '../utils/permissions';
 import { PriorityBadge, StatusBadge } from './Badges';
 import { useAllTicketCollisions } from '../utils/collisionDetector';
 import { CollisionAlertBanner } from './CollisionAlertBanner';
@@ -413,16 +414,18 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
                 )}
               </button>
 
-              {/* Export CSV Button */}
-              <button
-                type="button"
-                onClick={() => exportTicketsToCSV(filteredIssues)}
-                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-500 hover:border-emerald-400 rounded-xl text-xs font-bold transition shadow-sm hover:scale-[1.02] flex items-center gap-1.5 cursor-pointer"
-                title="تصدير تقرير إكسيل كامل يدعم اللغة العربية بـ UTF-8 BOM"
-              >
-                <FileSpreadsheet className="w-4 h-4" />
-                <span className="hidden sm:inline">تصدير CSV</span>
-              </button>
+              {/* Export CSV Button (Controlled by ui.export_tools or reports.export permission) */}
+              {(hasPermission(currentUser, 'ui.export_tools') || hasPermission(currentUser, 'reports.export')) && (
+                <button
+                  type="button"
+                  onClick={() => exportTicketsToCSV(filteredIssues)}
+                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-500 hover:border-emerald-400 rounded-xl text-xs font-bold transition shadow-sm hover:scale-[1.02] flex items-center gap-1.5 cursor-pointer"
+                  title="تصدير تقرير إكسيل كامل يدعم اللغة العربية بـ UTF-8 BOM"
+                >
+                  <FileSpreadsheet className="w-4 h-4" />
+                  <span className="hidden sm:inline">تصدير CSV</span>
+                </button>
+              )}
 
               {/* View Mode Switcher */}
               <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-300 dark:border-slate-750 gap-1 select-none">

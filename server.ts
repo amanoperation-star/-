@@ -982,55 +982,84 @@ app.delete('/api/issues/all', async (req, res) => {
   res.json({ status: 'ok', message: 'All tickets wiped successfully' });
 });
 
-// API: Complete Production / Factory Reset (Wipes all test data from memory, disk and Supabase)
+// API: Complete Production / Factory Reset (Wipes test data based on custom selected options)
 app.post('/api/system/reset-production', async (req, res) => {
-  const { actor } = req.body || {};
-  console.log(`[Production-Reset] Initiated by ${actor || 'مدير النظام'}`);
+  const { actor, options } = req.body || {};
+  console.log(`[Production-Reset] Initiated by ${actor || 'مدير النظام'} with options:`, options);
 
-  state.issues = [];
-  state.deletedIssueIds = [];
-  state.cabActivities = [];
+  const opts = options || { clearTickets: true, clearAuditLogs: true };
+
+  if (opts.clearTickets !== false) {
+    state.issues = [];
+    state.deletedIssueIds = [];
+    state.cabActivities = [];
+  }
+
+  if (opts.clearUsers) {
+    const adminUsers = (state.users || []).filter((u: any) => u.role === 'Admin');
+    state.users = adminUsers.length > 0 ? adminUsers : state.users.slice(0, 1);
+  }
+
+  if (opts.clearCategories) {
+    state.categories = [];
+  }
+
+  if (opts.clearTagsAndCanned) {
+    state.tags = [];
+    state.cannedResponses = [];
+  }
+
+  if (opts.resetGeneralSettings) {
+    state.generalSettings = null;
+  }
+
   state.isSeeded = true;
 
   const newLog = {
     id: `a-${Date.now()}`,
     time: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
     user: (actor as string) || 'مدير النظام',
-    action: 'تهيئة الإنتاج الفعلي 🚀',
-    details: 'تم تفريغ كافة تذاكر وبيانات الاختبار وتهيئة المنظومة كلياً للإنتاج الفعلي (0 تذاكر - Production Ready)',
+    action: 'تهيئة مخصصة للنظام 🚀',
+    details: 'تم مسح وتصفير العناصر المحددة وتحديث حالة السحابة والذاكرة',
   };
-  state.auditLogs = [newLog];
+
+  if (opts.clearAuditLogs !== false) {
+    state.auditLogs = [newLog];
+  } else {
+    state.auditLogs.unshift(newLog);
+  }
 
   saveDatabase();
 
   const url = (state.supabaseConfig?.url || DEFAULT_SUPABASE_CONFIG.url || '').replace(/\/+$/, '');
   const key = state.supabaseConfig?.key || DEFAULT_SUPABASE_CONFIG.key;
   if (url && key && url.startsWith('https://')) {
-    try {
-      // Wipe all issues from Supabase table
-      await fetch(`${url}/rest/v1/issues?id=neq.dummy_clean_id_zero`, {
-        method: 'DELETE',
-        headers: { apikey: key, Authorization: `Bearer ${key}` },
-      });
-      console.log('[Supabase-Wipe] Successfully cleared issues table');
-    } catch (err) {
-      console.warn('[Supabase-Wipe] Delete issues error:', err);
+    if (opts.clearTickets !== false) {
+      try {
+        await fetch(`${url}/rest/v1/issues?id=neq.dummy_clean_id_zero`, {
+          method: 'DELETE',
+          headers: { apikey: key, Authorization: `Bearer ${key}` },
+        });
+        console.log('[Supabase-Wipe] Successfully cleared issues table');
+      } catch (err) {
+        console.warn('[Supabase-Wipe] Delete issues error:', err);
+      }
+
+      try {
+        await fetch(`${url}/rest/v1/cab_activities?id=neq.dummy_clean_id_zero`, {
+          method: 'DELETE',
+          headers: { apikey: key, Authorization: `Bearer ${key}` },
+        });
+      } catch {}
+
+      pushSystemStoreToSupabase('deleted_issue_ids', []).catch(() => {});
     }
-
-    try {
-      // Wipe CAB activities from Supabase table if exists
-      await fetch(`${url}/rest/v1/cab_activities?id=neq.dummy_clean_id_zero`, {
-        method: 'DELETE',
-        headers: { apikey: key, Authorization: `Bearer ${key}` },
-      });
-    } catch {}
-
-    pushSystemStoreToSupabase('deleted_issue_ids', []).catch(() => {});
   }
 
   broadcast({
     type: 'system:reset_production',
     actor: actor || 'مدير النظام',
+    options: opts,
   });
 
   broadcast({
@@ -1041,7 +1070,7 @@ app.post('/api/system/reset-production', async (req, res) => {
 
   res.json({
     status: 'ok',
-    message: 'System successfully reset to production mode with 0 test tickets.',
+    message: 'System successfully reset with custom selected options.',
   });
 });
 
