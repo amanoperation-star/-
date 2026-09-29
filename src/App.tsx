@@ -448,57 +448,70 @@ export default function App() {
 
   // Supabase Realtime DB Changes Subscription for all tables
   useEffect(() => {
-    const client = supabaseRef.current;
+    const client = supabase;
     if (!client) return;
 
     const channel = client
       .channel('supabase-realtime-sync')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'issues' }, (payload) => {
-        const newRow = payload.new;
-        if (newRow && newRow.id) {
-          const newIssue = mapSingleRowToIssue(newRow);
-          // Play sound and show toast if it was created by someone else
-          if (newIssue.owner !== currentUserRef.current.name) {
-            setLiveToast({
-              id: `toast-${Date.now()}`,
-              title: `تذكرة جديدة واردة الآن [${newIssue.id}] 🚀`,
-              desc: `للعميل: ${newIssue.client || 'عميل'} • الأولوية: ${newIssue.priority}`,
-              ticketId: newIssue.id,
-              author: newIssue.owner || 'زميل في الفريق',
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'issues' },
+        (payload) => {
+          if (payload.eventType === 'INSERT' && payload.new) {
+            const incoming = mapSingleRowToIssue(payload.new);
+            setIssues((prev) => {
+              if (prev.some((item) => item.id === incoming.id)) return prev;
+              return [incoming, ...prev];
             });
-            
-            addNotification(
-              `تذكرة جديدة [${newIssue.id}] 📢`,
-              `تم تسجيل بلاغ جديد للعميل ${newIssue.client}`,
-              newIssue.id,
-              'info'
-            );
-            
-            if (!soundSettingsRef.current.muted) {
-              try {
-                const soundUrl = soundSettingsRef.current.customNotificationUrl || soundSettingsRef.current.alarmUrl;
-                if (soundUrl) {
-                  const sound = new Audio(soundUrl);
-                  sound.volume = soundSettingsRef.current.volume || 0.8;
-                  sound.play().catch(() => {});
-                }
-              } catch {}
+
+            // Play sound and show toast if it was created by someone else
+            if (incoming.owner !== currentUserRef.current.name) {
+              setLiveToast({
+                id: `toast-${Date.now()}`,
+                title: `تذكرة جديدة واردة الآن [${incoming.id}] 🚀`,
+                desc: `للعميل: ${incoming.client || 'عميل'} • الأولوية: ${incoming.priority}`,
+                ticketId: incoming.id,
+                author: incoming.owner || 'زميل في الفريق',
+              });
+              
+              addNotification(
+                `تذكرة جديدة [${incoming.id}] 📢`,
+                `تم تسجيل بلاغ جديد للعميل ${incoming.client}`,
+                incoming.id,
+                'info'
+              );
+              
+              if (!soundSettingsRef.current.muted) {
+                try {
+                  const soundUrl = soundSettingsRef.current.customNotificationUrl || soundSettingsRef.current.alarmUrl;
+                  if (soundUrl) {
+                    const sound = new Audio(soundUrl);
+                    sound.volume = soundSettingsRef.current.volume || 0.8;
+                    sound.play().catch(() => {});
+                  }
+                } catch {}
+              }
+            }
+          } else if (payload.eventType === 'UPDATE' && payload.new) {
+            const updated = mapSingleRowToIssue(payload.new);
+            setIssues((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+            if (detailIssueRef.current && detailIssueRef.current.id === updated.id) {
+              setDetailIssue(updated);
+            }
+          } else if (payload.eventType === 'DELETE' && payload.old) {
+            const oldRow = payload.old;
+            if (oldRow && oldRow.id) {
+              deletedIssueIdsRef.current.add(oldRow.id);
+              saveDeletedIssueIds(deletedIssueIdsRef.current);
+              setIssues((prev) => prev.filter((item) => item.id !== oldRow.id));
+              if (detailIssueRef.current?.id === oldRow.id) {
+                setShowDetailsModal(false);
+                setDetailIssue(null);
+              }
             }
           }
         }
-        handlePullSupabaseNow(true);
-      })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'issues' }, () => {
-        handlePullSupabaseNow(true);
-      })
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'issues' }, (payload) => {
-        const oldRow = payload.old;
-        if (oldRow && oldRow.id) {
-          deletedIssueIdsRef.current.add(oldRow.id);
-          saveDeletedIssueIds(deletedIssueIdsRef.current);
-        }
-        handlePullSupabaseNow(true);
-      })
+      )
       .on('postgres_changes', { event: '*', schema: 'public', table: 'app_users' }, () => {
         handlePullSupabaseNow(true);
       })
