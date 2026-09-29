@@ -452,11 +452,13 @@ export default function App() {
     if (!client) return;
 
     const channel = client
-      .channel('supabase-realtime-sync')
+      .channel('public:issues')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'issues' },
         (payload) => {
+          console.log('[Realtime Event Received]:', payload);
+
           if (payload.eventType === 'INSERT' && payload.new) {
             const incoming = mapSingleRowToIssue(payload.new);
             setIssues((prev) => {
@@ -518,7 +520,9 @@ export default function App() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'cab_activities' }, () => {
         handlePullSupabaseNow(true);
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[Supabase Realtime Channel Status]:', status);
+      });
 
     return () => {
       client.removeChannel(channel);
@@ -2355,43 +2359,40 @@ export default function App() {
 
         const { error: issuesError1 } = await client.from('issues').upsert(payload1, { onConflict: 'id' });
         if (issuesError1) {
-          console.warn('[Supabase] Bulk issues sync primary failed, trying camelCase fallback payload. Error:', issuesError1);
+          console.warn('[Supabase] Bulk issues sync primary failed, trying standard SQL snake_case payload...', issuesError1);
           
           const payload2 = activeIssuesToSync.map((i) => ({
             id: i.id,
             client: i.client || '',
-            clientEmail: i.clientEmail || null,
-            clientPhone: i.clientPhone || null,
+            client_email: i.clientEmail || null,
+            client_phone: i.clientPhone || null,
             tag: i.tag || '',
             type: i.type || '',
-            desc: i.desc || '',
-            description: i.desc || '',
-            title: i.desc || '',
+            desc_text: i.desc || '',
             assigned: i.assigned || '',
             owner: i.owner || '',
             priority: i.priority || 'Medium',
             status: i.status || 'Open',
-            workTime: i.workTime || 0,
+            worktime: i.workTime || 0,
             csat: i.csat || 5,
-            createdAt: i.createdAt,
-            dueDate: i.dueDate,
+            created_at: i.createdAt,
+            due_date: i.dueDate,
             comments: i.comments || [],
             timeline: i.timeline || [],
-            isExternalOwner: i.isExternalOwner || false,
-            externalOwnerDetails: i.externalOwnerDetails || null,
-            mergedIntoTicketId: i.mergedIntoTicketId || null,
-            mergedTicketIds: i.mergedTicketIds || [],
-            clientNotes: i.clientNotes || null,
-            slaPaused: i.slaPaused || false,
-            slaPausedReason: i.slaPausedReason || null,
-            slaPausedAt: i.slaPausedAt || null,
-            slaExtendedHours: i.slaExtendedHours || 0,
-            slaExtensionReason: i.slaExtensionReason || null,
-            submittedByClient: i.submittedByClient || false,
           }));
           const { error: issuesError2 } = await client.from('issues').upsert(payload2, { onConflict: 'id' });
           if (issuesError2) {
-            console.error('[Supabase] Bulk issues sync fallback also failed! Error:', issuesError2);
+            console.warn('[Supabase] Bulk issues sync standard SQL payload also failed, trying minimal fallback. Error:', issuesError2);
+            const payload3 = activeIssuesToSync.map((i) => ({
+              id: i.id,
+              client: i.client || '',
+              priority: i.priority || 'Medium',
+              status: i.status || 'Open',
+            }));
+            const { error: issuesError3 } = await client.from('issues').upsert(payload3, { onConflict: 'id' });
+            if (issuesError3) {
+              console.error('[Supabase] Bulk issues sync minimal fallback also failed! Error:', issuesError3);
+            }
           }
         }
       }
