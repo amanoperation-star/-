@@ -982,6 +982,69 @@ app.delete('/api/issues/all', async (req, res) => {
   res.json({ status: 'ok', message: 'All tickets wiped successfully' });
 });
 
+// API: Complete Production / Factory Reset (Wipes all test data from memory, disk and Supabase)
+app.post('/api/system/reset-production', async (req, res) => {
+  const { actor } = req.body || {};
+  console.log(`[Production-Reset] Initiated by ${actor || 'مدير النظام'}`);
+
+  state.issues = [];
+  state.deletedIssueIds = [];
+  state.cabActivities = [];
+  state.isSeeded = true;
+
+  const newLog = {
+    id: `a-${Date.now()}`,
+    time: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+    user: (actor as string) || 'مدير النظام',
+    action: 'تهيئة الإنتاج الفعلي 🚀',
+    details: 'تم تفريغ كافة تذاكر وبيانات الاختبار وتهيئة المنظومة كلياً للإنتاج الفعلي (0 تذاكر - Production Ready)',
+  };
+  state.auditLogs = [newLog];
+
+  saveDatabase();
+
+  const url = (state.supabaseConfig?.url || DEFAULT_SUPABASE_CONFIG.url || '').replace(/\/+$/, '');
+  const key = state.supabaseConfig?.key || DEFAULT_SUPABASE_CONFIG.key;
+  if (url && key && url.startsWith('https://')) {
+    try {
+      // Wipe all issues from Supabase table
+      await fetch(`${url}/rest/v1/issues?id=neq.dummy_clean_id_zero`, {
+        method: 'DELETE',
+        headers: { apikey: key, Authorization: `Bearer ${key}` },
+      });
+      console.log('[Supabase-Wipe] Successfully cleared issues table');
+    } catch (err) {
+      console.warn('[Supabase-Wipe] Delete issues error:', err);
+    }
+
+    try {
+      // Wipe CAB activities from Supabase table if exists
+      await fetch(`${url}/rest/v1/cab_activities?id=neq.dummy_clean_id_zero`, {
+        method: 'DELETE',
+        headers: { apikey: key, Authorization: `Bearer ${key}` },
+      });
+    } catch {}
+
+    pushSystemStoreToSupabase('deleted_issue_ids', []).catch(() => {});
+  }
+
+  broadcast({
+    type: 'system:reset_production',
+    actor: actor || 'مدير النظام',
+  });
+
+  broadcast({
+    type: 'state:synced',
+    state,
+    actor: actor || 'مدير النظام',
+  });
+
+  res.json({
+    status: 'ok',
+    message: 'System successfully reset to production mode with 0 test tickets.',
+  });
+});
+
 // API: Bulk sync / full replace
 app.post('/api/sync-all', (req, res) => {
   const payload = req.body;
@@ -1486,6 +1549,28 @@ wss.on('connection', (ws, request) => {
             },
             ws
           );
+          break;
+        }
+
+        case 'system:reset_production': {
+          const { actor } = data;
+          state.issues = [];
+          state.deletedIssueIds = [];
+          state.cabActivities = [];
+          state.isSeeded = true;
+          saveDatabase();
+          broadcast(
+            {
+              type: 'system:reset_production',
+              actor: actor || clientInfo.name || 'مدير النظام',
+            },
+            ws
+          );
+          broadcast({
+            type: 'state:synced',
+            state,
+            actor: actor || clientInfo.name || 'مدير النظام',
+          });
           break;
         }
 

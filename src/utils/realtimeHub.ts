@@ -7,6 +7,8 @@ export type TeamRealtimeEventType =
   | 'ticket:updated'
   | 'ticket:deleted'
   | 'ticket:bulk_deleted'
+  | 'tickets:cleared'
+  | 'system:reset_production'
   | 'ticket:comment'
   | 'cab:created'
   | 'cab:updated'

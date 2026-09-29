@@ -190,9 +190,10 @@ export const BackupRestoreTab: React.FC<BackupRestoreTabProps> = ({
           <button
             type="button"
             onClick={onResetSystemToDefault}
-            className="px-3 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border border-rose-500/30"
+            className="px-3.5 py-2 bg-rose-500/10 hover:bg-rose-500/20 active:scale-95 text-rose-400 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border border-rose-500/30 cursor-pointer shadow-sm shadow-rose-950/40 group"
+            title="تحويل المنظومة فوراً إلى بيئة الإنتاج الفعلي ومسح كافة تذاكر وسجلات الاختبار سحابياً ومحلياً"
           >
-            <RefreshCcw className="w-3.5 h-3.5" />
+            <RefreshCcw className="w-3.5 h-3.5 group-hover:rotate-180 transition-transform duration-500 text-rose-400" />
             <span>تهيئة المنظومة لبيانات المصنع</span>
           </button>
         </div>

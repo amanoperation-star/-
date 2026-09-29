@@ -17,6 +17,7 @@ export interface RealtimeEventHandlers {
   onTicketDeleted: (issueId: string, actor: string) => void;
   onTicketBulkDeleted?: (issueIds: string[], actor: string) => void;
   onTicketsCleared?: (actor: string) => void;
+  onSystemResetProduction?: (actor: string) => void;
   onCabCreated?: (activity: CabBusinessActivity, author: string) => void;
   onCabUpdated?: (activity: CabBusinessActivity, author: string, details?: string) => void;
   onCabDeleted?: (activityId: string, author: string) => void;
@@ -238,6 +239,10 @@ class RealtimeSyncManager {
         this.handlers?.onTicketsCleared?.(data.actor || 'مدير النظام');
         break;
 
+      case 'system:reset_production':
+        this.handlers?.onSystemResetProduction?.(data.actor || 'مدير النظام');
+        break;
+
       case 'cab:created':
         if (data.activity) {
           this.handlers?.onCabCreated?.(data.activity, data.author || 'عضو في الفريق');
@@ -407,6 +412,13 @@ class RealtimeSyncManager {
   public async broadcastClearAllTickets(actor: string) {
     this.send({
       type: 'tickets:clear',
+      actor,
+    });
+  }
+
+  public async broadcastResetProduction(actor: string) {
+    this.send({
+      type: 'system:reset_production',
       actor,
     });
   }

@@ -38,7 +38,13 @@ import {
   LogOut,
   BarChart3,
   Download,
-  BellOff
+  BellOff,
+  Grid,
+  Compass,
+  Workflow,
+  FolderKanban,
+  CheckCircle,
+  HelpCircle as QuestionIcon
 } from 'lucide-react';
 import { AppUser, NotificationItem, SoundSettings, GeneralSettings } from '../types';
 import { ActiveUserPresence, SyncConnectionStatus } from '../utils/realtimeSync';
@@ -74,6 +80,126 @@ interface HeaderProps {
   onTriggerDemoToast?: () => void;
 }
 
+interface SectionDefinition {
+  id: 'issues' | 'dashboard' | 'sla' | 'customer' | 'cab' | 'analytics' | 'admin';
+  title: string;
+  shortTitle: string;
+  subtitle: string;
+  category: 'operations' | 'monitoring' | 'management';
+  categoryLabel: string;
+  icon: any;
+  color: string;
+  activeBg: string;
+  iconColor: string;
+  adminOnly?: boolean;
+  description: string;
+  features: string[];
+}
+
+const SYSTEM_SECTIONS: SectionDefinition[] = [
+  {
+    id: 'issues',
+    title: 'سجل المشاكل والبلاغات',
+    shortTitle: 'سجل البلاغات',
+    subtitle: 'إدارة وتتبع دورة حياة التذاكر الفنية والعمليات',
+    category: 'operations',
+    categoryLabel: 'العمليات والتشغيل الميداني',
+    icon: ListTodo,
+    color: 'blue',
+    activeBg: 'bg-blue-600 text-white shadow-md shadow-blue-600/30 ring-2 ring-blue-400/30',
+    iconColor: 'text-blue-500 dark:text-blue-400',
+    description: 'تسجيل البلاغات الجديدة، عدادات العمل المباشرة، متابعة الحالات، وتعيين المهندسين والحلول الفنية.',
+    features: ['إدارة ومتابعة البلاغات', 'عدادات أزمنة العمل', 'إغلاق وحل المشاكل', 'فرز وتصدير البيانات']
+  },
+  {
+    id: 'dashboard',
+    title: 'لوحة المؤشرات العامة',
+    shortTitle: 'المؤشرات والـ KPI',
+    subtitle: 'نظرة شمولية عليا لكفاءة الفريق ونسب الإنجاز',
+    category: 'monitoring',
+    categoryLabel: 'المتابعة والحوكمة والـ SLA',
+    icon: LayoutDashboard,
+    color: 'indigo',
+    activeBg: 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 ring-2 ring-indigo-400/30',
+    iconColor: 'text-indigo-500 dark:text-indigo-400',
+    adminOnly: true,
+    description: 'ملخص رقمي تنفيذي لنسب الإنجاز، مؤشرات الامتثال الزمني، وتحليلات سرعة المعالجة والجاهزية.',
+    features: ['معدلات حل التذاكر', 'إحصاءات زمن الاستجابة', 'توزيع الأولويات والأقسام']
+  },
+  {
+    id: 'sla',
+    title: 'إدارة اتفاقيات SLA',
+    shortTitle: 'مراقبة SLA',
+    subtitle: 'رصد المواعيد والتنبيهات الاستباقية للمتأخرات',
+    category: 'monitoring',
+    categoryLabel: 'المتابعة والحوكمة والـ SLA',
+    icon: Clock,
+    color: 'amber',
+    activeBg: 'bg-amber-600 text-white shadow-md shadow-amber-600/30 ring-2 ring-amber-400/30',
+    iconColor: 'text-amber-500 dark:text-amber-400',
+    description: 'مراقبة التزام الأقسام بمواقيت اتفاقيات مستوى الخدمة مع إنذار صوتي ومرئي للتذاكر المتأخرة.',
+    features: ['إنذارات فورية للمتأخرات', 'تخصيص مدد الاستجابة', 'سجل وإحصاء المتأخرات']
+  },
+  {
+    id: 'customer',
+    title: 'بوابة متابعة العميل',
+    shortTitle: 'بوابة العملاء',
+    subtitle: 'الخدمة الذاتية وتواصل العملاء المباشر',
+    category: 'operations',
+    categoryLabel: 'العمليات والتشغيل الميداني',
+    icon: Globe,
+    color: 'purple',
+    activeBg: 'bg-purple-600 text-white shadow-md shadow-purple-600/30 ring-2 ring-purple-400/30',
+    iconColor: 'text-purple-500 dark:text-purple-400',
+    description: 'منصة تفاعلية للعملاء لمتابعة حالة بلاغاتهم، تقييم مستوى الرضا CSAT، والتواصل عبر واتساب.',
+    features: ['تتبع ذاتي لحالة البلاغ', 'محادثات الدعم واتساب', 'تقييمات الرضا CSAT']
+  },
+  {
+    id: 'cab',
+    title: 'اعتماد التغييرات (CAB)',
+    shortTitle: 'مجلس التغيير CAB',
+    subtitle: 'إدارة وجدولة أعمال الصيانة والتحديثات التقنية',
+    category: 'operations',
+    categoryLabel: 'العمليات والتشغيل الميداني',
+    icon: Layers,
+    color: 'cyan',
+    activeBg: 'bg-cyan-600 text-white shadow-md shadow-cyan-600/30 ring-2 ring-cyan-400/30',
+    iconColor: 'text-cyan-500 dark:text-cyan-400',
+    description: 'جدولة فترات التوقف المخططة، دراسة أثر التعديلات التقنية، وتنسيق أنشطة الفرق الهندسية.',
+    features: ['جدولة فترات التوقف', 'تقييم المخاطر التقنية', 'سجل الموافقات والأنشطة']
+  },
+  {
+    id: 'analytics',
+    title: 'التحليلات والرسوم البيانية',
+    shortTitle: 'التحليلات والتقارير',
+    subtitle: 'الرسوم البيانية وتوزيع أحمال العمل',
+    category: 'monitoring',
+    categoryLabel: 'المتابعة والحوكمة والـ SLA',
+    icon: BarChart3,
+    color: 'sky',
+    activeBg: 'bg-sky-600 text-white shadow-md shadow-sky-600/30 ring-2 ring-sky-400/30',
+    iconColor: 'text-sky-500 dark:text-sky-400',
+    adminOnly: true,
+    description: 'تقارير إحصائية معمقة ورسوم بيانية لتوزيع المشاكل حسب الأقسام، الفنيين، والمدد الزمنية.',
+    features: ['مخططات بيانية ديناميكية', 'مقارنة إنتاجية الفنيين', 'تحليل فئات وتوزيع الأعطال']
+  },
+  {
+    id: 'admin',
+    title: 'لوحة الإدارة والضبط الشامل',
+    shortTitle: 'الإدارة والتحكم',
+    subtitle: 'إدارة المستخدمين والصلاحيات والربط السحابي',
+    category: 'management',
+    categoryLabel: 'الإدارة والتحكم المركزي',
+    icon: ShieldCheck,
+    color: 'emerald',
+    activeBg: 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30 ring-2 ring-emerald-400/30',
+    iconColor: 'text-emerald-500 dark:text-emerald-400',
+    adminOnly: true,
+    description: 'التحكم بكافة إعدادات المنظومة، صلاحيات الفريق، هيكلة الفئات، النسخ الاحتياطي والإنتاج الفعلي.',
+    features: ['إدارة صلاحيات المستخدمين', 'هيكلة الفئات والأقسام', 'النسخ الاحتياطي والإنتاج']
+  }
+];
+
 export const Header: React.FC<HeaderProps> = ({
   currentTab,
   setCurrentTab,
@@ -107,6 +233,7 @@ export const Header: React.FC<HeaderProps> = ({
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [showSectionsHub, setShowSectionsHub] = useState(false);
 
   // Switch User Password Modal state
   const [showSwitchModal, setShowSwitchModal] = useState(false);
@@ -517,107 +644,144 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Secondary Dedicated Navigation Strip (شريط التنقل المخصص والمطور) */}
-      <div className="bg-slate-100/90 dark:bg-slate-950/80 border-t border-slate-200/80 dark:border-slate-800/80 px-4 py-1.5 shadow-inner">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 overflow-x-auto select-none no-scrollbar">
-          <nav className="flex items-center gap-1.5 sm:gap-2">
-            {currentUser.role === 'Admin' && (
-              <button
-                onClick={() => setCurrentTab('dashboard')}
-                className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-black transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap ${
-                  currentTab === 'dashboard'
-                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 ring-2 ring-indigo-400/40'
-                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/80 dark:hover:bg-slate-800/80'
-                }`}
-              >
-                <LayoutDashboard className={`w-4 h-4 transition-transform ${currentTab === 'dashboard' ? 'scale-110 text-white' : 'text-indigo-500 dark:text-indigo-400'}`} />
-                <span>لوحة الإحصائيات (Dashboard)</span>
-              </button>
-            )}
-
+      {/* Secondary Dedicated Navigation Bar (شريط التبويبات المطور - تصميم منطقي ومرتب وسهل الوصول لجميع الأقسام) */}
+      <div className="bg-slate-50/95 dark:bg-slate-950/90 border-t border-slate-200/90 dark:border-slate-800/90 px-4 py-2 shadow-xs select-none">
+        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2.5">
+          {/* Main Navigation Tabs */}
+          <nav className="flex items-center flex-wrap gap-1.5 sm:gap-2">
+            {/* 1. Issues / Tickets List (Always Primary) */}
             <button
+              type="button"
               onClick={() => setCurrentTab('issues')}
-              className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-black transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap ${
+              className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-black transition-all duration-150 flex items-center gap-2 cursor-pointer shrink-0 ${
                 currentTab === 'issues'
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30 ring-2 ring-blue-400/40'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/80 dark:hover:bg-slate-800/80'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30 ring-2 ring-blue-400/30'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-800/70'
               }`}
             >
               <ListTodo className={`w-4 h-4 transition-transform ${currentTab === 'issues' ? 'scale-110 text-white' : 'text-blue-500 dark:text-blue-400'}`} />
-              <span>سجل المشاكل</span>
+              <span>سجل المشاكل والبلاغات</span>
             </button>
 
+            {/* 2. Dashboard (Admin only) */}
             {currentUser.role === 'Admin' && (
               <button
-                onClick={() => setCurrentTab('sla')}
-                className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-black transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap ${
-                  currentTab === 'sla'
-                    ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30 ring-2 ring-amber-400/40'
-                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/80 dark:hover:bg-slate-800/80'
+                type="button"
+                onClick={() => setCurrentTab('dashboard')}
+                className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-black transition-all duration-150 flex items-center gap-2 cursor-pointer shrink-0 ${
+                  currentTab === 'dashboard'
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 ring-2 ring-indigo-400/30'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-800/70'
                 }`}
               >
-                <Clock className={`w-4 h-4 transition-transform ${currentTab === 'sla' ? 'scale-110 text-white' : 'text-amber-500 dark:text-amber-400'}`} />
-                <span>إدارة الـ SLA</span>
-                {breachedCount > 0 && (
-                  <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-rose-500 text-white font-mono font-black animate-pulse shadow-xs">
-                    {breachedCount}
-                  </span>
-                )}
+                <LayoutDashboard className={`w-4 h-4 transition-transform ${currentTab === 'dashboard' ? 'scale-110 text-white' : 'text-indigo-500 dark:text-indigo-400'}`} />
+                <span>لوحة المؤشرات العامة</span>
               </button>
             )}
 
+            {/* 3. SLA Management */}
             <button
+              type="button"
+              onClick={() => setCurrentTab('sla')}
+              className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-black transition-all duration-150 flex items-center gap-2 cursor-pointer shrink-0 relative ${
+                currentTab === 'sla'
+                  ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30 ring-2 ring-amber-400/30'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-800/70'
+              }`}
+            >
+              <Clock className={`w-4 h-4 transition-transform ${currentTab === 'sla' ? 'scale-110 text-white' : 'text-amber-500 dark:text-amber-400'}`} />
+              <span>إدارة اتفاقيات SLA</span>
+              {breachedCount > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-rose-500 text-white font-mono font-black animate-pulse shadow-xs">
+                  {breachedCount}
+                </span>
+              )}
+            </button>
+
+            {/* Separator */}
+            <div className="h-5 w-px bg-slate-300 dark:bg-slate-700 mx-0.5 hidden sm:block shrink-0" />
+
+            {/* 4. Customer Portal */}
+            <button
+              type="button"
               onClick={() => setCurrentTab('customer')}
-              className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-black transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap ${
+              className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-black transition-all duration-150 flex items-center gap-2 cursor-pointer shrink-0 ${
                 currentTab === 'customer'
-                  ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30 ring-2 ring-purple-400/40'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/80 dark:hover:bg-slate-800/80'
+                  ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30 ring-2 ring-purple-400/30'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-800/70'
               }`}
             >
               <Globe className={`w-4 h-4 transition-transform ${currentTab === 'customer' ? 'scale-110 text-white' : 'text-purple-500 dark:text-purple-400'}`} />
               <span>بوابة متابعة العميل</span>
             </button>
 
+            {/* 5. CAB Board */}
             <button
+              type="button"
               onClick={() => setCurrentTab('cab')}
-              className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-black transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap ${
+              className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-black transition-all duration-150 flex items-center gap-2 cursor-pointer shrink-0 ${
                 currentTab === 'cab'
-                  ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/30 ring-2 ring-cyan-400/40'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/80 dark:hover:bg-slate-800/80'
+                  ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/30 ring-2 ring-cyan-400/30'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-800/70'
               }`}
             >
               <Layers className={`w-4 h-4 transition-transform ${currentTab === 'cab' ? 'scale-110 text-white' : 'text-cyan-500 dark:text-cyan-400'}`} />
-              <span>لوحة اعتماد التغييرات الفنية (CAB)</span>
+              <span>اعتماد التغييرات (CAB)</span>
             </button>
 
+            {/* 6. Analytics (Admin only) */}
             {currentUser.role === 'Admin' && (
               <button
+                type="button"
                 onClick={() => setCurrentTab('analytics')}
-                className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-black transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap ${
+                className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-black transition-all duration-150 flex items-center gap-2 cursor-pointer shrink-0 ${
                   currentTab === 'analytics'
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30 ring-2 ring-blue-400/40'
-                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/80 dark:hover:bg-slate-800/80'
+                    ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30 ring-2 ring-sky-400/30'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-800/70'
                 }`}
               >
-                <BarChart3 className={`w-4 h-4 transition-transform ${currentTab === 'analytics' ? 'scale-110 text-white' : 'text-blue-500 dark:text-blue-400'}`} />
-                <span>تحليلات ورسوم التوزيع 📊</span>
+                <BarChart3 className={`w-4 h-4 transition-transform ${currentTab === 'analytics' ? 'scale-110 text-white' : 'text-sky-500 dark:text-sky-400'}`} />
+                <span>التحليلات والرسوم البيانية</span>
               </button>
             )}
 
+            {/* Separator */}
+            {currentUser.role === 'Admin' && (
+              <div className="h-5 w-px bg-slate-300 dark:bg-slate-700 mx-0.5 hidden sm:block shrink-0" />
+            )}
+
+            {/* 7. Admin View (Admin only) */}
             {currentUser.role === 'Admin' && (
               <button
+                type="button"
                 onClick={() => setCurrentTab('admin')}
-                className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-black transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap ${
+                className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-black transition-all duration-150 flex items-center gap-2 cursor-pointer shrink-0 ${
                   currentTab === 'admin'
-                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30 ring-2 ring-emerald-400/40'
-                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/80 dark:hover:bg-slate-800/80'
+                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30 ring-2 ring-emerald-400/30'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-800/70'
                 }`}
               >
                 <ShieldCheck className={`w-4 h-4 transition-transform ${currentTab === 'admin' ? 'scale-110 text-white' : 'text-emerald-500 dark:text-emerald-400'}`} />
-                <span>لوحة الإدمن</span>
+                <span>لوحة الإدارة الشاملة</span>
               </button>
             )}
           </nav>
+
+          {/* All Sections & Workspaces Hub Button */}
+          <div className="flex items-center gap-2 mr-auto">
+            <button
+              type="button"
+              onClick={() => setShowSectionsHub(true)}
+              className="px-3 py-1.5 rounded-xl bg-slate-200/80 hover:bg-indigo-100 dark:bg-slate-800/80 dark:hover:bg-indigo-950/60 text-slate-700 hover:text-indigo-700 dark:text-slate-200 dark:hover:text-indigo-300 text-xs font-bold transition flex items-center gap-1.5 border border-slate-300/80 dark:border-slate-700 shadow-2xs cursor-pointer active:scale-95"
+              title="عرض خريطة ودليل الأقسام الشامل لكافة خدمات المنظومة"
+            >
+              <Compass className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 animate-spin-slow" />
+              <span>دليل وخريطة الأقسام</span>
+              <span className="bg-indigo-600 text-white text-[10px] px-1.5 py-0.2 rounded-md font-mono">
+                {currentUser.role === 'Admin' ? '7 أقسام' : '4 أقسام'}
+              </span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -771,6 +935,291 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Sections Directory & Workspaces Hub Modal (خريطة ودليل كافة الأقسام والخدمات بالمنظومة) */}
+      {showSectionsHub && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 animate-fadeIn">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-4xl rounded-3xl shadow-2xl p-5 sm:p-6 space-y-5 text-right max-h-[90vh] overflow-y-auto custom-scrollbar">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-indigo-600/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-500/20 shadow-inner">
+                  <Compass className="w-6 h-6 animate-spin-slow" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-black text-base sm:text-lg text-slate-900 dark:text-white">
+                      دليل وخريطة أقسام المنظومة (Workspaces & Departments)
+                    </h3>
+                    <span className="text-[10px] font-bold bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full">
+                      نظام حديث ومتكامل
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    استعراض وتوجيه سريع لكافة أقسام وخدمات المنظومة مع توضيح مهام كل قسم وصلاحيات الوصول
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowSectionsHub(false)}
+                className="w-9 h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white transition cursor-pointer"
+                title="إغلاق الدليل"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Hub Sections Grid Grouped Logically */}
+            <div className="space-y-6">
+              {/* Group 1: Operations */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                  <FolderKanban className="w-4 h-4 text-blue-500" />
+                  <span>1. أقسام العمليات والتشغيل الميداني</span>
+                  <div className="h-px bg-slate-200 dark:bg-slate-800 flex-1 mr-2" />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {SYSTEM_SECTIONS.filter((s) => s.category === 'operations').map((sec) => {
+                    const isCurrent = currentTab === sec.id;
+                    const IconComponent = sec.icon;
+                    return (
+                      <div
+                        key={sec.id}
+                        onClick={() => {
+                          setCurrentTab(sec.id);
+                          setShowSectionsHub(false);
+                        }}
+                        className={`group p-4 rounded-2xl border transition-all duration-200 flex flex-col justify-between cursor-pointer relative overflow-hidden ${
+                          isCurrent
+                            ? 'bg-blue-50/60 dark:bg-blue-950/30 border-blue-400 dark:border-blue-600 shadow-md ring-2 ring-blue-400/20'
+                            : 'bg-slate-50/70 dark:bg-slate-800/40 hover:bg-white dark:hover:bg-slate-800/90 border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-md'
+                        }`}
+                      >
+                        {isCurrent && (
+                          <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-600 text-white shadow-xs">
+                            أنت هنا الآن 📍
+                          </div>
+                        )}
+                        <div className="space-y-2.5">
+                          <div className="flex items-center gap-2.5">
+                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isCurrent ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-200/80 dark:bg-slate-700/80 group-hover:bg-blue-500 group-hover:text-white transition'}`}>
+                              <IconComponent className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <h4 className="font-extrabold text-sm text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">
+                                {sec.title}
+                              </h4>
+                              <p className="text-[10px] text-slate-500 dark:text-slate-400">{sec.subtitle}</p>
+                            </div>
+                          </div>
+                          <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                            {sec.description}
+                          </p>
+                        </div>
+
+                        <div className="pt-3 mt-3 border-t border-slate-200/60 dark:border-slate-800/60 flex items-center justify-between text-[11px] font-bold">
+                          <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                            <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
+                            <span>متاح للتشغيل الفوري</span>
+                          </span>
+                          <span className={`flex items-center gap-1 ${isCurrent ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400'} transition`}>
+                            <span>فتح القسم</span>
+                            <ArrowLeft className="w-3.5 h-3.5 rtl:rotate-180" />
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Group 2: Monitoring & SLA */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                  <Clock className="w-4 h-4 text-amber-500" />
+                  <span>2. أقسام المتابعة والحوكمة ومستوى الخدمة (SLA & KPI)</span>
+                  <div className="h-px bg-slate-200 dark:bg-slate-800 flex-1 mr-2" />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {SYSTEM_SECTIONS.filter((s) => s.category === 'monitoring').map((sec) => {
+                    const isCurrent = currentTab === sec.id;
+                    const IconComponent = sec.icon;
+                    const isRestricted = sec.adminOnly && currentUser.role !== 'Admin';
+
+                    return (
+                      <div
+                        key={sec.id}
+                        onClick={() => {
+                          if (isRestricted) return;
+                          setCurrentTab(sec.id);
+                          setShowSectionsHub(false);
+                        }}
+                        className={`group p-4 rounded-2xl border transition-all duration-200 flex flex-col justify-between relative overflow-hidden ${
+                          isRestricted
+                            ? 'opacity-60 bg-slate-100 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 cursor-not-allowed'
+                            : isCurrent
+                            ? 'bg-amber-50/60 dark:bg-amber-950/30 border-amber-400 dark:border-amber-600 shadow-md ring-2 ring-amber-400/20 cursor-pointer'
+                            : 'bg-slate-50/70 dark:bg-slate-800/40 hover:bg-white dark:hover:bg-slate-800/90 border-slate-200 dark:border-slate-800 hover:border-amber-300 dark:hover:border-amber-700 hover:shadow-md cursor-pointer'
+                        }`}
+                      >
+                        {isCurrent && (
+                          <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-600 text-white shadow-xs">
+                            أنت هنا الآن 📍
+                          </div>
+                        )}
+                        <div className="space-y-2.5">
+                          <div className="flex items-center gap-2.5">
+                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isCurrent ? 'bg-amber-600 text-white shadow-sm' : 'bg-slate-200/80 dark:bg-slate-700/80 group-hover:bg-amber-500 group-hover:text-white transition'}`}>
+                              <IconComponent className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <h4 className="font-extrabold text-sm text-slate-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition">
+                                  {sec.title}
+                                </h4>
+                                {sec.adminOnly && (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-md bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                                    Admin
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[10px] text-slate-500 dark:text-slate-400">{sec.subtitle}</p>
+                            </div>
+                          </div>
+                          <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                            {sec.description}
+                          </p>
+                        </div>
+
+                        <div className="pt-3 mt-3 border-t border-slate-200/60 dark:border-slate-800/60 flex items-center justify-between text-[11px] font-bold">
+                          {isRestricted ? (
+                            <span className="text-rose-500 text-[10px] flex items-center gap-1">
+                              <Lock className="w-3 h-3" />
+                              <span>يتطلب صلاحيات المشرف Admin</span>
+                            </span>
+                          ) : (
+                            <>
+                              <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                                <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
+                                <span>مراقبة وتحليل لحظي</span>
+                              </span>
+                              <span className={`flex items-center gap-1 ${isCurrent ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400 group-hover:text-amber-600 dark:group-hover:text-amber-400'} transition`}>
+                                <span>عرض القسم</span>
+                                <ArrowLeft className="w-3.5 h-3.5 rtl:rotate-180" />
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Group 3: Central Administration */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                  <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                  <span>3. أقسام الإدارة والتحكم المركزي</span>
+                  <div className="h-px bg-slate-200 dark:bg-slate-800 flex-1 mr-2" />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {SYSTEM_SECTIONS.filter((s) => s.category === 'management').map((sec) => {
+                    const isCurrent = currentTab === sec.id;
+                    const IconComponent = sec.icon;
+                    const isRestricted = sec.adminOnly && currentUser.role !== 'Admin';
+
+                    return (
+                      <div
+                        key={sec.id}
+                        onClick={() => {
+                          if (isRestricted) return;
+                          setCurrentTab(sec.id);
+                          setShowSectionsHub(false);
+                        }}
+                        className={`group p-4 rounded-2xl border transition-all duration-200 flex flex-col justify-between relative overflow-hidden ${
+                          isRestricted
+                            ? 'opacity-60 bg-slate-100 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 cursor-not-allowed'
+                            : isCurrent
+                            ? 'bg-emerald-50/60 dark:bg-emerald-950/30 border-emerald-400 dark:border-emerald-600 shadow-md ring-2 ring-emerald-400/20 cursor-pointer'
+                            : 'bg-slate-50/70 dark:bg-slate-800/40 hover:bg-white dark:hover:bg-slate-800/90 border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-700 hover:shadow-md cursor-pointer'
+                        }`}
+                      >
+                        {isCurrent && (
+                          <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-600 text-white shadow-xs">
+                            أنت هنا الآن 📍
+                          </div>
+                        )}
+                        <div className="space-y-2.5">
+                          <div className="flex items-center gap-2.5">
+                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isCurrent ? 'bg-emerald-600 text-white shadow-sm' : 'bg-slate-200/80 dark:bg-slate-700/80 group-hover:bg-emerald-500 group-hover:text-white transition'}`}>
+                              <IconComponent className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <h4 className="font-extrabold text-sm text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition">
+                                  {sec.title}
+                                </h4>
+                                {sec.adminOnly && (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-md bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                                    Admin
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[10px] text-slate-500 dark:text-slate-400">{sec.subtitle}</p>
+                            </div>
+                          </div>
+                          <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                            {sec.description}
+                          </p>
+                        </div>
+
+                        <div className="pt-3 mt-3 border-t border-slate-200/60 dark:border-slate-800/60 flex items-center justify-between text-[11px] font-bold">
+                          {isRestricted ? (
+                            <span className="text-rose-500 text-[10px] flex items-center gap-1">
+                              <Lock className="w-3 h-3" />
+                              <span>يتطلب صلاحيات المشرف Admin</span>
+                            </span>
+                          ) : (
+                            <>
+                              <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                                <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
+                                <span>تحكم أمني وإعدادات شاملة</span>
+                              </span>
+                              <span className={`flex items-center gap-1 ${isCurrent ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400'} transition`}>
+                                <span>لوحة الإدارة</span>
+                                <ArrowLeft className="w-3.5 h-3.5 rtl:rotate-180" />
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
+              <span className="text-slate-500 dark:text-slate-400 font-medium">
+                💡 يمكنك في أي وقت النقر على أي قسم للانتقال الفوري إليه دون فقدان بياناتك المدخلة.
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowSectionsHub(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold rounded-xl transition cursor-pointer"
+              >
+                إغلاق الدليل
+              </button>
+            </div>
           </div>
         </div>
       )}

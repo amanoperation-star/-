@@ -14,6 +14,7 @@ import { AgentScratchpad } from './components/AgentScratchpad';
 import { CabBusinessActivityView } from './components/CabBusinessActivityView';
 import { AdminAnalyticsDashboard } from './components/AdminAnalyticsDashboard';
 import { CloudSyncImportModal } from './components/CloudSyncImportModal';
+import { ProductionResetModal } from './components/ProductionResetModal';
 import { 
   Issue, 
   AppUser, 
@@ -346,6 +347,11 @@ export default function App() {
   // Merge Tickets Modal State
   const [showMergeModal, setShowMergeModal] = useState(false);
   const [mergeTicketIds, setMergeTicketIds] = useState<string[]>([]);
+
+  // Production Factory Reset Modal State
+  const [showResetConfirmModal, setShowResetConfirmModal] = useState(false);
+  const [isResettingSystem, setIsResettingSystem] = useState(false);
+  const [resetStepText, setResetStepText] = useState('');
 
   // Real-time synchronization state across regions
   const [realtimeStatus, setRealtimeStatus] = useState<SyncConnectionStatus>('connecting');
@@ -1151,6 +1157,27 @@ export default function App() {
           break;
         }
 
+        case 'system:reset_production': {
+          deletedIssueIdsRef.current.clear();
+          saveDeletedIssueIds(deletedIssueIdsRef.current);
+          setIssues([]);
+          setNotifications([]);
+          setCabActivities([]);
+          setLiveToast(null);
+          setShowDetailsModal(false);
+          setDetailIssue(null);
+          try {
+            localStorage.setItem(STORAGE_KEY + '_ISSUES', '[]');
+            localStorage.setItem(STORAGE_KEY + '_NOTIFICATIONS', '[]');
+            localStorage.setItem(STORAGE_KEY + '_CAB_ACTIVITIES', '[]');
+            localStorage.setItem(STORAGE_KEY + '_DELETED_ISSUE_IDS', '[]');
+          } catch {}
+          if (payload.senderName !== currentUserRef.current.name) {
+            addNotification('تهيئة الإنتاج الفعلي 🚀', `قام ${payload.senderName} بتهيئة المنظومة للإنتاج ومسح بيانات الاختبار`, undefined, 'info');
+          }
+          break;
+        }
+
         default:
           break;
       }
@@ -1288,6 +1315,26 @@ export default function App() {
           setDetailIssue(null);
           if (actor !== currentUserRef.current.name) {
             addNotification('تفريغ التذاكر 🗑️', `قام ${actor} بتفريغ كافة التذاكر من المنظومة`, undefined, 'warning');
+          }
+        },
+
+        onSystemResetProduction: (actor: string) => {
+          deletedIssueIdsRef.current.clear();
+          saveDeletedIssueIds(deletedIssueIdsRef.current);
+          setIssues([]);
+          setNotifications([]);
+          setCabActivities([]);
+          setLiveToast(null);
+          setShowDetailsModal(false);
+          setDetailIssue(null);
+          try {
+            localStorage.setItem(STORAGE_KEY + '_ISSUES', '[]');
+            localStorage.setItem(STORAGE_KEY + '_NOTIFICATIONS', '[]');
+            localStorage.setItem(STORAGE_KEY + '_CAB_ACTIVITIES', '[]');
+            localStorage.setItem(STORAGE_KEY + '_DELETED_ISSUE_IDS', '[]');
+          } catch {}
+          if (actor !== currentUserRef.current.name) {
+            addNotification('تهيئة الإنتاج الفعلي 🚀', `قام ${actor} بتهيئة المنظومة لبيانات المصنع ومسح تذاكر الاختبار`, undefined, 'info');
           }
         },
 
@@ -3278,35 +3325,109 @@ export default function App() {
     }
   };
 
-  // Reset system to factory default
+  // Open Production Reset Confirmation Modal
   const handleResetSystemToDefault = () => {
-    if (confirm('⚠️ تحذير شديد: هل أنت متأكد تماماً من رغبتك في مسح كافة التعديلات واستعادة بيانات المصنع الافتراضية للمنظومة؟ لا يمكن التراجع عن هذا الإجراء إلا إذا كنت قد حمّلت نسخة احتياطية مسبقاً.')) {
+    setShowResetConfirmModal(true);
+  };
+
+  // Execute full Production / Factory Reset (Wipes local, Supabase tables, and server database)
+  const handleConfirmResetProduction = async () => {
+    setIsResettingSystem(true);
+    setResetStepText('1/4: مسح تذاكر الاختبار وتفريغ الذاكرة والتخزين المحلي...');
+
+    try {
+      // 1. Reset local state
       deletedIssueIdsRef.current.clear();
       saveDeletedIssueIds(deletedIssueIdsRef.current);
       setIssues([]);
+      setNotifications([]);
+      setCabActivities([]);
       setUsers(INITIAL_USERS);
       setCategories(INITIAL_CATEGORIES);
       setTags(INITIAL_TAGS);
       setCannedResponses(INITIAL_CANNED_RESPONSES);
       setSoundSettings(INITIAL_SOUND_SETTINGS);
       setGeneralSettings(INITIAL_GENERAL_SETTINGS);
-      setAuditLogs(INITIAL_AUDIT_LOGS);
+      setLiveToast(null);
+      setDetailIssue(null);
+      setShowDetailsModal(false);
+      setEditingIssue(null);
 
+      const initialProdLog: AuditLog = {
+        id: `a-${Date.now()}`,
+        time: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+        user: currentUser.name || 'مدير النظام',
+        action: 'تهيئة الإنتاج الفعلي 🚀',
+        details: 'تم مسح وتفريغ كافة تذاكر وبيانات الاختبار وتهيئة المنظومة كلياً للإنتاج الفعلي (0 تذاكر - Production Ready).',
+      };
+      setAuditLogs([initialProdLog]);
+
+      // Clear local storage completely
       try {
-        localStorage.removeItem(STORAGE_KEY + '_ISSUES');
-        localStorage.removeItem(STORAGE_KEY + '_USERS');
-        localStorage.removeItem(STORAGE_KEY + '_CATEGORIES');
-        localStorage.removeItem(STORAGE_KEY + '_TAGS');
-        localStorage.removeItem(STORAGE_KEY + '_CANNED');
-        localStorage.removeItem(STORAGE_KEY + '_SOUND');
-        localStorage.removeItem(STORAGE_KEY + '_GENERAL');
-        localStorage.removeItem(STORAGE_KEY + '_AUDIT');
-        localStorage.removeItem(STORAGE_KEY + '_DELETED_ISSUE_IDS');
+        localStorage.setItem(STORAGE_KEY + '_ISSUES', '[]');
+        localStorage.setItem(STORAGE_KEY + '_NOTIFICATIONS', '[]');
+        localStorage.setItem(STORAGE_KEY + '_CAB_ACTIVITIES', '[]');
+        localStorage.setItem(STORAGE_KEY + '_DELETED_ISSUE_IDS', '[]');
+        localStorage.setItem(STORAGE_KEY + '_AUDIT', JSON.stringify([initialProdLog]));
+        localStorage.setItem(STORAGE_KEY + '_USERS', JSON.stringify(INITIAL_USERS));
+        localStorage.setItem(STORAGE_KEY + '_CATEGORIES', JSON.stringify(INITIAL_CATEGORIES));
+        localStorage.setItem(STORAGE_KEY + '_TAGS', JSON.stringify(INITIAL_TAGS));
+        localStorage.setItem(STORAGE_KEY + '_CANNED', JSON.stringify(INITIAL_CANNED_RESPONSES));
+        localStorage.setItem(STORAGE_KEY + '_SOUND', JSON.stringify(INITIAL_SOUND_SETTINGS));
+        localStorage.setItem(STORAGE_KEY + '_GENERAL', JSON.stringify(INITIAL_GENERAL_SETTINGS));
       } catch (e) {
         console.error('Error clearing localStorage', e);
       }
-      addNotification('إعادة ضبط المصنع ⚠️', 'تمت استعادة الإعدادات والبيانات الأولية للمنظومة بنجاح', undefined, 'danger');
-      alert('تمت استعادة المنظومة بنجاح إلى الإعدادات الأولية!');
+
+      setResetStepText('2/4: تفريغ ومسح جدول Table Editor في Supabase نهائياً...');
+      // 2. Direct Supabase Cloud Wipe
+      try {
+        const client = getSupabaseClient();
+        if (client) {
+          const { error: delErr } = await client.from('issues').delete().neq('id', 'dummy_clean_id_zero');
+          if (delErr) {
+            console.warn('[Supabase-Wipe-Client] Issues Delete Warning:', delErr);
+          }
+          try { await client.from('cab_activities').delete().neq('id', 'dummy_clean_id_zero'); } catch {}
+          try { await client.from('system_store').upsert({ key: 'deleted_issue_ids', value: [] }); } catch {}
+        }
+      } catch (err) {
+        console.warn('[Supabase-Wipe-Client] Error:', err);
+      }
+
+      setResetStepText('3/4: تصفير ذاكرة الخادم وقاعدة البيانات السحابية (db.json)...');
+      // 3. Backend API Reset
+      try {
+        await fetch('/api/system/reset-production', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ actor: currentUser.name }),
+        });
+      } catch (err) {
+        console.warn('[Server-Reset] Error:', err);
+      }
+
+      setResetStepText('4/4: بث تحديث الإنتاج الفعلي لكافة الشاشات والأعضاء...');
+      // 4. Realtime Broadcast
+      realtimeSync.broadcastResetProduction(currentUser.name);
+      realtimeHub.broadcast('system:reset_production', { actor: currentUser.name }, currentUser.name);
+
+      addNotification(
+        'تهيئة الإنتاج الفعلي بنجاح 🚀',
+        'تم مسح كافة تذاكر وبيانات الاختبار وتهيئة المنظومة كلياً للإنتاج الفعلي (0 تذاكر جاهزة)',
+        undefined,
+        'success'
+      );
+
+      setTimeout(() => {
+        setIsResettingSystem(false);
+        setShowResetConfirmModal(false);
+        setCurrentTab('issues');
+      }, 700);
+    } catch (error) {
+      console.error('Reset system error:', error);
+      setIsResettingSystem(false);
+      setShowResetConfirmModal(false);
     }
   };
 
@@ -3995,6 +4116,17 @@ export default function App() {
           categoriesCount: categories.length,
         }}
         onImportComplete={handleImportCloudData}
+      />
+
+      {/* Production Factory Reset Confirmation Modal */}
+      <ProductionResetModal
+        isOpen={showResetConfirmModal}
+        onClose={() => {
+          if (!isResettingSystem) setShowResetConfirmModal(false);
+        }}
+        onConfirm={handleConfirmResetProduction}
+        isLoading={isResettingSystem}
+        stepText={resetStepText}
       />
     </div>
     </BadgeStyleProvider>

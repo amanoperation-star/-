@@ -853,23 +853,33 @@ export const IssueModal: React.FC<IssueModalProps> = ({
                   {/* Contact Row */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block font-medium text-slate-600 dark:text-slate-400 mb-1 flex items-center gap-1.5">
-                        <Mail className="w-3.5 h-3.5 text-slate-400" />
-                        <span>البريد الإلكتروني للعميل</span>
+                      <label className="block font-medium text-slate-600 dark:text-slate-400 mb-1 flex items-center justify-between">
+                        <span className="flex items-center gap-1.5">
+                          <Mail className="w-3.5 h-3.5 text-slate-400" />
+                          <span>البريد الإلكتروني للعميل</span>
+                        </span>
+                        <span className="text-[10px] font-normal text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-md">
+                          اختياري
+                        </span>
                       </label>
                       <input
                         type="email"
                         value={clientEmail}
                         onChange={(e) => setClientEmail(e.target.value)}
-                        placeholder="client@domain.com"
+                        placeholder="client@domain.com (اختياري)"
                         className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs"
                       />
                     </div>
 
                     <div>
-                      <label className="block font-medium text-slate-600 dark:text-slate-400 mb-1 flex items-center gap-1.5">
-                        <Phone className="w-3.5 h-3.5 text-slate-400" />
-                        <span>رقم هاتف الاتصال</span>
+                      <label className="block font-medium text-slate-600 dark:text-slate-400 mb-1 flex items-center justify-between">
+                        <span className="flex items-center gap-1.5">
+                          <Phone className="w-3.5 h-3.5 text-slate-400" />
+                          <span>رقم هاتف الاتصال</span>
+                        </span>
+                        <span className="text-[10px] font-normal text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-md">
+                          اختياري
+                        </span>
                       </label>
                       <input
                         type="tel"
@@ -1177,20 +1187,22 @@ export const IssueModal: React.FC<IssueModalProps> = ({
 
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label className="block text-[11px] text-slate-600 dark:text-slate-400 mb-0.5">
-                            البريد الإلكتروني
+                          <label className="block text-[11px] text-slate-600 dark:text-slate-400 mb-0.5 flex items-center justify-between">
+                            <span>البريد الإلكتروني</span>
+                            <span className="text-[9px] text-slate-400">اختياري</span>
                           </label>
                           <input
                             type="email"
                             value={clientEmail}
                             onChange={(e) => setClientEmail(e.target.value)}
-                            placeholder="mail@client.com"
+                            placeholder="mail@client.com (اختياري)"
                             className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1 text-slate-900 dark:text-white font-mono text-xs"
                           />
                         </div>
                         <div>
-                          <label className="block text-[11px] text-slate-600 dark:text-slate-400 mb-0.5">
-                            الهاتف للتواصل
+                          <label className="block text-[11px] text-slate-600 dark:text-slate-400 mb-0.5 flex items-center justify-between">
+                            <span>الهاتف للتواصل</span>
+                            <span className="text-[9px] text-slate-400">اختياري</span>
                           </label>
                           <input
                             type="tel"
@@ -1441,20 +1453,26 @@ export const IssueModal: React.FC<IssueModalProps> = ({
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block font-medium text-slate-600 dark:text-slate-400 mb-1">
-                        البريد الإلكتروني للعميل
+                      <label className="block font-medium text-slate-600 dark:text-slate-400 mb-1 flex items-center justify-between">
+                        <span>البريد الإلكتروني للعميل</span>
+                        <span className="text-[10px] font-normal text-slate-400 dark:text-slate-500 bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded-md">
+                          اختياري
+                        </span>
                       </label>
                       <input
                         type="email"
                         value={clientEmail}
                         onChange={(e) => setClientEmail(e.target.value)}
-                        placeholder="client@example.com"
+                        placeholder="client@example.com (اختياري)"
                         className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-slate-900 dark:text-white font-mono text-xs"
                       />
                     </div>
                     <div>
-                      <label className="block font-medium text-slate-600 dark:text-slate-400 mb-1">
-                        رقم هاتف الاتصال
+                      <label className="block font-medium text-slate-600 dark:text-slate-400 mb-1 flex items-center justify-between">
+                        <span>رقم هاتف الاتصال</span>
+                        <span className="text-[10px] font-normal text-slate-400 dark:text-slate-500 bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded-md">
+                          اختياري
+                        </span>
                       </label>
                       <input
                         type="tel"

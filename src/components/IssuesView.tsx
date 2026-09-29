@@ -434,10 +434,10 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
                       ? 'bg-indigo-600 text-white shadow-xs'
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
-                  title="عرض الجدول التقليدي"
+                  title="عرض القائمة المدمجة وكثافة البيانات (Compact List View)"
                 >
                   <List className="w-3.5 h-3.5" />
-                  <span>الجدول</span>
+                  <span>القائمة المدمجة</span>
                 </button>
                 <button
                   type="button"
@@ -639,74 +639,73 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
         return (
           <>
             {viewMode === 'table' ? (
-              <div className="bg-white dark:bg-slate-800/90 rounded-3xl border border-slate-200 dark:border-slate-700/80 shadow-sm overflow-hidden animate-fadeIn">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-right text-xs">
-                    <thead className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 font-bold">
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs overflow-hidden animate-fadeIn">
+                <div className="overflow-x-auto custom-scrollbar">
+                  <table className="w-full text-right border-collapse">
+                    <thead className="bg-slate-100/90 dark:bg-slate-950/90 border-b border-slate-200/90 dark:border-slate-800 text-slate-600 dark:text-slate-400 font-bold text-[11px] select-none sticky top-0 z-10 backdrop-blur-xs">
                       <tr>
-                        <th className="p-3.5 w-10 text-center">
+                        <th className="py-2.5 px-2.5 w-8 text-center">
                           <input
                             type="checkbox"
                             checked={
                               filteredIssues.length > 0 && selectedIds.length === filteredIssues.length
                             }
                             onChange={(e) => handleSelectAll(e.target.checked)}
-                            className="rounded bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-indigo-600 focus:ring-indigo-500"
+                            className="rounded bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer"
                           />
                         </th>
-                        <th className="p-3.5">الكود</th>
-                        <th className="p-3.5">العميل / الوسم</th>
-                        <th className="p-3.5">نوع المشكلة</th>
-                        <th className="p-3.5 max-w-xs">وصف المشكلة</th>
-                        <th className="p-3.5">المُسنَد إليه</th>
-                        <th className="p-3.5 whitespace-nowrap">وقت العمل</th>
-                        <th className="p-3.5 whitespace-nowrap">الأولوية</th>
-                        <th className="p-3.5 whitespace-nowrap">الحالة</th>
-                        <th className="p-3.5 whitespace-nowrap">اتفاقية SLA</th>
-                        <th className="p-3.5 text-center">الإجراءات</th>
+                        <th className="py-2.5 px-2.5 w-24 font-mono">الكود</th>
+                        <th className="py-2.5 px-2.5 min-w-[160px]">العميل والوسم</th>
+                        <th className="py-2.5 px-2.5 min-w-[200px]">التصنيف والوصف</th>
+                        <th className="py-2.5 px-2.5 w-36">المُسنَد إليه</th>
+                        <th className="py-2.5 px-2.5 w-28 whitespace-nowrap">عداد العمل</th>
+                        <th className="py-2.5 px-2.5 w-20 text-center whitespace-nowrap">الأولوية</th>
+                        <th className="py-2.5 px-2.5 w-24 text-center whitespace-nowrap">الحالة</th>
+                        <th className="py-2.5 px-2.5 w-24 text-center whitespace-nowrap">مهلة SLA</th>
+                        <th className="py-2.5 px-2.5 w-28 text-center whitespace-nowrap">الإجراءات</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-200 dark:divide-slate-700/60">
+                    <tbody className="divide-y divide-slate-150 dark:divide-slate-800/70 text-xs">
                       {filteredIssues.length === 0 ? (
                         <tr>
-                          <td colSpan={11} className="text-center py-12 text-slate-500 dark:text-slate-400">
-                            <div className="max-w-md mx-auto space-y-3">
-                              <p className="text-base font-bold text-slate-800 dark:text-slate-200">
+                          <td colSpan={10} className="text-center py-10 text-slate-500 dark:text-slate-400">
+                            <div className="max-w-md mx-auto space-y-2.5">
+                              <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
                                 {filterStatus === 'Open'
-                                  ? 'لا توجد تذاكر جديدة بحالة مفتوحة حالياً (تم حل أو معالجة كافة البلاغات السابقة) 🟢'
-                                  : 'لا توجد تذاكر تطابق معايير البحث والفلترة المحددة'}
+                                  ? 'لا توجد تذاكر جديدة بحالة مفتوحة حالياً (تم حل أو معالجة كافة البلاغات) 🟢'
+                                  : 'لا توجد تذاكر تطابق شروط البحث والفلترة'}
                               </p>
-                              <p className="text-xs text-slate-400 dark:text-slate-500">
+                              <p className="text-[11px] text-slate-400 dark:text-slate-500">
                                 {filterStatus === 'Open'
-                                  ? 'يمكنك استعراض التذاكر قيد العمل أو جميع التذاكر من الأزرار السريعة أدناه:'
-                                  : 'جرب تغيير شروط الفلترة أو إنشاء تذكرة جديدة'}
+                                  ? 'يمكنك استعراض التذاكر قيد العمل أو جميع التذاكر من الأزرار أدناه:'
+                                  : 'جرب تغيير معايير الفلترة أو مسح حقول البحث'}
                               </p>
-                              <div className="flex flex-wrap justify-center gap-2 pt-2">
+                              <div className="flex flex-wrap justify-center gap-2 pt-1.5">
                                 {filterStatus !== 'ALL' && (
                                   <button
                                     type="button"
                                     onClick={() => setFilterStatus('ALL')}
-                                    className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition shadow cursor-pointer"
+                                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
                                   >
-                                    عرض جميع التذاكر ({totalCount}) 📋
+                                    عرض الكل ({totalCount}) 📋
                                   </button>
                                 )}
                                 {inProgressCount > 0 && filterStatus !== 'In Progress' && (
                                   <button
                                     type="button"
                                     onClick={() => setFilterStatus('In Progress')}
-                                    className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition shadow cursor-pointer"
+                                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
                                   >
-                                    عرض قيد العمل ({inProgressCount}) 🔵
+                                    قيد العمل ({inProgressCount}) 🔵
                                   </button>
                                 )}
                                 {resolvedCount > 0 && filterStatus !== 'Resolved' && (
                                   <button
                                     type="button"
                                     onClick={() => setFilterStatus('Resolved')}
-                                    className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow cursor-pointer"
+                                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
                                   >
-                                    عرض التذاكر المحلولة ({resolvedCount}) 🟢
+                                    المحلولة ({resolvedCount}) 🟢
                                   </button>
                                 )}
                               </div>
@@ -720,185 +719,215 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
                           const isSelected = selectedIds.includes(item.id);
                           const hasCollision = collisionsMap[item.id] && collisionsMap[item.id].length > 0;
 
+                          // Side color line based on status / priority / breach
+                          const borderClass = hasCollision
+                            ? 'border-r-amber-500 bg-amber-500/5 dark:bg-amber-500/10'
+                            : isBreached
+                            ? 'border-r-rose-500 bg-rose-50/40 dark:bg-rose-950/20'
+                            : item.isWorkingNow
+                            ? 'border-r-emerald-500 bg-emerald-50/30 dark:bg-emerald-950/20'
+                            : item.status === 'In Progress'
+                            ? 'border-r-blue-500'
+                            : item.status === 'Resolved' || item.status === 'Closed'
+                            ? 'border-r-emerald-400'
+                            : 'border-r-slate-300 dark:border-r-slate-700';
+
                           return (
                             <tr
                               key={item.id}
                               onClick={(e) => {
                                 const target = e.target as HTMLElement;
-                                if (target.closest('input[type="checkbox"], button')) return;
+                                if (target.closest('input[type="checkbox"], button, a')) return;
                                 onOpenDetails(item);
                               }}
-                              className={`cursor-pointer transition border-r-4 ${
-                                hasCollision
-                                  ? 'border-r-amber-500 bg-amber-500/5 dark:bg-amber-500/10 hover:bg-amber-500/15'
-                                  : isBreached
-                                  ? 'border-r-rose-500 bg-rose-50/60 dark:bg-rose-950/20 hover:bg-rose-100/70 dark:hover:bg-rose-950/40'
-                                  : isSelected
-                                  ? 'border-r-indigo-500 bg-indigo-50/80 dark:bg-indigo-950/30 hover:bg-indigo-100/70 dark:hover:bg-indigo-950/40'
-                                  : 'border-r-transparent hover:bg-slate-50 dark:hover:bg-slate-700/30'
+                              className={`cursor-pointer transition-all duration-150 border-r-[3.5px] ${borderClass} ${
+                                isSelected
+                                  ? 'bg-indigo-50/70 dark:bg-indigo-950/40'
+                                  : 'hover:bg-slate-50/90 dark:hover:bg-slate-800/60'
                               }`}
                             >
                               {/* Checkbox */}
-                              <td className="p-3.5 text-center">
+                              <td className="py-2 px-2.5 text-center">
                                 <input
                                   type="checkbox"
                                   checked={isSelected}
                                   onChange={(e) => handleSelectOne(item.id, e.target.checked)}
-                                  className="rounded bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-indigo-600 focus:ring-indigo-500"
+                                  className="rounded bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer"
                                 />
                               </td>
 
                               {/* Ticket ID */}
-                              <td className="p-3.5">
+                              <td className="py-2 px-2.5 whitespace-nowrap">
                                 <button
+                                  type="button"
                                   onClick={() => onOpenDetails(item)}
-                                  className="font-mono font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 hover:underline flex items-center gap-1 cursor-pointer"
+                                  className="font-mono font-black text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 hover:underline flex items-center gap-1 cursor-pointer"
                                 >
+                                  {item.isWorkingNow && (
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping inline-block shrink-0"></span>
+                                  )}
                                   <span>{item.id}</span>
                                 </button>
                               </td>
 
                               {/* Client & Tag */}
-                              <td className="p-3.5">
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span className="font-bold text-slate-900 dark:text-white block">{item.client}</span>
-                                  {onOpenCustomerProfile && (
+                              <td className="py-2 px-2.5">
+                                <div className="space-y-0.5 max-w-[220px]">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-bold text-slate-900 dark:text-slate-100 text-xs truncate max-w-[130px]" title={item.client}>
+                                      {item.client}
+                                    </span>
+                                    {onOpenCustomerProfile && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          onOpenCustomerProfile(item.client);
+                                        }}
+                                        className="p-0.5 rounded text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950 transition cursor-pointer"
+                                        title={`عرض بطاقة العميل الشاملة 360° لـ (${item.client})`}
+                                      >
+                                        <User className="w-2.5 h-2.5" />
+                                      </button>
+                                    )}
+
+                                    {/* 1-Click WhatsApp Quick Action */}
                                     <button
+                                      type="button"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        onOpenCustomerProfile(item.client);
+                                        setWhatsAppIssue(item);
                                       }}
-                                      className="p-1 rounded-md text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950 transition cursor-pointer"
-                                      title={`عرض بطاقة العميل الشاملة 360° لـ (${item.client})`}
+                                      className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded-md bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 text-[9px] font-bold transition cursor-pointer active:scale-95"
+                                      title={`مراسلة العميل (${item.client}) عبر واتساب بنقرة واحدة`}
                                     >
-                                      <User className="w-3 h-3" />
+                                      <MessageSquare className="w-2.5 h-2.5 fill-emerald-600/20 text-emerald-600 dark:text-emerald-400" />
+                                      <span>واتساب</span>
                                     </button>
-                                  )}
-
-                                  {/* 1-Click WhatsApp Quick Action */}
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setWhatsAppIssue(item);
-                                    }}
-                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 text-[10px] font-bold transition shadow-2xs cursor-pointer active:scale-95"
-                                    title={`مراسلة العميل (${item.client}) عبر واتساب بنقرة واحدة`}
-                                  >
-                                    <MessageSquare className="w-3 h-3 fill-emerald-600/20 text-emerald-600 dark:text-emerald-400" />
-                                    <span>واتساب 💬</span>
-                                  </button>
-                                </div>
-
-                                {/* Collision Detection Live Chip */}
-                                {collisionsMap[item.id] && collisionsMap[item.id].length > 0 && (
-                                  <div className="mt-1">
-                                    <CollisionAlertBanner viewers={collisionsMap[item.id]} compact />
                                   </div>
-                                )}
 
-                                <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
-                                  {item.tag && (
-                                    <span className="inline-flex items-center gap-1 text-[10px] text-amber-700 dark:text-amber-400 font-semibold">
-                                      <TagIcon className="w-2.5 h-2.5" />
-                                      <span>{item.tag}</span>
-                                    </span>
+                                  {/* Collision Detection Live Chip */}
+                                  {collisionsMap[item.id] && collisionsMap[item.id].length > 0 && (
+                                    <div>
+                                      <CollisionAlertBanner viewers={collisionsMap[item.id]} compact />
+                                    </div>
                                   )}
-                                  {item.mergedIntoTicketId && (
-                                    <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
-                                      <GitMerge className="w-2.5 h-2.5" />
-                                      <span>مدمجة مع {item.mergedIntoTicketId}</span>
-                                    </span>
-                                  )}
-                                  {item.mergedTicketIds && item.mergedTicketIds.length > 0 && (
-                                    <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-indigo-100 dark:bg-indigo-950/80 text-indigo-800 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-800">
-                                      <GitMerge className="w-2.5 h-2.5" />
-                                      <span>مدمج معها ({item.mergedTicketIds.length})</span>
-                                    </span>
-                                  )}
+
+                                  <div className="flex items-center gap-1 flex-wrap">
+                                    {item.tag && (
+                                      <span className="inline-flex items-center gap-0.5 text-[9px] text-amber-700 dark:text-amber-400 font-semibold bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.2 rounded">
+                                        <TagIcon className="w-2 h-2" />
+                                        <span>{item.tag}</span>
+                                      </span>
+                                    )}
+                                    {item.mergedIntoTicketId && (
+                                      <span className="inline-flex items-center gap-0.5 text-[9px] px-1 py-0.2 rounded font-bold bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                                        <GitMerge className="w-2 h-2" />
+                                        <span>مدمجة مع {item.mergedIntoTicketId}</span>
+                                      </span>
+                                    )}
+                                    {item.mergedTicketIds && item.mergedTicketIds.length > 0 && (
+                                      <span className="inline-flex items-center gap-0.5 text-[9px] px-1 py-0.2 rounded font-bold bg-indigo-100 dark:bg-indigo-950/80 text-indigo-800 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-800">
+                                        <GitMerge className="w-2 h-2" />
+                                        <span>مدمج ({item.mergedTicketIds.length})</span>
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                               </td>
 
-                              {/* Category */}
-                              <td className="p-3.5 text-slate-700 dark:text-slate-300 font-medium">{item.type}</td>
-
-                              {/* Desc snippet */}
-                              <td className="p-3.5 max-w-xs text-slate-500 dark:text-slate-400 truncate" title={item.desc}>
-                                {item.desc}
+                              {/* Category & Description */}
+                              <td className="py-2 px-2.5">
+                                <div className="space-y-0.5 max-w-[240px] xl:max-w-xs">
+                                  <span className="inline-block text-[10px] font-bold px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700">
+                                    {item.type}
+                                  </span>
+                                  <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate leading-tight" title={item.desc}>
+                                    {item.desc || 'لا يوجد وصف إضافي'}
+                                  </p>
+                                </div>
                               </td>
 
                               {/* Assignee & Team */}
-                              <td className="p-3.5">
+                              <td className="py-2 px-2.5">
                                 {item.isExternalOwner ? (
-                                  <div className="space-y-0.5">
-                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-100 dark:bg-purple-950/70 border border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 font-bold text-[10px]">
-                                      <Globe className="w-2.5 h-2.5" />
-                                      <span>طرف خارجي</span>
-                                    </span>
-                                    <span className="font-bold text-purple-950 dark:text-purple-200 block text-xs truncate max-w-[150px]" title={item.externalOwnerDetails?.name || item.owner}>
-                                      {item.owner}
+                                  <div className="space-y-0.5 max-w-[140px]">
+                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded bg-purple-100 dark:bg-purple-950/70 border border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 font-bold text-[9px]">
+                                      <Globe className="w-2 h-2" />
+                                      <span>خارجي: {item.owner}</span>
                                     </span>
                                     {item.externalOwnerDetails?.company && (
-                                      <span className="text-[10px] text-slate-500 dark:text-slate-400 block truncate max-w-[140px]" title={item.externalOwnerDetails.company}>
+                                      <span className="text-[9px] text-slate-500 dark:text-slate-400 block truncate" title={item.externalOwnerDetails.company}>
                                         🏢 {item.externalOwnerDetails.company}
-                                      </span>
-                                    )}
-                                    {item.externalOwnerDetails?.externalTicketId && (
-                                      <span className="text-[9px] font-mono text-purple-600 dark:text-purple-400 block">
-                                        #{item.externalOwnerDetails.externalTicketId}
                                       </span>
                                     )}
                                   </div>
                                 ) : (
-                                  <>
-                                    <span className="font-bold text-amber-700 dark:text-amber-400 block">{item.owner}</span>
-                                    <span className="text-[10px] text-slate-500 dark:text-slate-400 block">{item.assigned}</span>
-                                  </>
+                                  <div className="space-y-0.5 max-w-[130px]">
+                                    <span className="font-bold text-slate-800 dark:text-slate-200 text-xs block truncate" title={item.owner}>
+                                      {item.owner}
+                                    </span>
+                                    <span className="text-[10px] text-slate-400 dark:text-slate-500 block truncate" title={item.assigned}>
+                                      {item.assigned}
+                                    </span>
+                                  </div>
                                 )}
                               </td>
 
                               {/* Work Timer */}
-                              <td className="p-3.5">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-mono font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
-                                    <Clock className="w-3.5 h-3.5 text-slate-400" />
+                              <td className="py-2 px-2.5 whitespace-nowrap">
+                                <div className="flex items-center gap-1.5">
+                                  <span className={`font-mono text-xs font-bold flex items-center gap-1 ${item.isWorkingNow ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-300'}`}>
+                                    <Clock className={`w-3 h-3 ${item.isWorkingNow ? 'text-emerald-500 animate-spin' : 'text-slate-400'}`} />
                                     <span>{formatSecondsToHMS(item.workTime || 0)}</span>
                                   </span>
                                   {item.status !== 'Resolved' && item.status !== 'Closed' && (
                                     <button
-                                      onClick={() => onToggleTimer(item)}
-                                      className={`p-1 rounded-lg transition ${
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onToggleTimer(item);
+                                      }}
+                                      className={`p-1 rounded-md transition cursor-pointer shadow-2xs ${
                                         item.isWorkingNow
                                           ? 'bg-rose-600 text-white animate-pulse'
-                                          : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-emerald-600 hover:text-white'
+                                          : 'bg-slate-100 hover:bg-emerald-600 hover:text-white dark:bg-slate-800 text-slate-600 dark:text-slate-400'
                                       }`}
-                                      title={item.isWorkingNow ? 'إيقاف عداد العمل مؤقتاً' : 'بدء العمل وتشغيل العداد'}
+                                      title={item.isWorkingNow ? 'إيقاف مؤقت للعداد' : 'بدء العمل وتشغيل العداد'}
                                     >
-                                      {item.isWorkingNow ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+                                      {item.isWorkingNow ? <Pause className="w-2.5 h-2.5" /> : <Play className="w-2.5 h-2.5" />}
                                     </button>
                                   )}
                                 </div>
                               </td>
 
                               {/* Priority */}
-                              <td className="p-3.5 whitespace-nowrap">{getPriorityBadge(item.priority)}</td>
+                              <td className="py-2 px-2.5 whitespace-nowrap text-center">
+                                <div className="inline-flex justify-center scale-95 origin-center">
+                                  {getPriorityBadge(item.priority)}
+                                </div>
+                              </td>
 
                               {/* Status */}
-                              <td className="p-3.5 whitespace-nowrap">{getStatusBadge(item.status)}</td>
+                              <td className="py-2 px-2.5 whitespace-nowrap text-center">
+                                <div className="inline-flex justify-center scale-95 origin-center">
+                                  {getStatusBadge(item.status)}
+                                </div>
+                              </td>
 
                               {/* SLA */}
-                              <td className="p-3.5 font-mono">
+                              <td className="py-2 px-2.5 font-mono text-center whitespace-nowrap">
                                 {isBreached ? (
-                                  <div className="text-rose-600 dark:text-rose-400 font-black flex items-center gap-1 animate-pulse">
-                                    <AlertTriangle className="w-3.5 h-3.5" />
+                                  <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-400 border border-rose-300 dark:border-rose-900 text-[10px] font-black animate-pulse">
+                                    <AlertTriangle className="w-2.5 h-2.5 shrink-0" />
                                     <span>{remaining.text}</span>
                                   </div>
                                 ) : (
                                   <span
-                                    className={`text-[11px] font-semibold ${
+                                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
                                       item.status === 'Resolved' || item.status === 'Closed'
-                                        ? 'text-emerald-600 dark:text-emerald-400'
-                                        : 'text-slate-600 dark:text-slate-300'
+                                        ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400'
+                                        : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300'
                                     }`}
                                   >
                                     {remaining.text}
@@ -907,69 +936,75 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
                               </td>
 
                               {/* Actions */}
-                              <td className="p-3.5 text-center">
-                                <div className="flex items-center justify-center gap-1">
-                                  {/* 1-Click WhatsApp Direct Chat with Client */}
+                              <td className="py-2 px-2.5 text-center whitespace-nowrap">
+                                <div className="inline-flex items-center justify-center gap-1">
+                                  {/* WhatsApp Client Direct Chat */}
                                   <button
                                     type="button"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       setWhatsAppIssue(item);
                                     }}
-                                    className="p-1.5 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/60 rounded-lg transition"
+                                    className="p-1 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/60 rounded-md transition cursor-pointer"
                                     title={`مراسلة العميل (${item.client}) عبر واتساب`}
                                   >
-                                    <MessageSquare className="w-4 h-4 fill-emerald-600/20" />
+                                    <MessageSquare className="w-3.5 h-3.5 fill-emerald-600/20" />
                                   </button>
 
-                                  {/* 1-Click WhatsApp Direct Chat with External Owner */}
-                                  {item.isExternalOwner && item.externalOwnerDetails?.phone && (
-                                    <a
-                                      href={`https://wa.me/${item.externalOwnerDetails.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
-                                        `السلام عليكم أستاذ ${item.externalOwnerDetails.name || ''}، بخصوص البلاغ رقم ${item.id} لدى شركتكم الموقرة.`
-                                      )}`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      onClick={(e) => e.stopPropagation()}
-                                      className="p-1.5 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/60 rounded-lg transition"
-                                      title={`مراسلة المسؤول الخارجي (${item.externalOwnerDetails.name || item.owner}) مباشرة عبر واتساب`}
-                                    >
-                                      <Globe className="w-4 h-4" />
-                                    </a>
-                                  )}
+                                  {/* View Details */}
                                   <button
-                                    onClick={() => onOpenDetails(item)}
-                                    className="p-1.5 text-indigo-600 dark:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition"
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onOpenDetails(item);
+                                    }}
+                                    className="p-1 text-indigo-600 dark:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition cursor-pointer"
                                     title="عرض التفاصيل والتايم لاين"
                                   >
-                                    <Eye className="w-4 h-4" />
+                                    <Eye className="w-3.5 h-3.5" />
                                   </button>
+
+                                  {/* Edit */}
                                   <button
-                                    onClick={() => onOpenEdit(item)}
-                                    className="p-1.5 text-amber-600 dark:text-amber-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition"
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onOpenEdit(item);
+                                    }}
+                                    className="p-1 text-amber-600 dark:text-amber-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition cursor-pointer"
                                     title="تعديل بيانات التذكرة"
                                   >
-                                    <Edit3 className="w-4 h-4" />
+                                    <Edit3 className="w-3.5 h-3.5" />
                                   </button>
+
+                                  {/* Resolve (if open) */}
                                   {item.status !== 'Resolved' && item.status !== 'Closed' && (
                                     <button
-                                      onClick={() => onOpenResolve(item)}
-                                      className="p-1.5 text-emerald-600 dark:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition"
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onOpenResolve(item);
+                                      }}
+                                      className="p-1 text-emerald-600 dark:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition cursor-pointer"
                                       title="حل وإغلاق التذكرة"
                                     >
-                                      <CheckCircle2 className="w-4 h-4" />
+                                      <CheckCircle2 className="w-3.5 h-3.5" />
                                     </button>
                                   )}
+
+                                  {/* Delete */}
                                   <button
-                                    onClick={() => {
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
                                       if (confirm(`هل أنت متأكد من حذف التذكرة ${item.id} نهائياً؟`)) {
                                         onDeleteIssue(item.id);
                                       }
                                     }}
-                                    className="p-1.5 text-rose-600 dark:text-rose-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition"
+                                    className="p-1 text-rose-600 dark:text-rose-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition cursor-pointer"
                                     title="حذف التذكرة"
                                   >
-                                    <Trash2 className="w-4 h-4" />
+                                    <Trash2 className="w-3.5 h-3.5" />
                                   </button>
                                 </div>
                               </td>
