@@ -193,7 +193,8 @@ export const IssueModal: React.FC<IssueModalProps> = ({
       setAttachment(undefined);
     }
     setWizardStep(1);
-  }, [initialData, categories, tags, isOpen]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialData, isOpen]);
 
   // Handle design change and persist
   const handleSelectDesign = (design: ModalDesignType) => {
