@@ -1814,6 +1814,9 @@ export default function App() {
         priority: issue.priority || 'Medium',
         status: issue.status || 'Open',
         worktime: issue.workTime || 0,
+        is_working_now: issue.isWorkingNow ?? false,
+        active_worker: issue.activeWorker || null,
+        timer_started_at: issue.timerStartedAt || null,
         csat: issue.csat || 5,
         created_at: issue.createdAt,
         due_date: issue.dueDate,
@@ -1854,6 +1857,9 @@ export default function App() {
         priority: issue.priority || 'Medium',
         status: issue.status || 'Open',
         worktime: issue.workTime || 0,
+        is_working_now: issue.isWorkingNow ?? false,
+        active_worker: issue.activeWorker || null,
+        timer_started_at: issue.timerStartedAt || null,
         csat: issue.csat || 5,
         created_at: issue.createdAt,
         due_date: issue.dueDate,
@@ -1885,6 +1891,9 @@ export default function App() {
         priority: issue.priority || 'Medium',
         status: issue.status || 'Open',
         workTime: issue.workTime || 0,
+        isWorkingNow: issue.isWorkingNow ?? false,
+        activeWorker: issue.activeWorker || null,
+        timerStartedAt: issue.timerStartedAt || null,
         csat: issue.csat || 5,
         createdAt: issue.createdAt,
         dueDate: issue.dueDate,
@@ -2336,6 +2345,15 @@ export default function App() {
       'بدء عداد العمل ⏱️',
       `بدأ العمل الفعلي للتذكرة ${issue.id}`
     );
+    realtimeHub.broadcast(
+      'ticket:updated',
+      {
+        issue: targetUpdated,
+        changeType: 'بدء عداد العمل ⏱️',
+        details: `بدأ العمل الفعلي للتذكرة ${issue.id}`,
+      },
+      currentUser.name
+    );
     upsertSingleIssueToSupabase(targetUpdated);
 
     pausedOthers.forEach((paused) => {
@@ -2344,6 +2362,15 @@ export default function App() {
         currentUser.name,
         'إيقاف مؤقت للعداد ⏸️',
         `تم إيقاف مؤقت التذكرة ${paused.id}`
+      );
+      realtimeHub.broadcast(
+        'ticket:updated',
+        {
+          issue: paused,
+          changeType: 'إيقاف مؤقت للعداد ⏸️',
+          details: `تم إيقاف مؤقت التذكرة ${paused.id}`,
+        },
+        currentUser.name
       );
       upsertSingleIssueToSupabase(paused);
     });
@@ -2391,6 +2418,15 @@ export default function App() {
       'إيقاف مؤقت للعداد ⏸️',
       `تم إيقاف مؤقت العمل عند ${targetUpdated.workTime} ثانية`
     );
+    realtimeHub.broadcast(
+      'ticket:updated',
+      {
+        issue: targetUpdated,
+        changeType: 'إيقاف مؤقت للعداد ⏸️',
+        details: `تم إيقاف مؤقت العمل عند ${targetUpdated.workTime} ثانية`,
+      },
+      currentUser.name
+    );
     upsertSingleIssueToSupabase(targetUpdated);
 
     addAuditLog('إيقاف عداد تذكرة', `إيقاف مؤقت العمل للتذكرة ${issue.id}`);
@@ -2416,13 +2452,20 @@ export default function App() {
     const isUnresolved = ticket.status !== 'Resolved' && ticket.status !== 'Closed';
 
     if (isUnresolved) {
-      handleStartTimer(ticket);
-      setDetailIssue({
-        ...ticket,
-        isWorkingNow: true,
-        activeWorker: currentUser.name,
-        status: ticket.status === 'Open' ? 'In Progress' : ticket.status,
-      });
+      if (!ticket.isWorkingNow) {
+        handleStartTimer(ticket);
+      }
+      setDetailIssue(
+        ticket.isWorkingNow
+          ? ticket
+          : {
+              ...ticket,
+              isWorkingNow: true,
+              timerStartedAt: new Date().toISOString(),
+              activeWorker: currentUser.name,
+              status: ticket.status === 'Open' ? 'In Progress' : ticket.status,
+            }
+      );
     } else {
       setDetailIssue(ticket);
     }
