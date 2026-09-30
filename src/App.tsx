@@ -227,6 +227,45 @@ export default function App() {
     } catch {}
   }, [notifications]);
 
+  // Cross-tab localStorage listener to sync notifications immediately when cleared in another tab/window
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY + '_NOTIFICATIONS') {
+        try {
+          const updated = e.newValue ? JSON.parse(e.newValue) : [];
+          setNotifications(Array.isArray(updated) ? updated : []);
+        } catch {
+          setNotifications([]);
+        }
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
+  const handleClearAllNotifications = (broadcast = true) => {
+    setNotifications([]);
+    try {
+      localStorage.setItem(STORAGE_KEY + '_NOTIFICATIONS', '[]');
+    } catch {}
+    if (broadcast) {
+      realtimeHub.broadcast('notifications:clear_all', {}, currentUser.name);
+    }
+  };
+
+  const handleClearSingleNotification = (id: string, broadcast = true) => {
+    setNotifications((prev) => {
+      const updated = prev.filter((n) => n.id !== id);
+      try {
+        localStorage.setItem(STORAGE_KEY + '_NOTIFICATIONS', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+    if (broadcast) {
+      realtimeHub.broadcast('notification:clear_single', { id }, currentUser.name);
+    }
+  };
+
   // Comprehensive Notification Helper - Bound to all live system and team actions
   const addNotification = (
     title: string,
@@ -1162,6 +1201,28 @@ export default function App() {
           break;
         }
 
+        case 'notifications:clear_all': {
+          setNotifications([]);
+          try {
+            localStorage.setItem(STORAGE_KEY + '_NOTIFICATIONS', '[]');
+          } catch {}
+          break;
+        }
+
+        case 'notification:clear_single': {
+          const targetId = payload.data?.id;
+          if (targetId) {
+            setNotifications((prev) => {
+              const updated = prev.filter((n) => n.id !== targetId);
+              try {
+                localStorage.setItem(STORAGE_KEY + '_NOTIFICATIONS', JSON.stringify(updated));
+              } catch {}
+              return updated;
+            });
+          }
+          break;
+        }
+
         case 'system:reset_production': {
           deletedIssueIdsRef.current.clear();
           saveDeletedIssueIds(deletedIssueIdsRef.current);
@@ -1321,6 +1382,14 @@ export default function App() {
           if (actor !== currentUserRef.current.name) {
             addNotification('تفريغ التذاكر 🗑️', `قام ${actor} بتفريغ كافة التذاكر من المنظومة`, undefined, 'warning');
           }
+        },
+
+        onNotificationsCleared: () => {
+          handleClearAllNotifications(false);
+        },
+
+        onNotificationClearedSingle: (id: string) => {
+          handleClearSingleNotification(id, false);
         },
 
         onSystemResetProduction: (actor: string) => {
@@ -3795,7 +3864,8 @@ export default function App() {
         onNavigateToSupabaseSettings={handleNavigateToSupabaseSettings}
         onOpenCloudImportModal={() => setIsGlobalCloudImportModalOpen(true)}
         notifications={notifications}
-        onClearNotifications={() => setNotifications([])}
+        onClearNotifications={() => handleClearAllNotifications(true)}
+        onClearSingleNotification={(id) => handleClearSingleNotification(id, true)}
         onSelectTicket={handleSelectTicketById}
         onOpenNewTicketModal={() => {
           setEditingIssue(null);

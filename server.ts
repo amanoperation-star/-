@@ -1524,6 +1524,29 @@ wss.on('connection', (ws, request) => {
           break;
         }
 
+        case 'notifications:clear_all': {
+          broadcast(
+            {
+              type: 'notifications:cleared',
+              actor: data.actor || clientInfo.name || 'عضو في الفريق',
+            },
+            ws
+          );
+          break;
+        }
+
+        case 'notification:clear_single': {
+          broadcast(
+            {
+              type: 'notification:cleared_single',
+              id: data.id,
+              actor: data.actor || clientInfo.name || 'عضو في الفريق',
+            },
+            ws
+          );
+          break;
+        }
+
         case 'ticket:delete': {
           const { issueId, actor } = data;
           if (issueId) {

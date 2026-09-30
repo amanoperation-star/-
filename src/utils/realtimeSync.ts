@@ -21,6 +21,8 @@ export interface RealtimeEventHandlers {
   onCabCreated?: (activity: CabBusinessActivity, author: string) => void;
   onCabUpdated?: (activity: CabBusinessActivity, author: string, details?: string) => void;
   onCabDeleted?: (activityId: string, author: string) => void;
+  onNotificationsCleared?: (actor: string) => void;
+  onNotificationClearedSingle?: (id: string, actor: string) => void;
   onStateSynced: (fullState: any) => void;
   onPresenceUpdated: (users: ActiveUserPresence[], totalConnections: number) => void;
   onStatusChanged: (status: SyncConnectionStatus) => void;
@@ -261,6 +263,16 @@ class RealtimeSyncManager {
         }
         break;
 
+      case 'notifications:cleared':
+        this.handlers?.onNotificationsCleared?.(data.actor || 'عضو في الفريق');
+        break;
+
+      case 'notification:cleared_single':
+        if (data.id) {
+          this.handlers?.onNotificationClearedSingle?.(data.id, data.actor || 'عضو في الفريق');
+        }
+        break;
+
       case 'supabase:config_updated':
         if (data.supabaseConfig) {
           this.handlers?.onSupabaseConfigUpdated?.(data.supabaseConfig);
@@ -445,6 +457,21 @@ class RealtimeSyncManager {
       type: 'cab:delete',
       activityId,
       author,
+    });
+  }
+
+  public async broadcastClearNotifications(actor: string) {
+    this.send({
+      type: 'notifications:clear_all',
+      actor,
+    });
+  }
+
+  public async broadcastClearSingleNotification(id: string, actor: string) {
+    this.send({
+      type: 'notification:clear_single',
+      id,
+      actor,
     });
   }
 

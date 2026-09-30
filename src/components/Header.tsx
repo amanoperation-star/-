@@ -68,6 +68,7 @@ interface HeaderProps {
   onOpenCloudImportModal?: () => void;
   notifications: NotificationItem[];
   onClearNotifications: () => void;
+  onClearSingleNotification?: (notificationId: string) => void;
   onSelectTicket?: (ticketId: string) => void;
   onOpenNewTicketModal: () => void;
   theme: 'light' | 'dark';
@@ -220,6 +221,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenCloudImportModal,
   notifications,
   onClearNotifications,
+  onClearSingleNotification,
   onSelectTicket,
   onOpenNewTicketModal,
   theme,
@@ -545,7 +547,22 @@ export const Header: React.FC<HeaderProps> = ({
                               )}
                               <span>{n.title}</span>
                             </span>
-                            <span className="text-[10px] text-slate-400 font-mono shrink-0 bg-slate-200/50 dark:bg-slate-800/80 px-1.5 py-0.5 rounded">{n.time}</span>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <span className="text-[10px] text-slate-400 font-mono bg-slate-200/50 dark:bg-slate-800/80 px-1.5 py-0.5 rounded">{n.time}</span>
+                              {onClearSingleNotification && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onClearSingleNotification(n.id);
+                                  }}
+                                  className="p-1 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-md transition cursor-pointer"
+                                  title="مسح هذا التنبيه"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
                           </div>
                           <p className="text-slate-600 dark:text-slate-300 text-[11px] leading-relaxed">
                             {n.desc}
