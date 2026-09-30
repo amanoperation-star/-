@@ -64,6 +64,7 @@ export interface Issue {
   workTime: number; // In seconds
   isWorkingNow?: boolean;
   activeWorker?: string | null;
+  timerStartedAt?: string | null; // ISO string timestamp when the current work session started
   csat: number; // 1-5
   resolutionReason?: string;
   resolvedAt?: string;

@@ -181,6 +181,19 @@ export function getRemainingTimeFormatted(dueDate: string, status: string, slaPa
   return { text: `متبقي ${h} س و ${m} د`, isOverdue: false };
 }
 
+export function calculateEffectiveWorkTime(issue: Issue | null | undefined, nowMs = Date.now()): number {
+  if (!issue) return 0;
+  const baseTime = typeof issue.workTime === 'number' && !isNaN(issue.workTime) ? Math.max(0, issue.workTime) : 0;
+  if (issue.isWorkingNow && issue.timerStartedAt && issue.status !== 'Resolved' && issue.status !== 'Closed') {
+    const started = new Date(issue.timerStartedAt).getTime();
+    if (!isNaN(started) && started > 0) {
+      const elapsed = Math.max(0, Math.floor((nowMs - started) / 1000));
+      return baseTime + elapsed;
+    }
+  }
+  return baseTime;
+}
+
 export function formatSecondsToHMS(totalSeconds: number): string {
   const s = Math.max(0, Math.floor(totalSeconds));
   const hours = Math.floor(s / 3600);

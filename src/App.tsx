@@ -250,6 +250,7 @@ export default function App() {
     } catch {}
     if (broadcast) {
       realtimeHub.broadcast('notifications:clear_all', {}, currentUser.name);
+      realtimeSync.broadcastClearNotifications(currentUser.name);
     }
   };
 
@@ -263,6 +264,7 @@ export default function App() {
     });
     if (broadcast) {
       realtimeHub.broadcast('notification:clear_single', { id }, currentUser.name);
+      realtimeSync.broadcastClearSingleNotification(id, currentUser.name);
     }
   };
 
@@ -271,7 +273,8 @@ export default function App() {
     title: string,
     desc: string,
     ticketId?: string,
-    type: 'danger' | 'warning' | 'info' | 'success' = 'info'
+    type: 'danger' | 'warning' | 'info' | 'success' = 'info',
+    broadcast = true
   ) => {
     const timeStr = new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
     const newNotif: NotificationItem = {
@@ -289,6 +292,9 @@ export default function App() {
       } catch {}
       return next;
     });
+    if (broadcast) {
+      realtimeSync.broadcastAddNotification(newNotif, currentUser.name);
+    }
   };
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -765,28 +771,17 @@ export default function App() {
     };
   }, [supabaseConfig.url, supabaseConfig.key]);
 
-  // FIX: Accurate stopwatch ticker!
-  // ONLY increments for the single ticket currently marked as isWorkingNow!
+  // Accurate stopwatch ticker that triggers synchronized second updates across all running tickets
+  const [, setGlobalTimerTick] = useState(0);
   useEffect(() => {
+    const hasRunning = issues.some((i) => i.isWorkingNow && i.status !== 'Resolved' && i.status !== 'Closed');
+    if (!hasRunning) return;
     const timer = setInterval(() => {
-      setIssues((prev) => {
-        let changed = false;
-        const next = prev.map((item) => {
-          if (item.isWorkingNow && item.status !== 'Resolved' && item.status !== 'Closed') {
-            changed = true;
-            return {
-              ...item,
-              workTime: (item.workTime || 0) + 1,
-            };
-          }
-          return item;
-        });
-        return changed ? next : prev;
-      });
+      setGlobalTimerTick((t) => (t + 1) % 1000000);
     }, 1000);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [issues]);
 
   const mapSingleRowToIssue = (row: any): Issue => {
     const desc = row.desc_text || row.desc || row.description || row.title || '';
@@ -803,6 +798,9 @@ export default function App() {
       priority: (row.priority as Priority) || 'Medium',
       status: (row.status as IssueStatus) || 'Open',
       workTime: row.worktime ?? row.workTime ?? 0,
+      isWorkingNow: row.is_working_now ?? row.isWorkingNow ?? false,
+      activeWorker: row.active_worker || row.activeWorker || undefined,
+      timerStartedAt: row.timer_started_at || row.timerStartedAt || undefined,
       csat: row.csat ?? 5,
       createdAt: row.created_at || row.createdAt || new Date().toISOString(),
       dueDate: row.due_date || row.dueDate || new Date().toISOString(),
@@ -1392,6 +1390,20 @@ export default function App() {
           handleClearSingleNotification(id, false);
         },
 
+        onNotificationAdded: (newNotif: NotificationItem) => {
+          setNotifications((prev) => {
+            if (prev.some((n) => n.id === newNotif.id)) return prev;
+            const next = [newNotif, ...prev].slice(0, 50);
+            try {
+              localStorage.setItem(STORAGE_KEY + '_NOTIFICATIONS', JSON.stringify(next));
+            } catch {}
+            return next;
+          });
+          if (!soundSettingsRef.current.muted) {
+            playNotificationChime(soundSettingsRef.current.volume || 0.8, soundSettingsRef.current.customNotificationUrl);
+          }
+        },
+
         onSystemResetProduction: (actor: string) => {
           deletedIssueIdsRef.current.clear();
           saveDeletedIssueIds(deletedIssueIdsRef.current);
@@ -1440,6 +1452,13 @@ export default function App() {
 
         onStateSynced: (serverState: any) => {
           if (!serverState) return;
+          // Synchronize notifications list with authoritative server state
+          if (Array.isArray(serverState.notifications)) {
+            setNotifications(serverState.notifications);
+            try {
+              localStorage.setItem(STORAGE_KEY + '_NOTIFICATIONS', JSON.stringify(serverState.notifications));
+            } catch {}
+          }
           // When Supabase is configured or active, Supabase is the sole authoritative database for tickets.
           // Do not allow local dev server state cache to overwrite Supabase issues.
           if (!supabaseConfig.connected && Array.isArray(serverState.issues)) {
@@ -2264,53 +2283,70 @@ export default function App() {
     }
   };
 
-  // Explicitly Start Work Timer on a ticket (guarantees NO accidental toggle back)
+  // Explicitly Start Work Timer on a ticket (guarantees synchronous real-time precision)
   const handleStartTimer = (issue: Issue) => {
+    if (issue.isWorkingNow) return;
+    const nowIso = new Date().toISOString();
+    const updatedTimeline = [...issue.timeline];
+    updatedTimeline.unshift({
+      id: `t-${Date.now()}`,
+      time: 'الآن',
+      actor: currentUser.name,
+      title: 'بدء جلسة العمل تلقائياً ⏱️',
+      details: `بدأ الموظف ${currentUser.name} العمل على التذكرة وتشغيل المؤقت.`,
+      type: 'timer',
+    });
+
+    const targetUpdated: Issue = {
+      ...issue,
+      isWorkingNow: true,
+      timerStartedAt: nowIso,
+      activeWorker: currentUser.name,
+      status: issue.status === 'Open' ? ('In Progress' as IssueStatus) : issue.status,
+      timeline: updatedTimeline,
+    };
+
+    const pausedOthers: Issue[] = [];
     setIssues((prev) =>
       prev.map((item) => {
         if (item.id === issue.id) {
-          if (item.isWorkingNow) return item;
-          const updatedTimeline = [...item.timeline];
-          updatedTimeline.unshift({
-            id: `t-${Date.now()}`,
-            time: 'الآن',
-            actor: currentUser.name,
-            title: 'بدء جلسة العمل تلقائياً ⏱️',
-            details: `بدأ الموظف ${currentUser.name} العمل على التذكرة وتشغيل المؤقت.`,
-            type: 'timer',
-          });
-
-          return {
+          return targetUpdated;
+        } else if (item.isWorkingNow) {
+          const elapsed = item.timerStartedAt
+            ? Math.max(0, Math.floor((Date.now() - new Date(item.timerStartedAt).getTime()) / 1000))
+            : 0;
+          const paused: Issue = {
             ...item,
-            isWorkingNow: true,
-            activeWorker: currentUser.name,
-            status: item.status === 'Open' ? ('In Progress' as IssueStatus) : item.status,
-            timeline: updatedTimeline,
+            workTime: (item.workTime || 0) + elapsed,
+            isWorkingNow: false,
+            timerStartedAt: null,
+            activeWorker: null,
           };
-        } else {
-          // Pause timer on any other ticket to avoid multi-ticket time duplication!
-          if (item.isWorkingNow) {
-            return {
-              ...item,
-              isWorkingNow: false,
-              activeWorker: null,
-            };
-          }
-          return item;
+          pausedOthers.push(paused);
+          return paused;
         }
+        return item;
       })
     );
 
-    setDetailIssue((prev) =>
-      prev && prev.id === issue.id
-        ? {
-            ...prev,
-            isWorkingNow: true,
-            activeWorker: currentUser.name,
-            status: prev.status === 'Open' ? 'In Progress' : prev.status,
-          }
-        : prev
+    setDetailIssue((prev) => (prev && prev.id === issue.id ? { ...prev, ...targetUpdated } : prev));
+    realtimeSync.broadcastTicketUpdate(
+      targetUpdated,
+      currentUser.name,
+      'بدء عداد العمل ⏱️',
+      `بدأ العمل الفعلي للتذكرة ${issue.id}`
     );
+    upsertSingleIssueToSupabase(targetUpdated);
+
+    pausedOthers.forEach((paused) => {
+      realtimeSync.broadcastTicketUpdate(
+        paused,
+        currentUser.name,
+        'إيقاف مؤقت للعداد ⏸️',
+        `تم إيقاف مؤقت التذكرة ${paused.id}`
+      );
+      upsertSingleIssueToSupabase(paused);
+    });
 
     addAuditLog('بدء عداد تذكرة', `تشغيل مؤقت العمل للتذكرة ${issue.id}`);
     addNotification(
@@ -2323,40 +2359,39 @@ export default function App() {
 
   // Explicitly Pause Work Timer on a ticket
   const handlePauseTimer = (issue: Issue) => {
-    setIssues((prev) =>
-      prev.map((item) => {
-        if (item.id === issue.id) {
-          if (!item.isWorkingNow) return item;
-          const updatedTimeline = [...item.timeline];
-          updatedTimeline.unshift({
-            id: `t-${Date.now()}`,
-            time: 'الآن',
-            actor: currentUser.name,
-            title: 'إيقاف مؤقت للعداد ⏸️',
-            details: `تم إيقاف مؤقت العمل عند ${item.workTime} ثانية.`,
-            type: 'timer',
-          });
+    if (!issue.isWorkingNow) return;
+    const elapsed = issue.timerStartedAt
+      ? Math.max(0, Math.floor((Date.now() - new Date(issue.timerStartedAt).getTime()) / 1000))
+      : 0;
+    const newWorkTime = (issue.workTime || 0) + elapsed;
+    const updatedTimeline = [...issue.timeline];
+    updatedTimeline.unshift({
+      id: `t-${Date.now()}`,
+      time: 'الآن',
+      actor: currentUser.name,
+      title: 'إيقاف مؤقت للعداد ⏸️',
+      details: `تم إيقاف مؤقت العمل عند ${newWorkTime} ثانية.`,
+      type: 'timer',
+    });
 
-          return {
-            ...item,
-            isWorkingNow: false,
-            activeWorker: null,
-            timeline: updatedTimeline,
-          };
-        }
-        return item;
-      })
-    );
+    const targetUpdated: Issue = {
+      ...issue,
+      workTime: newWorkTime,
+      isWorkingNow: false,
+      timerStartedAt: null,
+      activeWorker: null,
+      timeline: updatedTimeline,
+    };
 
-    setDetailIssue((prev) =>
-      prev && prev.id === issue.id
-        ? {
-            ...prev,
-            isWorkingNow: false,
-            activeWorker: null,
-          }
-        : prev
+    setIssues((prev) => prev.map((item) => (item.id === issue.id ? targetUpdated : item)));
+    setDetailIssue((prev) => (prev && prev.id === issue.id ? { ...prev, ...targetUpdated } : prev));
+    realtimeSync.broadcastTicketUpdate(
+      targetUpdated,
+      currentUser.name,
+      'إيقاف مؤقت للعداد ⏸️',
+      `تم إيقاف مؤقت العمل عند ${targetUpdated.workTime} ثانية`
     );
+    upsertSingleIssueToSupabase(targetUpdated);
 
     addAuditLog('إيقاف عداد تذكرة', `إيقاف مؤقت العمل للتذكرة ${issue.id}`);
     addNotification(
@@ -2398,6 +2433,8 @@ export default function App() {
   // Quick Status Change
   const handleQuickStatusChange = (issue: Issue, newStatus: IssueStatus) => {
     let updatedIssueToBroadcast: Issue | null = null;
+    const isClosing = newStatus === 'Resolved' || newStatus === 'Closed';
+
     setIssues((prev) =>
       prev.map((i) => {
         if (i.id === issue.id) {
@@ -2410,10 +2447,19 @@ export default function App() {
             details: `تم تحويل الحالة من (${i.status}) إلى (${newStatus}).`,
             type: 'status',
           });
+
+          const elapsed = (i.isWorkingNow && i.timerStartedAt)
+            ? Math.max(0, Math.floor((Date.now() - new Date(i.timerStartedAt).getTime()) / 1000))
+            : 0;
+
           const updated: Issue = {
             ...i,
             status: newStatus,
-            isWorkingNow: newStatus === 'Resolved' || newStatus === 'Closed' ? false : i.isWorkingNow,
+            workTime: isClosing ? (i.workTime || 0) + elapsed : i.workTime,
+            isWorkingNow: isClosing ? false : i.isWorkingNow,
+            timerStartedAt: isClosing ? null : i.timerStartedAt,
+            activeWorker: isClosing ? null : i.activeWorker,
+            resolvedAt: isClosing ? new Date().toISOString() : i.resolvedAt,
             timeline: updatedTimeline,
           };
           updatedIssueToBroadcast = updated;
@@ -2445,6 +2491,8 @@ export default function App() {
   // Bulk Status Change
   const handleBulkChangeStatus = (issueIds: string[], newStatus: IssueStatus) => {
     let updatedIssuesToPersist: Issue[] = [];
+    const isClosing = newStatus === 'Resolved' || newStatus === 'Closed';
+
     setIssues((prev) =>
       prev.map((item) => {
         if (issueIds.includes(item.id)) {
@@ -2457,10 +2505,19 @@ export default function App() {
             details: `تم تحويل الحالة جماعياً إلى (${newStatus}).`,
             type: 'status',
           });
+
+          const elapsed = (item.isWorkingNow && item.timerStartedAt)
+            ? Math.max(0, Math.floor((Date.now() - new Date(item.timerStartedAt).getTime()) / 1000))
+            : 0;
+
           const updated: Issue = {
             ...item,
             status: newStatus,
-            isWorkingNow: newStatus === 'Resolved' || newStatus === 'Closed' ? false : item.isWorkingNow,
+            workTime: isClosing ? (item.workTime || 0) + elapsed : item.workTime,
+            isWorkingNow: isClosing ? false : item.isWorkingNow,
+            timerStartedAt: isClosing ? null : item.timerStartedAt,
+            activeWorker: isClosing ? null : item.activeWorker,
+            resolvedAt: isClosing ? new Date().toISOString() : item.resolvedAt,
             timeline: updatedTimeline,
           };
           updatedIssuesToPersist.push(updated);
@@ -2468,7 +2525,7 @@ export default function App() {
             updated,
             currentUser.name,
             'تحديث جماعي للحالة',
-            `تحويل إلى (${newStatus})`
+            `تحويل الحالة إلى ${newStatus}`
           );
           return updated;
         }

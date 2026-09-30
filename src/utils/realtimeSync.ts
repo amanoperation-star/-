@@ -23,6 +23,7 @@ export interface RealtimeEventHandlers {
   onCabDeleted?: (activityId: string, author: string) => void;
   onNotificationsCleared?: (actor: string) => void;
   onNotificationClearedSingle?: (id: string, actor: string) => void;
+  onNotificationAdded?: (notification: any) => void;
   onStateSynced: (fullState: any) => void;
   onPresenceUpdated: (users: ActiveUserPresence[], totalConnections: number) => void;
   onStatusChanged: (status: SyncConnectionStatus) => void;
@@ -273,6 +274,12 @@ class RealtimeSyncManager {
         }
         break;
 
+      case 'notification:created':
+        if (data.notification) {
+          this.handlers?.onNotificationAdded?.(data.notification);
+        }
+        break;
+
       case 'supabase:config_updated':
         if (data.supabaseConfig) {
           this.handlers?.onSupabaseConfigUpdated?.(data.supabaseConfig);
@@ -465,6 +472,13 @@ class RealtimeSyncManager {
       type: 'notifications:clear_all',
       actor,
     });
+    try {
+      await fetch('/api/notifications', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ actor }),
+      });
+    } catch {}
   }
 
   public async broadcastClearSingleNotification(id: string, actor: string) {
@@ -473,6 +487,28 @@ class RealtimeSyncManager {
       id,
       actor,
     });
+    try {
+      await fetch(`/api/notifications/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ actor }),
+      });
+    } catch {}
+  }
+
+  public async broadcastAddNotification(notification: any, actor: string) {
+    this.send({
+      type: 'notification:add',
+      notification,
+      actor,
+    });
+    try {
+      await fetch('/api/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notification, actor }),
+      });
+    } catch {}
   }
 
   public async broadcastSupabaseConfig(config: any) {

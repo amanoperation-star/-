@@ -24,7 +24,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { Issue, AppUser } from '../types';
-import { formatSecondsToHMS, isTicketSlaBreached, getRemainingTimeFormatted, generateExternalTicketRef } from '../utils/sla';
+import { formatSecondsToHMS, isTicketSlaBreached, getRemainingTimeFormatted, generateExternalTicketRef, calculateEffectiveWorkTime } from '../utils/sla';
 import { PriorityBadge, StatusBadge } from './Badges';
 import { CircularSlaGauge } from './CircularSlaGauge';
 import { collisionManager, useTicketCollision } from '../utils/collisionDetector';
@@ -87,6 +87,16 @@ export const DetailsModal: React.FC<DetailsModalProps> = ({
       };
     }
   }, [isOpen, issue?.id, issue?.isWorkingNow, currentUser]);
+
+  // Live 1-second stopwatch ticker to update elapsed time synchronously in real-time
+  const [, setTimerTick] = useState(0);
+  useEffect(() => {
+    if (!isOpen || !issue?.isWorkingNow) return;
+    const interval = setInterval(() => {
+      setTimerTick((t) => (t + 1) % 1000000);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isOpen, issue?.isWorkingNow, issue?.timerStartedAt]);
 
   // Automatically guarantee timer starts as soon as ticket details modal opens
   useEffect(() => {
@@ -327,12 +337,16 @@ export const DetailsModal: React.FC<DetailsModalProps> = ({
                 </span>
                 <div className="flex items-center gap-2 mt-0.5">
                   <span className="font-mono text-xl font-black text-emerald-600 dark:text-emerald-400">
-                    {formatSecondsToHMS(issue.workTime || 0)}
+                    {formatSecondsToHMS(calculateEffectiveWorkTime(issue))}
                   </span>
                   {issue.isWorkingNow ? (
                     <span className="text-[10px] text-emerald-700 dark:text-emerald-300 font-bold bg-emerald-100 dark:bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-emerald-300 dark:border-emerald-800 animate-pulse flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-                      <span>العداد يعمل تلقائياً</span>
+                      <span>
+                        {issue.activeWorker && issue.activeWorker !== currentUser.name
+                          ? `يعمل بواسطة: ${issue.activeWorker}`
+                          : 'العداد يعمل لحظياً'}
+                      </span>
                     </span>
                   ) : (
                     <span className="text-[10px] text-slate-600 dark:text-slate-400 bg-slate-200 dark:bg-slate-800 px-2.5 py-0.5 rounded-full font-bold">

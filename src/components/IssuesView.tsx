@@ -22,7 +22,7 @@ import {
   List
 } from 'lucide-react';
 import { Issue, AppUser, Priority, IssueStatus } from '../types';
-import { isTicketSlaBreached, getRemainingTimeFormatted, formatSecondsToHMS } from '../utils/sla';
+import { isTicketSlaBreached, getRemainingTimeFormatted, formatSecondsToHMS, calculateEffectiveWorkTime } from '../utils/sla';
 import { exportTicketsToCSV } from '../utils/export';
 import { hasPermission } from '../utils/permissions';
 import { PriorityBadge, StatusBadge } from './Badges';
@@ -108,6 +108,17 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
 
   // Hook to watch collisions on all tickets in real-time
   const collisionsMap = useAllTicketCollisions(currentUser);
+
+  // Live ticker to update active running stopwatch timers smoothly every 1000ms
+  const [, setIssuesTimerTick] = useState(0);
+  useEffect(() => {
+    const hasRunning = issues.some((i) => i.isWorkingNow && i.status !== 'Resolved' && i.status !== 'Closed');
+    if (!hasRunning) return;
+    const interval = setInterval(() => {
+      setIssuesTimerTick((t) => (t + 1) % 1000000);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [issues]);
   const [filterTag, setFilterTag] = useState('ALL');
   const [filterStatus, setFilterStatus] = useState(initialFilterStatus);
   const [filterPriority, setFilterPriority] = useState('ALL');
@@ -882,7 +893,7 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
                                 <div className="flex items-center gap-1.5">
                                   <span className={`font-mono text-xs font-bold flex items-center gap-1 ${item.isWorkingNow ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-300'}`}>
                                     <Clock className={`w-3 h-3 ${item.isWorkingNow ? 'text-emerald-500 animate-spin' : 'text-slate-400'}`} />
-                                    <span>{formatSecondsToHMS(item.workTime || 0)}</span>
+                                    <span>{formatSecondsToHMS(calculateEffectiveWorkTime(item))}</span>
                                   </span>
                                   {item.status !== 'Resolved' && item.status !== 'Closed' && (
                                     <button
@@ -1131,6 +1142,34 @@ export const IssuesView: React.FC<IssuesViewProps> = ({
                                     <CollisionAlertBanner viewers={collisionsMap[item.id]} compact />
                                   </div>
                                 )}
+
+                                {/* Work Timer Indicator */}
+                                <div className="pt-2 border-t border-slate-100 dark:border-slate-700/80 flex items-center justify-between text-[10px]">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className={`font-mono font-bold flex items-center gap-1 ${item.isWorkingNow ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-600 dark:text-slate-400'}`}>
+                                      <Clock className={`w-3 h-3 ${item.isWorkingNow ? 'text-emerald-500 animate-spin' : 'text-slate-400'}`} />
+                                      <span>{formatSecondsToHMS(calculateEffectiveWorkTime(item))}</span>
+                                    </span>
+                                  </div>
+                                  {item.status !== 'Resolved' && item.status !== 'Closed' && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onToggleTimer(item);
+                                      }}
+                                      className={`px-1.5 py-0.5 rounded text-[9.5px] font-bold flex items-center gap-1 transition cursor-pointer ${
+                                        item.isWorkingNow
+                                          ? 'bg-rose-600 text-white animate-pulse'
+                                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-emerald-600 hover:text-white'
+                                      }`}
+                                      title={item.isWorkingNow ? 'إيقاف مؤقت للعداد' : 'بدء العمل وتشغيل العداد'}
+                                    >
+                                      {item.isWorkingNow ? <Pause className="w-2.5 h-2.5" /> : <Play className="w-2.5 h-2.5" />}
+                                      <span>{item.isWorkingNow ? 'إيقاف' : 'بدء'}</span>
+                                    </button>
+                                  )}
+                                </div>
 
                                 {/* Timeline / SLA Indicator */}
                                 <div className="pt-2 border-t border-slate-100 dark:border-slate-700/80 flex items-center justify-between text-[10px]">

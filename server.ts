@@ -38,6 +38,7 @@ let state: {
   cabActivities: any[];
   supabaseConfig: any;
   deletedIssueIds?: string[];
+  notifications?: any[];
   isSeeded?: boolean;
 } = {
   issues: [],
@@ -53,6 +54,7 @@ let state: {
   cabActivities: [],
   supabaseConfig: DEFAULT_SUPABASE_CONFIG,
   deletedIssueIds: [],
+  notifications: [],
   isSeeded: false,
 };
 
@@ -131,10 +133,14 @@ const loadDatabase = () => {
       } else {
         state.supabaseConfig = DEFAULT_SUPABASE_CONFIG;
       }
-      console.log(`[Database] Loaded ${state.issues?.length || 0} tickets, ${state.externalVendors?.length || 0} external vendors, Supabase: ${state.supabaseConfig ? 'configured' : 'none'} from disk.`);
+      if (!Array.isArray(state.notifications)) {
+        state.notifications = [];
+      }
+      console.log(`[Database] Loaded ${state.issues?.length || 0} tickets, ${state.externalVendors?.length || 0} external vendors, ${state.notifications?.length || 0} notifications, Supabase: ${state.supabaseConfig ? 'configured' : 'none'} from disk.`);
     } else {
       state.externalVendors = DEFAULT_EXTERNAL_VENDORS;
       state.slaSettings = DEFAULT_SLA_SETTINGS;
+      state.notifications = [];
     }
   } catch (err) {
     console.error('[Database] Failed to read database file:', err);
@@ -143,6 +149,9 @@ const loadDatabase = () => {
     }
     if (!state.slaSettings) {
       state.slaSettings = DEFAULT_SLA_SETTINGS;
+    }
+    if (!Array.isArray(state.notifications)) {
+      state.notifications = [];
     }
   }
 };
@@ -681,6 +690,51 @@ app.get('/api/collisions', (_req, res) => {
     status: 'ok',
     collisions: getCollisionsMap(),
   });
+});
+
+// API: Notifications CRUD
+app.get('/api/notifications', (_req, res) => {
+  res.json({ status: 'ok', notifications: state.notifications || [] });
+});
+
+app.post('/api/notifications', (req, res) => {
+  const { notification, actor } = req.body;
+  if (notification && notification.id) {
+    state.notifications = [notification, ...(state.notifications || []).filter((n: any) => n.id !== notification.id)].slice(0, 50);
+    saveDatabase();
+    broadcast({
+      type: 'notification:created',
+      notification,
+      actor: actor || 'عضو في الفريق',
+    });
+  }
+  res.json({ status: 'ok', count: state.notifications?.length || 0 });
+});
+
+app.delete('/api/notifications', (req, res) => {
+  const actor = req.body?.actor || req.query.actor || 'عضو في الفريق';
+  state.notifications = [];
+  saveDatabase();
+  broadcast({
+    type: 'notifications:cleared',
+    actor,
+  });
+  res.json({ status: 'ok', message: 'All notifications cleared' });
+});
+
+app.delete('/api/notifications/:id', (req, res) => {
+  const { id } = req.params;
+  const actor = req.body?.actor || req.query.actor || 'عضو في الفريق';
+  if (id) {
+    state.notifications = (state.notifications || []).filter((n: any) => n.id !== id);
+    saveDatabase();
+    broadcast({
+      type: 'notification:cleared_single',
+      id,
+      actor,
+    });
+  }
+  res.json({ status: 'ok', remaining: state.notifications?.length || 0 });
 });
 
 // API: Initialize or seed server state if empty
@@ -1525,25 +1579,43 @@ wss.on('connection', (ws, request) => {
         }
 
         case 'notifications:clear_all': {
-          broadcast(
-            {
-              type: 'notifications:cleared',
-              actor: data.actor || clientInfo.name || 'عضو في الفريق',
-            },
-            ws
-          );
+          state.notifications = [];
+          saveDatabase();
+          broadcast({
+            type: 'notifications:cleared',
+            actor: data.actor || clientInfo.name || 'عضو في الفريق',
+          });
           break;
         }
 
         case 'notification:clear_single': {
-          broadcast(
-            {
+          const targetId = data.id;
+          if (targetId) {
+            state.notifications = (state.notifications || []).filter((n: any) => n.id !== targetId);
+            saveDatabase();
+            broadcast({
               type: 'notification:cleared_single',
-              id: data.id,
+              id: targetId,
               actor: data.actor || clientInfo.name || 'عضو في الفريق',
-            },
-            ws
-          );
+            });
+          }
+          break;
+        }
+
+        case 'notification:add': {
+          const { notification, actor } = data;
+          if (notification && notification.id) {
+            state.notifications = [notification, ...(state.notifications || []).filter((n: any) => n.id !== notification.id)].slice(0, 50);
+            saveDatabase();
+            broadcast(
+              {
+                type: 'notification:created',
+                notification,
+                actor: actor || clientInfo.name || 'عضو في الفريق',
+              },
+              ws
+            );
+          }
           break;
         }
 
@@ -1609,6 +1681,7 @@ wss.on('connection', (ws, request) => {
           state.issues = [];
           state.deletedIssueIds = [];
           state.cabActivities = [];
+          state.notifications = [];
           state.isSeeded = true;
           saveDatabase();
           broadcast(
@@ -1618,6 +1691,10 @@ wss.on('connection', (ws, request) => {
             },
             ws
           );
+          broadcast({
+            type: 'notifications:cleared',
+            actor: actor || clientInfo.name || 'مدير النظام',
+          });
           broadcast({
             type: 'state:synced',
             state,
