@@ -177,6 +177,12 @@ export interface GeneralSettings {
   customLightBgHex?: string;
   customCardBgHex?: string;
   customHeaderBgHex?: string;
+  welcomeBannerBadge?: string;
+  welcomeBannerTitlePrefix?: string;
+  welcomeBannerDesc?: string;
+  welcomeBannerPrimaryBtnText?: string;
+  welcomeBannerSecondaryBtnText?: string;
+  welcomeBannerShowSecondaryBtn?: boolean;
 }
 
 export interface SlaSettings {

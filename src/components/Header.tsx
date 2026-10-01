@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Headset, 
+  Home,
   LayoutDashboard, 
   ListTodo, 
   ShieldCheck, 
   ShieldAlert,
+  Shield,
   Clock,
   Cloud, 
   CloudOff, 
@@ -44,15 +46,17 @@ import {
   Workflow,
   FolderKanban,
   CheckCircle,
-  HelpCircle as QuestionIcon
+  HelpCircle as QuestionIcon,
+  Menu,
+  PanelRightClose
 } from 'lucide-react';
 import { AppUser, NotificationItem, SoundSettings, GeneralSettings, Issue } from '../types';
 import { ActiveUserPresence, SyncConnectionStatus } from '../utils/realtimeSync';
 import { hasPermission } from '../utils/permissions';
 
 interface HeaderProps {
-  currentTab: 'dashboard' | 'issues' | 'sla' | 'customer' | 'admin' | 'cab' | 'analytics';
-  setCurrentTab: (tab: 'dashboard' | 'issues' | 'sla' | 'customer' | 'admin' | 'cab' | 'analytics') => void;
+  currentTab: 'home' | 'dashboard' | 'issues' | 'sla' | 'customer' | 'admin' | 'cab' | 'analytics';
+  setCurrentTab: (tab: 'home' | 'dashboard' | 'issues' | 'sla' | 'customer' | 'admin' | 'cab' | 'analytics') => void;
   currentUser: AppUser;
   users: AppUser[];
   issues?: Issue[];
@@ -81,6 +85,11 @@ interface HeaderProps {
   totalConnections?: number;
   onRefreshRealtime?: () => void;
   onTriggerDemoToast?: () => void;
+  onOpenMobileSidebar?: () => void;
+  onToggleSidebarCollapse?: () => void;
+  isSidebarCollapsed?: boolean;
+  hideSecondaryNav?: boolean;
+  onOpenSectionsHubModal?: () => void;
 }
 
 interface SectionDefinition {
@@ -234,6 +243,11 @@ export const Header: React.FC<HeaderProps> = ({
   totalConnections = 1,
   onRefreshRealtime,
   onTriggerDemoToast,
+  onOpenMobileSidebar,
+  onToggleSidebarCollapse,
+  isSidebarCollapsed = false,
+  hideSecondaryNav = false,
+  onOpenSectionsHubModal,
 }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
@@ -257,13 +271,53 @@ export const Header: React.FC<HeaderProps> = ({
   const [switchPasswordInput, setSwitchPasswordInput] = useState('');
   const [switchPasswordError, setSwitchPasswordError] = useState('');
 
+  const [showSkinDropdown, setShowSkinDropdown] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const skinMenuRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
   const notifMenuRef = useRef<HTMLDivElement>(null);
 
-  // Close notifications menu when clicking outside
+  // Keyboard shortcut: CTRL + K to open search/command
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsSearchOpen((prev) => !prev);
+      }
+      if (e.key === 'Escape') {
+        setIsSearchOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const handleSyncClick = () => {
+    setIsSyncing(true);
+    if (onSyncSupabaseNow) {
+      onSyncSupabaseNow();
+    } else if (onOpenCloudImportModal) {
+      onOpenCloudImportModal();
+    }
+    setTimeout(() => {
+      setIsSyncing(false);
+    }, 1200);
+  };
+
+  // Close menus when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (notifMenuRef.current && !notifMenuRef.current.contains(e.target as Node)) {
         setShowNotifications(false);
+      }
+      if (skinMenuRef.current && !skinMenuRef.current.contains(e.target as Node)) {
+        setShowSkinDropdown(false);
+      }
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setShowUserDropdown(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -331,492 +385,611 @@ export const Header: React.FC<HeaderProps> = ({
     }
   };
 
+  const filteredSearchTickets = (issues || []).filter((t) => {
+    if (!searchQuery.trim()) return false;
+    const q = searchQuery.toLowerCase();
+    return (
+      t.id.toLowerCase().includes(q) ||
+      t.desc.toLowerCase().includes(q) ||
+      t.tag.toLowerCase().includes(q) ||
+      (t.client && t.client.toLowerCase().includes(q)) ||
+      (t.owner && t.owner.toLowerCase().includes(q))
+    );
+  }).slice(0, 8);
+
   return (
-    <header className="sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 text-slate-800 dark:text-white shadow-xs dark:shadow-xl transition-colors duration-150">
-      {/* Main Bar */}
-      <div className="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
-        {/* Brand */}
-        <div className="flex items-center gap-3 select-none">
-          <div className={`w-10 h-10 rounded-2xl bg-gradient-to-tr ${getGradientClass()} flex items-center justify-center text-white shadow-lg shrink-0`}>
-            {getLogoIcon()}
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-base sm:text-lg font-black leading-tight tracking-tight text-slate-900 dark:text-white">
-                {generalSettings?.appName || 'منظومة تتبع وإدارة المشاكل'}
-              </h1>
-              {generalSettings?.showBadge !== false && (generalSettings?.appBadge || 'Enterprise Pro') && (
-                <span className="hidden md:inline-block bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                  {generalSettings?.appBadge || 'Enterprise Pro'}
-                </span>
-              )}
-            </div>
-            {generalSettings?.showSubtitle !== false && (
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium hidden sm:block">
-                {generalSettings?.appSubtitle || 'SLA Watcher • CSAT Metrics • Accurate Work Timer & Activity Trail'}
-              </p>
-            )}
-          </div>
-        </div>
+    <>
+      {/* ==================== NEXT-GEN FLOATING DOCK HEADER ==================== */}
+      <header className="w-full max-w-[1700px] mx-auto p-2 sm:p-4 sticky top-0 z-40 select-none">
+        <div className="floating-nav rounded-2xl px-4 py-3 flex items-center justify-between gap-4 flex-wrap xl:flex-nowrap">
 
-        {/* Right Actions */}
-        <div className="flex items-center gap-2">
-          {/* SLA Compact Badge Button (Quick Access) */}
-          {breachedCount > 0 && (
-            <button
-              onClick={() => {
-                setBannerDismissed(!bannerDismissed);
-                if (bannerDismissed) {
-                  // User opened banner
-                } else {
-                  setCurrentTab('sla');
-                }
-              }}
-              className="px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 transition flex items-center gap-1.5 text-xs font-bold shadow-2xs cursor-pointer"
-              title={bannerDismissed ? 'انقر لعرض تفاصيل تنبيه المتأخرات' : 'انقر للانتقال للتذاكر المتأخرة'}
-            >
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
-              </span>
-              <span>{breachedCount} متأخرة</span>
-            </button>
-          )}
-
-          {/* Skin Selector */}
-          {onToggleSkin && (
-            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
-              <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 px-1 hidden md:inline">🎭 المظهر:</span>
-              <select
-                value={appSkin}
-                onChange={(e) => onToggleSkin(e.target.value as any)}
-                className="bg-transparent text-slate-700 dark:text-slate-200 text-xs font-bold focus:outline-none cursor-pointer border-none"
+          {/* RIGHT SIDE: BRAND & PRIMARY ACTIONS */}
+          <div className="flex items-center gap-3">
+            {/* Mobile Sidebar Hamburger Trigger */}
+            {onOpenMobileSidebar && (
+              <button
+                type="button"
+                onClick={onOpenMobileSidebar}
+                className="lg:hidden p-2 rounded-xl bg-slate-800/60 hover:bg-slate-800 text-slate-200 border border-slate-700/60 transition cursor-pointer"
+                title="فتح القائمة الجانبية"
               >
-                <option value="standard" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">الكلاسيكي 🏢</option>
-                <option value="amethyst" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">الياقوت النيون 💎</option>
-                <option value="cyberpunk" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">السايبربانك 💖</option>
-                <option value="ocean" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">المحيط الهادئ 🌊</option>
-              </select>
-            </div>
-          )}
-
-          {/* Day / Night Theme Switcher */}
-          <button
-            onClick={onToggleTheme}
-            className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition flex items-center gap-1.5 shadow-xs text-xs font-bold cursor-pointer"
-            title={theme === 'dark' ? 'التحويل إلى الوضع النهاري (Light Mode)' : 'التحويل إلى الوضع الليلي (Dark Mode)'}
-            aria-label="تبديل مظهر العرض"
-          >
-            {theme === 'dark' ? (
-              <>
-                <Sun className="w-4 h-4 text-amber-400 shrink-0" />
-                <span className="hidden sm:inline">النهاري</span>
-              </>
-            ) : (
-              <>
-                <Moon className="w-4 h-4 text-indigo-600 shrink-0" />
-                <span className="hidden sm:inline">الليلي</span>
-              </>
+                <i className="fa-solid fa-bars text-sm"></i>
+              </button>
             )}
-          </button>
 
-          {/* Cloud Connection Light Indicator */}
-          <div
-            onClick={onTriggerDemoToast}
-            className="px-2.5 py-1.5 rounded-xl flex items-center gap-1.5 text-xs font-bold transition-all duration-300 bg-emerald-500/15 dark:bg-emerald-950/70 border border-emerald-500/50 dark:border-emerald-400/50 text-emerald-700 dark:text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.3)] ring-1 ring-emerald-400/30 select-none cursor-pointer hover:bg-emerald-500/25 active:scale-95"
-            title="السحابة المركزية مسجلة ومزامنة تلقائياً 🟢 - المزامنة اللحظية مفعلة (انقر لتجربة التنبيه السحابي الفوري)"
-            aria-label="حالة الاتصال السحابي: السحابة مسجلة ومتصلة تلقائياً"
-          >
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-80"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-            <Radio className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400 animate-pulse" />
-            <span className="font-extrabold text-[11px] text-emerald-700 dark:text-emerald-300">السحابة متصلة 🟢</span>
-          </div>
+            {/* Desktop Sidebar Collapse Toggle */}
+            {onToggleSidebarCollapse && (
+              <button
+                type="button"
+                onClick={onToggleSidebarCollapse}
+                className="hidden lg:flex p-2 rounded-xl bg-slate-800/60 hover:bg-slate-800 text-slate-200 border border-slate-700/60 transition cursor-pointer"
+                title={isSidebarCollapsed ? 'توسيع القائمة الجانبية' : 'طي القائمة الجانبية'}
+              >
+                <i className={`fa-solid fa-angles-right text-xs transition-transform ${isSidebarCollapsed ? 'rotate-180 text-indigo-400' : 'text-slate-400'}`}></i>
+              </button>
+            )}
 
-          {/* Quick Cloud Fetch Button in Header */}
-          {onOpenCloudImportModal && (
+            {/* New Ticket Button */}
             <button
               type="button"
-              onClick={onOpenCloudImportModal}
-              className="px-2.5 py-1.5 rounded-xl flex items-center gap-1.5 text-xs font-bold transition-all bg-sky-600 hover:bg-sky-500 text-white shadow-sm shadow-sky-600/30 cursor-pointer"
-              title="جلب واستعراض كل ما هو مسجل في السحابة (تذاكر، مستخدمين، CAB)"
+              onClick={onOpenNewTicketModal}
+              className="action-btn-glow flex items-center gap-2.5 text-white font-black text-xs lg:text-sm px-5 py-2.5 rounded-xl cursor-pointer active:scale-95"
             >
-              <Download className="w-3.5 h-3.5" />
-              <span className="hidden md:inline font-bold">جلب بيانات السحابة</span>
+              <i className="fa-solid fa-plus text-sm"></i>
+              <span>تذكرة جديدة</span>
             </button>
-          )}
 
-          {/* Notifications */}
-          <div className="relative" ref={notifMenuRef}>
+            {/* Cloud Data Sync Button */}
             <button
-              onClick={() => setShowNotifications(!showNotifications)}
-              className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 relative transition border border-slate-200 dark:border-slate-700"
-              title="الإشعارات والتنبيهات"
+              type="button"
+              onClick={handleSyncClick}
+              className="flex items-center gap-2 bg-slate-800/60 hover:bg-slate-800 text-slate-200 border border-slate-700/60 px-4 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer active:scale-95"
+              title="جلب ومزامنة بيانات السحابة"
             >
-              <Bell className="w-4 h-4" />
-              {notifications.length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center animate-bounce">
-                  {notifications.length}
-                </span>
-              )}
+              <i className={`fa-solid fa-arrows-rotate text-cyan-400 text-xs ${isSyncing ? 'fa-spin' : ''}`}></i>
+              <span className="hidden sm:inline">جلب البيانات</span>
             </button>
 
-            {showNotifications && (
-              <div className="absolute left-0 mt-2 w-84 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl p-3 z-50 text-xs space-y-2">
-                <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-2">
-                  <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1">
-                    <Bell className="w-3.5 h-3.5 text-indigo-500" />
-                    <span>التنبيهات المباشرة ({notifications.length})</span>
-                  </span>
-                  <div className="flex items-center gap-2">
-                    {onTriggerDemoToast && (
-                      <button
-                        onClick={onTriggerDemoToast}
-                        className="text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-700 px-2 py-0.5 rounded-lg text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
-                        title="تجربة ظهور التنبيه السحابي الفوري من الصورة المرفقة"
-                      >
-                        <Radio className="w-2.5 h-2.5 animate-pulse text-emerald-500" />
-                        <span>تجربة التنبيه 🌐</span>
-                      </button>
-                    )}
-                    {notifications.length > 0 && (
-                      <button
-                        onClick={onClearNotifications}
-                        className="text-rose-500 hover:underline text-[10px] font-bold"
-                      >
-                        مسح الكل
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <div className="max-h-80 overflow-y-auto space-y-2 pr-0.5 custom-scrollbar">
-                  {notifications.length === 0 ? (
-                    <div className="py-8 px-3 text-center space-y-2.5">
-                      <div className="w-12 h-12 mx-auto rounded-2xl bg-slate-100 dark:bg-slate-700/60 flex items-center justify-center text-slate-400 dark:text-slate-500 shadow-inner">
-                        <BellOff className="w-6 h-6 stroke-[1.5]" />
-                      </div>
-                      <div className="space-y-1">
-                        <p className="font-bold text-slate-800 dark:text-slate-200 text-xs">لا توجد إشعارات حالياً</p>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed max-w-[240px] mx-auto">
-                          ستظهر هنا التنبيهات الفورية تلقائياً لأي نشاط أو تعديل تجريه في المنظومة وبلاغات التيم المباشرة.
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    notifications.map((n) => {
-                      const ticketMatch = n.ticketId || n.title.match(/(INC-\d+)/i)?.[1] || n.desc.match(/(INC-\d+)/i)?.[1];
-                      return (
-                        <div
-                          key={n.id}
-                          onClick={() => {
-                            if (ticketMatch && onSelectTicket) {
-                              onSelectTicket(ticketMatch);
-                              setShowNotifications(false);
-                            }
-                          }}
-                          className={`p-2.5 rounded-xl border space-y-1.5 transition-all duration-150 relative ${
-                            ticketMatch
-                              ? 'cursor-pointer hover:border-indigo-400 dark:hover:border-indigo-500 hover:bg-indigo-50/70 dark:hover:bg-indigo-950/40 hover:shadow-xs group'
-                              : ''
-                          } ${
-                            n.type === 'danger'
-                              ? 'bg-rose-50/60 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/60'
-                              : n.type === 'warning'
-                              ? 'bg-amber-50/60 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/60'
-                              : n.type === 'success'
-                              ? 'bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/60'
-                              : 'bg-slate-50 dark:bg-slate-900/80 border-slate-200 dark:border-slate-700/60'
-                          }`}
-                        >
-                          <div className="flex justify-between items-start gap-2">
-                            <span
-                              className={`font-bold flex items-center gap-1.5 text-xs leading-snug ${
-                                n.type === 'danger'
-                                  ? 'text-rose-600 dark:text-rose-400'
-                                  : n.type === 'warning'
-                                  ? 'text-amber-600 dark:text-amber-400'
-                                  : n.type === 'success'
-                                  ? 'text-emerald-600 dark:text-emerald-400'
-                                  : 'text-indigo-600 dark:text-indigo-400'
-                              }`}
-                            >
-                              {ticketMatch && (
-                                <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse inline-block shrink-0"></span>
-                              )}
-                              <span>{n.title}</span>
-                            </span>
-                            <div className="flex items-center gap-1 shrink-0">
-                              <span className="text-[10px] text-slate-400 font-mono bg-slate-200/50 dark:bg-slate-800/80 px-1.5 py-0.5 rounded">{n.time}</span>
-                              {onClearSingleNotification && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onClearSingleNotification(n.id);
-                                  }}
-                                  className="p-1 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-md transition cursor-pointer"
-                                  title="مسح هذا التنبيه"
-                                >
-                                  <X className="w-3 h-3" />
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                          <p className="text-slate-600 dark:text-slate-300 text-[11px] leading-relaxed">
-                            {n.desc}
-                          </p>
+            <div className="h-6 w-[1px] bg-slate-800 hidden md:block"></div>
 
-                          {/* Ticket Quick Link Badge */}
-                          {ticketMatch && (
-                            <div className="pt-1.5 mt-1 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between text-[10px]">
-                              <span className="font-mono font-bold bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-200 dark:border-indigo-800">
-                                {ticketMatch}
-                              </span>
-                              <span className="text-indigo-600 dark:text-indigo-400 font-bold group-hover:underline flex items-center gap-1">
-                                <span>انقر لفتح التذكرة مباشرة</span>
-                                <ArrowLeft className="w-3 h-3 rtl:rotate-0" />
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
+            {/* Live Cloud Status Pill */}
+            <div
+              onClick={onTriggerDemoToast}
+              className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 cursor-pointer select-none"
+              title="السحابة متصلة ومزامنة تلقائياً (انقر لتجربة التنبيه)"
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+              <span>السحابة متصلة</span>
+            </div>
+
+            {/* SLA Alert Badge if breached */}
+            {breachedCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setCurrentTab('sla')}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/20 transition cursor-pointer"
+                title="تذاكر متأخرة عن موعد الـ SLA"
+              >
+                <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping"></span>
+                <span>{breachedCount} متأخرة</span>
+              </button>
             )}
           </div>
 
-          {/* New Ticket CTA */}
-          <button
-            onClick={onOpenNewTicketModal}
-            className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-indigo-600/30 transition active:scale-95"
-          >
-            <Plus className="w-4 h-4 stroke-[2.5]" />
-            <span className="hidden sm:inline">تذكرة جديدة</span>
-          </button>
-
-          {/* User Profile Switcher */}
-          <div className="relative">
-            <button
-              onClick={() => setShowUserDropdown(!showUserDropdown)}
-              className="flex items-center gap-2 p-1.5 pl-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition"
+          {/* CENTER: SMART COMMAND / SEARCH BAR */}
+          <div className="flex-1 max-w-md hidden lg:block">
+            <div
+              onClick={() => setIsSearchOpen(true)}
+              className="command-search rounded-xl px-3.5 py-2 flex items-center justify-between gap-3 text-slate-400 text-xs cursor-pointer"
             >
-              <span className="w-7 h-7 rounded-xl bg-indigo-600 text-white font-bold flex items-center justify-center text-xs shadow">
-                {currentUser.avatar}
-              </span>
-              <div className="text-right hidden md:block">
-                <p className="text-xs font-bold leading-tight text-slate-900 dark:text-white">{currentUser.name}</p>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">{currentUser.role}</p>
+              <div className="flex items-center gap-2.5">
+                <i className="fa-solid fa-magnifying-glass text-indigo-400"></i>
+                <span>ابحث عن تذكرة، عميل، أو أمر سريع...</span>
               </div>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-            </button>
+              <kbd className="bg-slate-800 border border-slate-700 text-slate-300 px-2 py-0.5 rounded text-[10px] font-mono">CTRL + K</kbd>
+            </div>
+          </div>
 
-            {showUserDropdown && (
-              <div className="absolute left-0 mt-2 w-64 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl p-2 z-50 text-xs space-y-1">
-                <div className="px-3 py-1.5 text-[11px] font-bold text-slate-400 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
-                  <span>تبديل حساب المستخدم:</span>
-                  <Lock className="w-3 h-3 text-slate-400" />
-                </div>
-                {users.map((u) => (
-                  <button
-                    key={u.id}
-                    onClick={() => {
-                      if (currentUser.id === u.id) {
-                        setShowUserDropdown(false);
-                        return;
-                      }
-                      setTargetUser(u);
-                      setSwitchPasswordInput('');
-                      setSwitchPasswordError('');
-                      setShowSwitchModal(true);
-                      setShowUserDropdown(false);
-                    }}
-                    className={`w-full text-right px-3 py-2 rounded-xl flex items-center justify-between transition ${
-                      currentUser.id === u.id
-                        ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-bold border border-indigo-200 dark:border-indigo-800'
-                        : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-lg bg-indigo-600 text-white font-bold flex items-center justify-center text-[10px]">
-                        {u.avatar}
-                      </span>
-                      <span>{u.name}</span>
-                    </div>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">
-                      {u.role}
-                    </span>
-                  </button>
-                ))}
+          {/* LEFT SIDE: CONTROLS & USER PROFILE */}
+          <div className="flex items-center gap-3">
+            {/* Theme & Mode Selector Group */}
+            <div className="relative" ref={skinMenuRef}>
+              <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-1 flex items-center gap-1">
+                {/* Theme Dropdown */}
+                <button
+                  type="button"
+                  onClick={() => setShowSkinDropdown(!showSkinDropdown)}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+                >
+                  <i className="fa-solid fa-gem text-cyan-400 text-xs"></i>
+                  <span>
+                    {appSkin === 'amethyst' && 'الياقوت النيون'}
+                    {appSkin === 'standard' && 'الكلاسيكي'}
+                    {appSkin === 'cyberpunk' && 'السايبربانك'}
+                    {appSkin === 'ocean' && 'المحيط الهادئ'}
+                  </span>
+                  <i className="fa-solid fa-chevron-down text-[9px] text-slate-500"></i>
+                </button>
 
-                {onLogout && (
-                  <div className="pt-1.5 border-t border-slate-200 dark:border-slate-700">
+                <div className="h-4 w-[1px] bg-slate-800"></div>
+
+                {/* Day Mode Toggle */}
+                <button
+                  type="button"
+                  onClick={onToggleTheme}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                    theme === 'dark' ? 'text-amber-400 hover:bg-amber-400/10' : 'text-indigo-400 hover:bg-indigo-400/10'
+                  }`}
+                  title={theme === 'dark' ? 'التحويل إلى الوضع النهاري' : 'التحويل إلى الوضع الليلي'}
+                >
+                  <i className={`fa-solid ${theme === 'dark' ? 'fa-sun' : 'fa-moon'}`}></i>
+                  <span className="hidden sm:inline">{theme === 'dark' ? 'النهاري' : 'الليلي'}</span>
+                </button>
+              </div>
+
+              {/* Skin Dropdown Popover */}
+              {showSkinDropdown && (
+                <div className="absolute left-0 mt-2 w-48 bg-slate-900/95 border border-slate-800 rounded-xl shadow-2xl p-1.5 z-50 text-xs space-y-1 backdrop-blur-xl">
+                  <div className="px-3 py-1 text-[10px] font-bold text-slate-400 border-b border-slate-800">اختر مظهر المنظومة:</div>
+                  {[
+                    { id: 'amethyst', label: 'الياقوت النيون 💎', color: 'text-cyan-400' },
+                    { id: 'standard', label: 'الكلاسيكي 🏢', color: 'text-slate-200' },
+                    { id: 'cyberpunk', label: 'السايبربانك 💖', color: 'text-pink-400' },
+                    { id: 'ocean', label: 'المحيط الهادئ 🌊', color: 'text-sky-400' },
+                  ].map((s) => (
                     <button
+                      key={s.id}
                       type="button"
                       onClick={() => {
-                        setShowUserDropdown(false);
-                        onLogout();
+                        onToggleSkin && onToggleSkin(s.id as any);
+                        setShowSkinDropdown(false);
                       }}
-                      className="w-full text-right px-3 py-2 rounded-xl flex items-center justify-between text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition font-bold cursor-pointer"
+                      className={`w-full text-right px-3 py-1.5 rounded-lg font-bold flex items-center justify-between transition cursor-pointer ${
+                        appSkin === s.id
+                          ? 'bg-indigo-500/20 text-cyan-300 border border-indigo-500/40'
+                          : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      <span className={s.color}>{s.label}</span>
+                      {appSkin === s.id && <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Notifications Badge */}
+            <div className="relative" ref={notifMenuRef}>
+              <button
+                type="button"
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="w-10 h-10 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-300 hover:text-white flex items-center justify-center transition relative cursor-pointer active:scale-95"
+                title="الإشعارات والتنبيهات"
+              >
+                <i className="fa-regular fa-bell text-sm"></i>
+                <span className="absolute top-2.5 left-2.5 w-2 h-2 rounded-full bg-cyan-400"></span>
+              </button>
+
+              {showNotifications && (
+                <div className="absolute left-0 mt-2 w-84 bg-slate-900/95 border border-slate-800 rounded-2xl shadow-2xl p-3 z-50 text-xs space-y-2 backdrop-blur-xl">
+                  <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                    <span className="font-bold text-white flex items-center gap-2">
+                      <i className="fa-regular fa-bell text-indigo-400"></i>
+                      <span>التنبيهات المباشرة ({notifications.length})</span>
+                    </span>
+                    <div className="flex items-center gap-2">
+                      {onTriggerDemoToast && (
+                        <button
+                          type="button"
+                          onClick={onTriggerDemoToast}
+                          className="text-emerald-400 hover:bg-emerald-950/60 border border-emerald-500/40 px-2 py-0.5 rounded-lg text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
+                          title="تجربة ظهور التنبيه السحابي الفوري"
+                        >
+                          <i className="fa-solid fa-signal animate-pulse text-emerald-400"></i>
+                          <span>تجربة التنبيه 🌐</span>
+                        </button>
+                      )}
+                      {notifications.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={onClearNotifications}
+                          className="text-rose-400 hover:underline text-[10px] font-bold cursor-pointer"
+                        >
+                          مسح الكل
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="max-h-80 overflow-y-auto space-y-2 pr-0.5 custom-scrollbar">
+                    {notifications.length === 0 ? (
+                      <div className="py-8 px-3 text-center space-y-2.5">
+                        <div className="w-12 h-12 mx-auto rounded-2xl bg-slate-800/60 flex items-center justify-center text-slate-400 shadow-inner">
+                          <i className="fa-regular fa-bell-slash text-lg"></i>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="font-bold text-slate-200 text-xs">لا توجد إشعارات حالياً</p>
+                          <p className="text-[11px] text-slate-400 leading-relaxed max-w-[240px] mx-auto">
+                            ستظهر هنا التنبيهات الفورية تلقائياً لأي نشاط أو تعديل تجريه في المنظومة وبلاغات التيم المباشرة.
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      notifications.map((n) => {
+                        const ticketMatch = n.ticketId || n.title.match(/(INC-\d+)/i)?.[1] || n.desc.match(/(INC-\d+)/i)?.[1];
+                        return (
+                          <div
+                            key={n.id}
+                            onClick={() => {
+                              if (ticketMatch && onSelectTicket) {
+                                onSelectTicket(ticketMatch);
+                                setShowNotifications(false);
+                              }
+                            }}
+                            className={`p-2.5 rounded-xl border space-y-1.5 transition-all duration-150 relative ${
+                              ticketMatch
+                                ? 'cursor-pointer hover:border-indigo-400 hover:bg-slate-800/80 hover:shadow-xs group'
+                                : ''
+                            } ${
+                              n.type === 'danger'
+                                ? 'bg-rose-950/30 border-rose-900/60'
+                                : n.type === 'warning'
+                                ? 'bg-amber-950/30 border-amber-900/60'
+                                : n.type === 'success'
+                                ? 'bg-emerald-950/30 border-emerald-900/60'
+                                : 'bg-slate-800/50 border-slate-700/60'
+                            }`}
+                          >
+                            <div className="flex justify-between items-start gap-2">
+                              <span
+                                className={`font-bold flex items-center gap-1.5 text-xs leading-snug ${
+                                  n.type === 'danger'
+                                    ? 'text-rose-400'
+                                    : n.type === 'warning'
+                                    ? 'text-amber-400'
+                                    : n.type === 'success'
+                                    ? 'text-emerald-400'
+                                    : 'text-indigo-400'
+                                }`}
+                              >
+                                {ticketMatch && (
+                                  <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse inline-block shrink-0"></span>
+                                )}
+                                <span>{n.title}</span>
+                              </span>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <span className="text-[10px] text-slate-400 font-mono bg-slate-800/80 px-1.5 py-0.5 rounded">{n.time}</span>
+                                {onClearSingleNotification && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onClearSingleNotification(n.id);
+                                    }}
+                                    className="p-1 text-slate-400 hover:text-rose-400 hover:bg-rose-950/50 rounded-md transition cursor-pointer"
+                                    title="مسح هذا التنبيه"
+                                  >
+                                    <i className="fa-solid fa-xmark text-xs"></i>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                            <p className="text-slate-300 text-[11px] leading-relaxed">
+                              {n.desc}
+                            </p>
+
+                            {/* Ticket Quick Link Badge */}
+                            {ticketMatch && (
+                              <div className="pt-1.5 mt-1 border-t border-slate-700/60 flex items-center justify-between text-[10px]">
+                                <span className="font-mono font-bold bg-indigo-950/80 text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-800">
+                                  {ticketMatch}
+                                </span>
+                                <span className="text-indigo-400 font-bold group-hover:underline flex items-center gap-1">
+                                  <span>انقر لفتح التذكرة مباشرة</span>
+                                  <i className="fa-solid fa-arrow-left text-[10px]"></i>
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Profile Card */}
+            <div className="relative" ref={userMenuRef}>
+              <div
+                onClick={() => setShowUserDropdown(!showUserDropdown)}
+                className="flex items-center gap-2.5 bg-slate-900/80 border border-slate-800 hover:border-slate-700 p-1.5 rounded-xl cursor-pointer transition select-none"
+              >
+                <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-indigo-500 to-blue-600 text-white font-extrabold text-xs flex items-center justify-center">
+                  {currentUser.avatar || currentUser.name.charAt(0) || 'أ'}
+                </div>
+                <div className="hidden sm:flex flex-col text-right pl-1">
+                  <span className="text-xs font-bold text-white leading-tight">{currentUser.name || 'أحمد العتيبي'}</span>
+                  <span className="text-[9px] text-indigo-400 font-bold leading-tight uppercase">{currentUser.role || 'Admin'}</span>
+                </div>
+                <i className="fa-solid fa-chevron-down text-[9px] text-slate-500 px-1"></i>
+              </div>
+
+              {showUserDropdown && (
+                <div className="absolute left-0 mt-2 w-64 bg-slate-900/95 border border-slate-800 rounded-2xl shadow-2xl p-2 z-50 text-xs space-y-1 backdrop-blur-xl">
+                  <div className="px-3 py-1.5 text-[11px] font-bold text-slate-400 border-b border-slate-800 flex items-center justify-between">
+                    <span>تبديل حساب المستخدم:</span>
+                    <i className="fa-solid fa-lock text-slate-400 text-xs"></i>
+                  </div>
+                  {users.map((u) => (
+                    <button
+                      key={u.id}
+                      type="button"
+                      onClick={() => {
+                        if (currentUser.id === u.id) {
+                          setShowUserDropdown(false);
+                          return;
+                        }
+                        setTargetUser(u);
+                        setSwitchPasswordInput('');
+                        setSwitchPasswordError('');
+                        setShowSwitchModal(true);
+                        setShowUserDropdown(false);
+                      }}
+                      className={`w-full text-right px-3 py-2 rounded-xl flex items-center justify-between transition cursor-pointer ${
+                        currentUser.id === u.id
+                          ? 'bg-indigo-500/20 text-indigo-300 font-bold border border-indigo-500/40'
+                          : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                      }`}
                     >
                       <div className="flex items-center gap-2">
-                        <LogOut className="w-4 h-4" />
-                        <span>تسجيل الخروج / قفل المنظومة</span>
+                        <span className="w-6 h-6 rounded-lg bg-indigo-600 text-white font-bold flex items-center justify-center text-[10px]">
+                          {u.avatar || u.name.charAt(0)}
+                        </span>
+                        <span>{u.name}</span>
                       </div>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-bold">
+                        {u.role}
+                      </span>
                     </button>
+                  ))}
+
+                  {onLogout && (
+                    <div className="pt-1.5 border-t border-slate-800">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowUserDropdown(false);
+                          onLogout();
+                        }}
+                        className="w-full text-right px-3 py-2 rounded-xl flex items-center justify-between text-rose-400 hover:bg-rose-950/40 transition font-bold cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2">
+                          <i className="fa-solid fa-arrow-right-from-bracket text-xs"></i>
+                          <span>تسجيل الخروج / قفل المنظومة</span>
+                        </div>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+          </div>
+
+        </div>
+      </header>
+
+      {/* Smart Command & Search Modal (CTRL + K) */}
+      {isSearchOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-start justify-center pt-20 px-4"
+          onClick={() => setIsSearchOpen(false)}
+        >
+          <div
+            className="w-full max-w-xl bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden animate-scaleUp"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 border-b border-slate-800 flex items-center gap-3">
+              <i className="fa-solid fa-magnifying-glass text-indigo-400 text-lg"></i>
+              <input
+                type="text"
+                autoFocus
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="ابحث عن رقم التذكرة (INC-...)، اسم العميل، المشكلة..."
+                className="w-full bg-transparent text-white placeholder-slate-500 text-sm focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setIsSearchOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 cursor-pointer"
+              >
+                <i className="fa-solid fa-xmark text-sm"></i>
+              </button>
+            </div>
+
+            <div className="p-3 max-h-96 overflow-y-auto space-y-2">
+              {searchQuery.trim() === '' ? (
+                <div className="p-4 text-center text-slate-400 text-xs">
+                  اكتب للبحث السريع في التذاكر والعملاء، أو اضغط <kbd className="bg-slate-800 border border-slate-700 px-1.5 py-0.5 rounded text-[10px]">ESC</kbd> للإغلاق
+                </div>
+              ) : filteredSearchTickets.length === 0 ? (
+                <div className="p-4 text-center text-slate-400 text-xs">
+                  لم يتم العثور على أي نتائج مطابقة لـ "{searchQuery}"
+                </div>
+              ) : (
+                filteredSearchTickets.map((ticket) => (
+                  <div
+                    key={ticket.id}
+                    onClick={() => {
+                      if (onSelectTicket) onSelectTicket(ticket.id);
+                      setIsSearchOpen(false);
+                    }}
+                    className="p-3 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 cursor-pointer flex items-center justify-between transition"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-xs text-indigo-400">{ticket.id}</span>
+                        <span className="text-white text-xs font-bold">{ticket.tag || ticket.desc}</span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-1">{ticket.client || 'عميل'} • {ticket.status}</p>
+                    </div>
+                    <i className="fa-solid fa-arrow-left text-xs text-slate-500"></i>
                   </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Secondary Dedicated Navigation Bar (شريط التبويبات الفاخر - يتم إخفاؤه تلقائياً عند تفعيل القائمة الجانبية الفاخرة) */}
+      {!hideSecondaryNav && (
+        <div className="bg-[#090f1d]/95 dark:bg-[#070c18]/95 border-t border-b border-slate-800/80 px-4 py-2 select-none">
+          <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
+            {/* Main Navigation Tabs - Single Line Overflow Scroll Without Wrapping */}
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 min-w-0 flex-1">
+              {/* 1. Issues / Tickets List */}
+              <button
+                type="button"
+                onClick={() => setCurrentTab('issues')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 flex items-center gap-2 cursor-pointer shrink-0 ${
+                  currentTab === 'issues'
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30 ring-1 ring-blue-400/40'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800/70 border border-transparent'
+                }`}
+              >
+                <ListTodo className={`w-3.5 h-3.5 ${currentTab === 'issues' ? 'text-white' : 'text-blue-400'}`} />
+                <span className="whitespace-nowrap">سجل المشاكل والبلاغات</span>
+              </button>
+
+              {/* 2. Dashboard (Controlled by page.dashboard permission) */}
+              {hasPermission(currentUser, 'page.dashboard') && (
+                <button
+                  type="button"
+                  onClick={() => setCurrentTab('dashboard')}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 flex items-center gap-2 cursor-pointer shrink-0 ${
+                    currentTab === 'dashboard'
+                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 ring-1 ring-indigo-400/40'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-800/70 border border-transparent'
+                  }`}
+                >
+                  <LayoutDashboard className={`w-3.5 h-3.5 ${currentTab === 'dashboard' ? 'text-white' : 'text-indigo-400'}`} />
+                  <span className="whitespace-nowrap">لوحة المؤشرات العامة</span>
+                </button>
+              )}
+
+              {/* 3. SLA Management */}
+              <button
+                type="button"
+                onClick={() => setCurrentTab('sla')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 flex items-center gap-2 cursor-pointer shrink-0 relative ${
+                  currentTab === 'sla'
+                    ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30 ring-1 ring-amber-400/40'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800/70 border border-transparent'
+                }`}
+              >
+                <Clock className={`w-3.5 h-3.5 ${currentTab === 'sla' ? 'text-white' : 'text-amber-400'}`} />
+                <span className="whitespace-nowrap">إدارة اتفاقيات SLA</span>
+                {breachedCount > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-rose-500 text-white font-mono font-black animate-pulse">
+                    {breachedCount}
+                  </span>
                 )}
+              </button>
+
+              {/* Vertical Separator Divider */}
+              <div className="h-4 w-px bg-slate-800 mx-1 shrink-0" />
+
+              {/* 4. Customer Portal */}
+              <button
+                type="button"
+                onClick={() => setCurrentTab('customer')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 flex items-center gap-2 cursor-pointer shrink-0 ${
+                  currentTab === 'customer'
+                    ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30 ring-1 ring-purple-400/40'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800/70 border border-transparent'
+                }`}
+              >
+                <Globe className={`w-3.5 h-3.5 ${currentTab === 'customer' ? 'text-white' : 'text-purple-400'}`} />
+                <span className="whitespace-nowrap">بوابة متابعة العميل</span>
+              </button>
+
+              {/* 5. CAB Board (Controlled by page.cab_board permission) */}
+              {hasPermission(currentUser, 'page.cab_board') && (
+                <button
+                  type="button"
+                  onClick={() => setCurrentTab('cab')}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 flex items-center gap-2 cursor-pointer shrink-0 ${
+                    currentTab === 'cab'
+                      ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/30 ring-1 ring-cyan-400/40'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-800/70 border border-transparent'
+                  }`}
+                >
+                  <Layers className={`w-3.5 h-3.5 ${currentTab === 'cab' ? 'text-white' : 'text-cyan-400'}`} />
+                  <span className="whitespace-nowrap">اعتماد التغييرات (CAB)</span>
+                </button>
+              )}
+
+              {/* Vertical Separator Divider */}
+              {currentUser.role === 'Admin' && <div className="h-4 w-px bg-slate-800 mx-1 shrink-0" />}
+
+              {/* 6. Analytics (Admin only) */}
+              {currentUser.role === 'Admin' && (
+                <button
+                  type="button"
+                  onClick={() => setCurrentTab('analytics')}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 flex items-center gap-2 cursor-pointer shrink-0 ${
+                    currentTab === 'analytics'
+                      ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30 ring-1 ring-sky-400/40'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-800/70 border border-transparent'
+                  }`}
+                >
+                  <BarChart3 className={`w-3.5 h-3.5 ${currentTab === 'analytics' ? 'text-white' : 'text-sky-400'}`} />
+                  <span className="whitespace-nowrap">التحليلات والرسوم البيانية</span>
+                </button>
+              )}
+
+              {/* 7. Admin View (Admin only) */}
+              {currentUser.role === 'Admin' && (
+                <button
+                  type="button"
+                  onClick={() => setCurrentTab('admin')}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 flex items-center gap-2 cursor-pointer shrink-0 ${
+                    currentTab === 'admin'
+                      ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30 ring-1 ring-emerald-400/40'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-800/70 border border-transparent'
+                  }`}
+                >
+                  <ShieldCheck className={`w-3.5 h-3.5 ${currentTab === 'admin' ? 'text-white' : 'text-emerald-400'}`} />
+                  <span className="whitespace-nowrap">لوحة الإدارة الشاملة</span>
+                </button>
+              )}
+            </div>
+
+            {/* Fixed "دليل وخريطة الأقسام" Button on the side - Controlled by page.sections_hub permission */}
+            {hasPermission(currentUser, 'page.sections_hub') && (
+              <div className="shrink-0 flex items-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onOpenSectionsHubModal) onOpenSectionsHubModal();
+                    else setShowSectionsHub(true);
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl bg-indigo-950/80 hover:bg-indigo-900/90 text-indigo-200 text-xs font-bold transition flex items-center gap-2 border border-indigo-700/60 shadow-sm cursor-pointer active:scale-95 whitespace-nowrap"
+                  title="عرض خريطة ودليل الأقسام الشامل لكافة خدمات المنظومة"
+                >
+                  <Compass className="w-4 h-4 text-indigo-400 animate-spin-slow" />
+                  <span>دليل وخريطة الأقسام</span>
+                  <span className="bg-indigo-600 text-white text-[10px] px-1.5 py-0.2 rounded-md font-mono font-black">
+                    {currentUser.role === 'Admin' ? '7 أقسام' : '4 أقسام'}
+                  </span>
+                </button>
               </div>
             )}
           </div>
         </div>
-      </div>
-
-      {/* Secondary Dedicated Navigation Bar (شريط التبويبات الفاخر - صف واحد مدمج بدون انكسار مع الحفاظ التام على زر دليل وخريطة الأقسام) */}
-      <div className="bg-[#090f1d]/95 dark:bg-[#070c18]/95 border-t border-b border-slate-800/80 px-4 py-2 select-none">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
-          {/* Main Navigation Tabs - Single Line Overflow Scroll Without Wrapping */}
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 min-w-0 flex-1">
-            {/* 1. Issues / Tickets List */}
-            <button
-              type="button"
-              onClick={() => setCurrentTab('issues')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 flex items-center gap-2 cursor-pointer shrink-0 ${
-                currentTab === 'issues'
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30 ring-1 ring-blue-400/40'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800/70 border border-transparent'
-              }`}
-            >
-              <ListTodo className={`w-3.5 h-3.5 ${currentTab === 'issues' ? 'text-white' : 'text-blue-400'}`} />
-              <span className="whitespace-nowrap">سجل المشاكل والبلاغات</span>
-            </button>
-
-            {/* 2. Dashboard (Controlled by page.dashboard permission) */}
-            {hasPermission(currentUser, 'page.dashboard') && (
-              <button
-                type="button"
-                onClick={() => setCurrentTab('dashboard')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 flex items-center gap-2 cursor-pointer shrink-0 ${
-                  currentTab === 'dashboard'
-                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 ring-1 ring-indigo-400/40'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-800/70 border border-transparent'
-                }`}
-              >
-                <LayoutDashboard className={`w-3.5 h-3.5 ${currentTab === 'dashboard' ? 'text-white' : 'text-indigo-400'}`} />
-                <span className="whitespace-nowrap">لوحة المؤشرات العامة</span>
-              </button>
-            )}
-
-            {/* 3. SLA Management */}
-            <button
-              type="button"
-              onClick={() => setCurrentTab('sla')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 flex items-center gap-2 cursor-pointer shrink-0 relative ${
-                currentTab === 'sla'
-                  ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30 ring-1 ring-amber-400/40'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800/70 border border-transparent'
-              }`}
-            >
-              <Clock className={`w-3.5 h-3.5 ${currentTab === 'sla' ? 'text-white' : 'text-amber-400'}`} />
-              <span className="whitespace-nowrap">إدارة اتفاقيات SLA</span>
-              {breachedCount > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-rose-500 text-white font-mono font-black animate-pulse">
-                  {breachedCount}
-                </span>
-              )}
-            </button>
-
-            {/* Vertical Separator Divider */}
-            <div className="h-4 w-px bg-slate-800 mx-1 shrink-0" />
-
-            {/* 4. Customer Portal */}
-            <button
-              type="button"
-              onClick={() => setCurrentTab('customer')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 flex items-center gap-2 cursor-pointer shrink-0 ${
-                currentTab === 'customer'
-                  ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30 ring-1 ring-purple-400/40'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800/70 border border-transparent'
-              }`}
-            >
-              <Globe className={`w-3.5 h-3.5 ${currentTab === 'customer' ? 'text-white' : 'text-purple-400'}`} />
-              <span className="whitespace-nowrap">بوابة متابعة العميل</span>
-            </button>
-
-            {/* 5. CAB Board (Controlled by page.cab_board permission) */}
-            {hasPermission(currentUser, 'page.cab_board') && (
-              <button
-                type="button"
-                onClick={() => setCurrentTab('cab')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 flex items-center gap-2 cursor-pointer shrink-0 ${
-                  currentTab === 'cab'
-                    ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/30 ring-1 ring-cyan-400/40'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-800/70 border border-transparent'
-                }`}
-              >
-                <Layers className={`w-3.5 h-3.5 ${currentTab === 'cab' ? 'text-white' : 'text-cyan-400'}`} />
-                <span className="whitespace-nowrap">اعتماد التغييرات (CAB)</span>
-              </button>
-            )}
-
-            {/* Vertical Separator Divider */}
-            {currentUser.role === 'Admin' && <div className="h-4 w-px bg-slate-800 mx-1 shrink-0" />}
-
-            {/* 6. Analytics (Admin only) */}
-            {currentUser.role === 'Admin' && (
-              <button
-                type="button"
-                onClick={() => setCurrentTab('analytics')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 flex items-center gap-2 cursor-pointer shrink-0 ${
-                  currentTab === 'analytics'
-                    ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30 ring-1 ring-sky-400/40'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-800/70 border border-transparent'
-                }`}
-              >
-                <BarChart3 className={`w-3.5 h-3.5 ${currentTab === 'analytics' ? 'text-white' : 'text-sky-400'}`} />
-                <span className="whitespace-nowrap">التحليلات والرسوم البيانية</span>
-              </button>
-            )}
-
-            {/* 7. Admin View (Admin only) */}
-            {currentUser.role === 'Admin' && (
-              <button
-                type="button"
-                onClick={() => setCurrentTab('admin')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 flex items-center gap-2 cursor-pointer shrink-0 ${
-                  currentTab === 'admin'
-                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30 ring-1 ring-emerald-400/40'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-800/70 border border-transparent'
-                }`}
-              >
-                <ShieldCheck className={`w-3.5 h-3.5 ${currentTab === 'admin' ? 'text-white' : 'text-emerald-400'}`} />
-                <span className="whitespace-nowrap">لوحة الإدارة الشاملة</span>
-              </button>
-            )}
-          </div>
-
-          {/* Fixed "دليل وخريطة الأقسام" Button on the side - Controlled by page.sections_hub permission */}
-          {hasPermission(currentUser, 'page.sections_hub') && (
-            <div className="shrink-0 flex items-center">
-              <button
-                type="button"
-                onClick={() => setShowSectionsHub(true)}
-                className="px-3.5 py-1.5 rounded-xl bg-indigo-950/80 hover:bg-indigo-900/90 text-indigo-200 text-xs font-bold transition flex items-center gap-2 border border-indigo-700/60 shadow-sm cursor-pointer active:scale-95 whitespace-nowrap"
-                title="عرض خريطة ودليل الأقسام الشامل لكافة خدمات المنظومة"
-              >
-                <Compass className="w-4 h-4 text-indigo-400 animate-spin-slow" />
-                <span>دليل وخريطة الأقسام</span>
-                <span className="bg-indigo-600 text-white text-[10px] px-1.5 py-0.2 rounded-md font-mono font-black">
-                  {currentUser.role === 'Admin' ? '7 أقسام' : '4 أقسام'}
-                </span>
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
+      )}
 
       {/* SLA Breach Alert - Modern Floating Banner */}
       {breachedCount > 0 && !bannerDismissed && (
@@ -1138,6 +1311,6 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
       )}
-    </header>
+    </>
   );
 };

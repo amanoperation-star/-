@@ -949,6 +949,160 @@ export const GeneralSettingsTab: React.FC<GeneralSettingsTabProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Section 6: Welcome Banner Text Customization (تخصيص نصوص شاشة الترحيب) */}
+          <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-5 md:col-span-2">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-cyan-50 dark:bg-cyan-950/60 text-cyan-600 dark:text-cyan-400">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                    <span>تخصيص نصوص بانر الترحيب الاحترافي (Welcome Banner Settings)</span>
+                    <span className="text-[10px] bg-cyan-50 dark:bg-cyan-950/60 text-cyan-700 dark:text-cyan-300 font-bold px-2 py-0.5 rounded-full border border-cyan-200 dark:border-cyan-800">
+                      الصفحة الرئيسية 🌟
+                    </span>
+                  </h4>
+                  <p className="text-[11px] text-slate-400">
+                    تحكم بجميع الكلمات والعبارات الظاهرة في شاشة الترحيب الرئيسية: الشارة العلوية، نص الترحيب، الفقرة التعريفية، ونصوص أزرار الإجراءات
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    welcomeBannerBadge: 'لوحة التحكم الاحترافية الممتازة',
+                    welcomeBannerTitlePrefix: 'مرحباً بك مجدداً، أ.',
+                    welcomeBannerDesc: 'هذا نموذج المعاينة الخاص بالتصميم الجديد لمنظومة مستر أشرف السقا 2025. تم تصميم الهيدر خصيصاً ليتوافق مع أحدث معايير تجربة المستخدم (UI/UX) مع تحسين المظهر البصري لبيانات الحالة ومؤشرات الأداء.',
+                    welcomeBannerPrimaryBtnText: 'تقارير وسجل المشاكل',
+                    welcomeBannerSecondaryBtnText: 'فتح سجل البلاغات فوراً',
+                    welcomeBannerShowSecondaryBtn: true,
+                  }));
+                }}
+                className="text-xs text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1 font-bold cursor-pointer"
+              >
+                <RotateCcw className="w-3 h-3" />
+                <span>استعادة نصوص البانر الافتراضية</span>
+              </button>
+            </div>
+
+            {/* Input Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  نص شارة البانر العلوية (Badge Text)
+                </label>
+                <input
+                  type="text"
+                  value={formData.welcomeBannerBadge ?? 'لوحة التحكم الاحترافية الممتازة'}
+                  onChange={(e) => setFormData({ ...formData, welcomeBannerBadge: e.target.value })}
+                  placeholder="مثال: لوحة التحكم الاحترافية الممتازة"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-bold focus:ring-2 focus:ring-cyan-500 outline-hidden transition"
+                />
+                <span className="text-[10px] text-slate-400 block mt-1">تظهر في أعلى البانر ككبسولة متوهجة ومميزة.</span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  بادئة الترحيب قبل اسم المستخدم (Greeting Prefix)
+                </label>
+                <input
+                  type="text"
+                  value={formData.welcomeBannerTitlePrefix ?? 'مرحباً بك مجدداً، أ.'}
+                  onChange={(e) => setFormData({ ...formData, welcomeBannerTitlePrefix: e.target.value })}
+                  placeholder="مثال: مرحباً بك مجدداً، أ. أو أهلاً وسهلاً بك"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-bold focus:ring-2 focus:ring-cyan-500 outline-hidden transition"
+                />
+                <span className="text-[10px] text-slate-400 block mt-1">يتبعها اسم المستخدم الحالي مع حركة تلويح اليد 👋.</span>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  نص الفقرة التعريفية للبانر (Banner Description)
+                </label>
+                <textarea
+                  rows={3}
+                  value={formData.welcomeBannerDesc ?? 'هذا نموذج المعاينة الخاص بالتصميم الجديد لمنظومة مستر أشرف السقا 2025. تم تصميم الهيدر خصيصاً ليتوافق مع أحدث معايير تجربة المستخدم (UI/UX) مع تحسين المظهر البصري لبيانات الحالة ومؤشرات الأداء.'}
+                  onChange={(e) => setFormData({ ...formData, welcomeBannerDesc: e.target.value })}
+                  placeholder="اكتب هنا النص التعريفي والرسالة الترحيبية..."
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-medium focus:ring-2 focus:ring-cyan-500 outline-hidden transition leading-relaxed"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  نص الزر الرئيسي المتوهج (Primary Button Text)
+                </label>
+                <input
+                  type="text"
+                  value={formData.welcomeBannerPrimaryBtnText ?? 'تقارير وسجل المشاكل'}
+                  onChange={(e) => setFormData({ ...formData, welcomeBannerPrimaryBtnText: e.target.value })}
+                  placeholder="مثال: تقارير وسجل المشاكل"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-bold focus:ring-2 focus:ring-cyan-500 outline-hidden transition"
+                />
+                <span className="text-[10px] text-slate-400 block mt-1">الزر السيان النيون الذي ينقل المستخدم لسجل التذاكر.</span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  نص الزر الثانوي (Secondary Button Text)
+                </label>
+                <div className="space-y-1.5">
+                  <input
+                    type="text"
+                    value={formData.welcomeBannerSecondaryBtnText ?? 'فتح سجل البلاغات فوراً'}
+                    onChange={(e) => setFormData({ ...formData, welcomeBannerSecondaryBtnText: e.target.value })}
+                    placeholder="مثال: فتح سجل البلاغات فوراً"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-bold focus:ring-2 focus:ring-cyan-500 outline-hidden transition"
+                  />
+                  <div className="flex items-center justify-between text-[10px]">
+                    <span className="text-slate-400">الزر الداكن بجانب الزر الأساسي</span>
+                    <label className="flex items-center gap-1.5 font-bold text-slate-600 dark:text-slate-300 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.welcomeBannerShowSecondaryBtn !== false}
+                        onChange={(e) => setFormData({ ...formData, welcomeBannerShowSecondaryBtn: e.target.checked })}
+                        className="rounded text-cyan-600 focus:ring-0"
+                      />
+                      <span>إظهار الزر الثانوي</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Live Preview of the Welcome Banner inside Settings */}
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+              <span className="text-xs font-bold text-slate-400 block mb-2">معاينة حية لشاشة وبانر الترحيب بالتعديلات الحالية:</span>
+              <div className="relative overflow-hidden rounded-2xl bg-[#060c1d] border border-cyan-950/70 p-5 text-white shadow-md">
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#08152e] border border-cyan-500/40 text-cyan-400 mb-2">
+                  <Sparkles className="w-3 h-3 text-cyan-400" />
+                  <span>{formData.welcomeBannerBadge || 'لوحة التحكم الاحترافية الممتازة'}</span>
+                </span>
+                <h3 className="text-base font-black text-white flex items-center gap-1.5">
+                  <span>{formData.welcomeBannerTitlePrefix || 'مرحباً بك مجدداً، أ.'} أحمد العتيبي</span>
+                  <span>👋</span>
+                </h3>
+                <p className="text-[11px] text-slate-300 mt-1 max-w-2xl leading-relaxed">
+                  {formData.welcomeBannerDesc || 'هذا نموذج المعاينة الخاص بالتصميم الجديد لمنظومة مستر أشرف السقا 2025.'}
+                </p>
+                <div className="mt-3 flex items-center gap-2">
+                  <span className="px-4 py-2 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white font-black text-[11px] shadow-[0_4px_16px_rgba(37,99,235,0.45)] border border-blue-400/40">
+                    📊 {formData.welcomeBannerPrimaryBtnText || 'تقارير وسجل المشاكل'}
+                  </span>
+                  {formData.welcomeBannerShowSecondaryBtn !== false && (
+                    <span className="px-4 py-2 rounded-2xl bg-[#091124] text-slate-200 border border-slate-700/80 font-bold text-[11px]">
+                      📋 {formData.welcomeBannerSecondaryBtnText || 'فتح سجل البلاغات فوراً'} ⬅
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Action Buttons */}

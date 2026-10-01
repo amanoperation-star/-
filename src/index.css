@@ -6,6 +6,13 @@
   html {
     font-family: 'Cairo', sans-serif;
   }
+  body {
+    background-color: #020617;
+    background-image: 
+      radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
+      radial-gradient(circle at 80% 20%, rgba(14, 165, 233, 0.1) 0%, transparent 40%);
+    font-family: 'Cairo', sans-serif;
+  }
 }
 
 /* Custom scrollbars that adapt to light and dark theme */
@@ -33,6 +40,41 @@
 
 .dark ::-webkit-scrollbar-thumb:hover {
   background: #475569;
+}
+
+/* Modern Floating Bar with Ambient Light Border */
+.floating-nav {
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 
+    0 20px 40px -15px rgba(0, 0, 0, 0.7),
+    0 0 30px 0 rgba(79, 70, 229, 0.1);
+}
+
+/* Command Search Pill */
+.command-search {
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 0.2s ease;
+}
+
+.command-search:hover {
+  border-color: rgba(99, 102, 241, 0.4);
+  background: rgba(30, 41, 59, 0.8);
+}
+
+/* Premium Action Gradient Button */
+.action-btn-glow {
+  background: linear-gradient(135deg, #6366f1 0%, #3b82f6 100%);
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
+  transition: all 0.25s ease;
+}
+
+.action-btn-glow:hover {
+  box-shadow: 0 0 28px rgba(99, 102, 241, 0.7);
+  transform: translateY(-1px);
 }
 
 /* Glassmorphism utility classes */

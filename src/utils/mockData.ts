@@ -196,6 +196,12 @@ export const INITIAL_GENERAL_SETTINGS: GeneralSettings = {
   customLightBgHex: '#f8fafc',
   customCardBgHex: '#ffffff',
   customHeaderBgHex: '#ffffff',
+  welcomeBannerBadge: 'لوحة التحكم الاحترافية الممتازة',
+  welcomeBannerTitlePrefix: 'مرحباً بك مجدداً، أ.',
+  welcomeBannerDesc: 'هذا نموذج المعاينة الخاص بالتصميم الجديد لمنظومة مستر أشرف السقا 2025. تم تصميم الهيدر خصيصاً ليتوافق مع أحدث معايير تجربة المستخدم (UI/UX) مع تحسين المظهر البصري لبيانات الحالة ومؤشرات الأداء.',
+  welcomeBannerPrimaryBtnText: 'تقارير وسجل المشاكل',
+  welcomeBannerSecondaryBtnText: 'فتح سجل البلاغات فوراً',
+  welcomeBannerShowSecondaryBtn: true,
 };
 
 export const INITIAL_CAB_ACTIVITIES: CabBusinessActivity[] = [

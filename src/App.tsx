@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Header } from './components/Header';
+import { Sidebar } from './components/Sidebar';
+import { WelcomeHeroBanner } from './components/WelcomeHeroBanner';
+import { HomeView } from './components/HomeView';
 import { DashboardView } from './components/DashboardView';
 import { IssuesView } from './components/IssuesView';
 import { AdminView } from './components/AdminView';
@@ -300,18 +303,18 @@ export default function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     try {
       const saved = localStorage.getItem('ENTERPRISE_THEME');
-      return saved === 'dark' ? 'dark' : 'light';
+      return saved === 'light' ? 'light' : 'dark';
     } catch {
-      return 'light';
+      return 'dark';
     }
   });
 
   const [appSkin, setAppSkin] = useState<'standard' | 'amethyst' | 'cyberpunk' | 'ocean'>(() => {
     try {
       const saved = localStorage.getItem('ENTERPRISE_SKIN');
-      return (saved === 'amethyst' || saved === 'cyberpunk' || saved === 'ocean') ? saved : 'standard';
+      return (saved === 'standard' || saved === 'cyberpunk' || saved === 'ocean') ? saved : 'amethyst';
     } catch {
-      return 'standard';
+      return 'amethyst';
     }
   });
 
@@ -321,11 +324,48 @@ export default function App() {
     } catch {}
   }, [appSkin]);
 
-  // Tab & Navigation: Default to 'issues' so ANY team member opening the link sees tickets immediately!
-  const [currentTab, setCurrentTab] = useState<'dashboard' | 'issues' | 'sla' | 'customer' | 'admin' | 'cab' | 'analytics'>('issues');
+  // Tab & Navigation: Default to 'home' (الصفحة الرئيسية) with the welcome banner!
+  const [currentTab, setCurrentTab] = useState<'home' | 'dashboard' | 'issues' | 'sla' | 'customer' | 'admin' | 'cab' | 'analytics'>('home');
   const [adminSubTab, setAdminSubTab] = useState<'general' | 'backup' | 'users' | 'tags' | 'audio' | 'reports' | 'categories' | 'canned' | 'supabase' | 'csat' | 'audit'>('general');
   const [initialFilterStatus, setInitialFilterStatus] = useState<string>('Open');
   const [isGlobalCloudImportModalOpen, setIsGlobalCloudImportModalOpen] = useState(false);
+
+  // Dedicated Enterprise Sidebar State
+  // Initially false so that on first opening the sidebar does NOT show, instead the welcome hero banner is displayed!
+  // When user clicks "سجل المشاكل", isSidebarVisible becomes true and sidebar shows.
+  const [isSidebarVisible, setIsSidebarVisible] = useState<boolean>(() => {
+    try {
+      const saved = sessionStorage.getItem('ENTERPRISE_SIDEBAR_VISIBLE');
+      return saved === 'true'; // false on initial fresh open
+    } catch {
+      return false;
+    }
+  });
+
+  const handleOpenIssuesAndShowSidebar = () => {
+    setIsSidebarVisible(true);
+    setCurrentTab('issues');
+    try {
+      sessionStorage.setItem('ENTERPRISE_SIDEBAR_VISIBLE', 'true');
+    } catch {}
+  };
+
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('ENTERPRISE_SIDEBAR_COLLAPSED');
+      return saved === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('ENTERPRISE_SIDEBAR_COLLAPSED', isSidebarCollapsed ? 'true' : 'false');
+    } catch {}
+  }, [isSidebarCollapsed]);
+
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   // CAB Business Activities State
   const [cabActivities, setCabActivities] = useState<CabBusinessActivity[]>(() => {
@@ -3921,67 +3961,92 @@ export default function App() {
   return (
     <BadgeStyleProvider style={generalSettings.badgeStyle || 'clean-arabic'}>
       <style dangerouslySetInnerHTML={{ __html: getDynamicStyles() }} />
-      <div className={`min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-['Cairo',sans-serif] transition-all duration-300 skin-${appSkin} relative overflow-x-hidden`}>
-      {/* Premium Glassmorphic Dynamic Animated Background Blobs */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-        <div className={`absolute top-[10%] left-[10%] w-[300px] sm:w-[450px] h-[300px] sm:h-[450px] rounded-full filter blur-[80px] sm:blur-[120px] opacity-25 dark:opacity-30 animate-blob transition-all duration-1000 ${
-          appSkin === 'amethyst' ? 'bg-purple-600 dark:bg-purple-800' :
-          appSkin === 'cyberpunk' ? 'bg-pink-600 dark:bg-pink-800' :
-          appSkin === 'ocean' ? 'bg-sky-500 dark:bg-cyan-700' : 'bg-indigo-300/40 dark:bg-indigo-950/20'
-        }`} />
-        <div className={`absolute bottom-[20%] right-[10%] w-[350px] sm:w-[500px] h-[350px] sm:h-[500px] rounded-full filter blur-[100px] sm:blur-[140px] opacity-20 dark:opacity-25 animate-blob animation-delay-2000 transition-all duration-1000 ${
-          appSkin === 'amethyst' ? 'bg-fuchsia-500 dark:bg-fuchsia-900' :
-          appSkin === 'cyberpunk' ? 'bg-rose-500 dark:bg-rose-950' :
-          appSkin === 'ocean' ? 'bg-blue-600 dark:bg-blue-900' : 'bg-emerald-300/40 dark:bg-emerald-950/20'
-        }`} />
-        <div className={`absolute top-[50%] left-[40%] w-[250px] sm:w-[350px] h-[250px] sm:h-[350px] rounded-full filter blur-[70px] sm:blur-[110px] opacity-15 dark:opacity-20 animate-blob animation-delay-4000 transition-all duration-1000 ${
-          appSkin === 'amethyst' ? 'bg-indigo-400 dark:bg-violet-900' :
-          appSkin === 'cyberpunk' ? 'bg-violet-500 dark:bg-purple-900' :
-          appSkin === 'ocean' ? 'bg-cyan-400 dark:bg-indigo-900' : 'bg-purple-200/40 dark:bg-purple-950/20'
-        }`} />
-      </div>
+      <div className={`min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex font-['Cairo',sans-serif] transition-all duration-300 skin-${appSkin} relative overflow-x-hidden`} dir="rtl">
+        {/* Dedicated Modern Sidebar Navigation */}
+        <Sidebar
+          currentTab={currentTab}
+          setCurrentTab={setCurrentTab}
+          currentUser={currentUser}
+          users={users}
+          onSwitchUser={handleSwitchUser}
+          onLogout={handleLogout}
+          issues={issues}
+          cabActivities={cabActivities}
+          breachedCount={breachedCount}
+          isCollapsed={isSidebarCollapsed}
+          onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
+          isVisible={isSidebarVisible}
+          onCloseSidebar={() => setIsSidebarVisible(false)}
+          isMobileOpen={isMobileSidebarOpen}
+          onCloseMobile={() => setIsMobileSidebarOpen(false)}
+          onOpenNewTicketModal={() => {
+            setEditingIssue(null);
+            setShowIssueModal(true);
+          }}
+          theme={theme}
+          onToggleTheme={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
+          realtimeStatus={realtimeStatus}
+          onlineUsers={onlineUsers}
+          totalConnections={totalConnections}
+          generalSettings={generalSettings}
+          appSkin={appSkin}
+        />
 
-      {/* Audio element for SLA alert */}
-      <audio ref={alarmAudioRef} src={soundSettings.alarmUrl} preload="auto" loop />
-
-      {/* Main Header */}
-      <Header
-        currentTab={currentTab}
-        setCurrentTab={setCurrentTab}
-        currentUser={currentUser}
-        users={users}
-        issues={issues}
-        onSwitchUser={handleSwitchUser}
-        onLogout={handleLogout}
-        breachedCount={breachedCount}
-        soundSettings={soundSettings}
-        onToggleMute={() =>
-          setSoundSettings((prev) => ({ ...prev, muted: !prev.muted }))
-        }
-        supabaseConnected={supabaseConfig.connected}
-        onToggleSupabaseConnected={handleToggleSupabaseConnected}
-        onSyncSupabaseNow={handleSyncSupabaseNow}
-        onNavigateToSupabaseSettings={handleNavigateToSupabaseSettings}
-        onOpenCloudImportModal={() => setIsGlobalCloudImportModalOpen(true)}
-        notifications={notifications}
-        onClearNotifications={() => handleClearAllNotifications(true)}
-        onClearSingleNotification={(id) => handleClearSingleNotification(id, true)}
-        onSelectTicket={handleSelectTicketById}
-        onOpenNewTicketModal={() => {
-          setEditingIssue(null);
-          setShowIssueModal(true);
-        }}
-        theme={theme}
-        onToggleTheme={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
-        appSkin={appSkin}
-        onToggleSkin={setAppSkin}
-        generalSettings={generalSettings}
-        realtimeStatus={realtimeStatus}
-        onlineUsers={onlineUsers}
-        totalConnections={totalConnections}
-        onRefreshRealtime={() => realtimeSync.fetchServerState()}
-        onTriggerDemoToast={handleTriggerDemoToast}
-      />
+        {/* Workspace Canvas (Fluid responsive container with right margin for the sidebar) */}
+        <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${
+          !isSidebarVisible ? 'mr-0' : isSidebarCollapsed ? 'lg:mr-20' : 'lg:mr-72'
+        }`}>
+          {/* Main Header */}
+          <Header
+            currentTab={currentTab}
+            setCurrentTab={setCurrentTab}
+            currentUser={currentUser}
+            users={users}
+            issues={issues}
+            onSwitchUser={handleSwitchUser}
+            onLogout={handleLogout}
+            breachedCount={breachedCount}
+            soundSettings={soundSettings}
+            onToggleMute={() =>
+              setSoundSettings((prev) => ({ ...prev, muted: !prev.muted }))
+            }
+            supabaseConnected={supabaseConfig.connected}
+            onToggleSupabaseConnected={handleToggleSupabaseConnected}
+            onSyncSupabaseNow={handleSyncSupabaseNow}
+            onNavigateToSupabaseSettings={handleNavigateToSupabaseSettings}
+            onOpenCloudImportModal={() => setIsGlobalCloudImportModalOpen(true)}
+            notifications={notifications}
+            onClearNotifications={() => handleClearAllNotifications(true)}
+            onClearSingleNotification={(id) => handleClearSingleNotification(id, true)}
+            onSelectTicket={handleSelectTicketById}
+            onOpenNewTicketModal={() => {
+              setEditingIssue(null);
+              setShowIssueModal(true);
+            }}
+            theme={theme}
+            onToggleTheme={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
+            appSkin={appSkin}
+            onToggleSkin={setAppSkin}
+            generalSettings={generalSettings}
+            realtimeStatus={realtimeStatus}
+            onlineUsers={onlineUsers}
+            totalConnections={totalConnections}
+            onRefreshRealtime={() => realtimeSync.fetchServerState()}
+            onTriggerDemoToast={handleTriggerDemoToast}
+            onOpenMobileSidebar={() => {
+              setIsMobileSidebarOpen(true);
+              setIsSidebarVisible(true);
+            }}
+            onToggleSidebarCollapse={() => {
+              if (!isSidebarVisible) {
+                setIsSidebarVisible(true);
+              } else {
+                setIsSidebarCollapsed((prev) => !prev);
+              }
+            }}
+            isSidebarCollapsed={!isSidebarVisible ? true : isSidebarCollapsed}
+            hideSecondaryNav={true}
+          />
 
       {/* Floating Multi-Region Live Notification Toast */}
       {liveToast && (
@@ -4053,6 +4118,26 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto px-4 py-6 flex-grow w-full space-y-6 relative z-10">
+        {/* Dedicated الصفحة الرئيسية View with Welcome Hero Banner */}
+        {currentTab === 'home' && (
+          <HomeView
+            currentUser={currentUser}
+            issues={issues}
+            generalSettings={generalSettings}
+            breachedCount={breachedCount}
+            onNavigateToIssues={handleOpenIssuesAndShowSidebar}
+            onNavigateToSla={() => setCurrentTab('sla')}
+            onNavigateToCustomer={() => setCurrentTab('customer')}
+            onNavigateToAdmin={() => setCurrentTab('admin')}
+            onSelectTicket={(ticket) => handleOpenTicketDetails(ticket)}
+            onOpenNewTicketModal={() => {
+              setEditingIssue(null);
+              setShowIssueModal(true);
+            }}
+            onlineCount={totalConnections || 1}
+          />
+        )}
+
         {hasPermission(currentUser, 'page.dashboard') && currentTab === 'dashboard' && (
           <DashboardView
             issues={issues}
@@ -4227,6 +4312,7 @@ export default function App() {
           </div>
         </footer>
       )}
+        </div>
 
       {/* Modals */}
       <IssueModal
