@@ -400,7 +400,7 @@ export const Header: React.FC<HeaderProps> = ({
     <>
       {/* ==================== NEXT-GEN FLOATING DOCK HEADER ==================== */}
       <header className="w-full max-w-[1700px] mx-auto p-1.5 sm:p-2.5 sticky top-0 z-40 select-none">
-        <div className="floating-nav rounded-2xl px-3 py-2 flex items-center justify-between gap-2 flex-nowrap overflow-x-auto custom-scrollbar">
+        <div className="floating-nav rounded-2xl px-3 py-2 flex items-center justify-between gap-2 flex-nowrap relative overflow-visible">
 
           {/* RIGHT SIDE: BRAND & PRIMARY ACTIONS */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
@@ -538,7 +538,7 @@ export const Header: React.FC<HeaderProps> = ({
           {/* LEFT SIDE: CONTROLS & USER PROFILE */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {/* Theme & Mode Selector Group */}
-            <div className="relative" ref={skinMenuRef}>
+            <div className={`relative ${showSkinDropdown ? 'z-50' : 'z-20'}`} ref={skinMenuRef}>
               <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-0.5 flex items-center gap-0.5">
                 {/* Theme Dropdown */}
                 <button
@@ -553,7 +553,7 @@ export const Header: React.FC<HeaderProps> = ({
                     {appSkin === 'cyberpunk' && 'السايبربانك'}
                     {appSkin === 'ocean' && 'المحيط'}
                   </span>
-                  <i className="fa-solid fa-chevron-down text-[8px] text-slate-500"></i>
+                  <i className={`fa-solid fa-chevron-down text-[8px] text-slate-500 transition-transform ${showSkinDropdown ? 'rotate-180 text-cyan-400' : ''}`}></i>
                 </button>
 
                 <div className="h-3.5 w-[1px] bg-slate-800"></div>
@@ -574,7 +574,7 @@ export const Header: React.FC<HeaderProps> = ({
 
               {/* Skin Dropdown Popover */}
               {showSkinDropdown && (
-                <div className="absolute left-0 mt-2 w-48 bg-slate-900/95 border border-slate-800 rounded-xl shadow-2xl p-1.5 z-50 text-xs space-y-1 backdrop-blur-xl">
+                <div className="absolute left-0 top-full mt-2 w-48 bg-slate-900/98 border border-slate-800 rounded-xl shadow-2xl p-1.5 z-50 text-xs space-y-1 backdrop-blur-xl">
                   <div className="px-3 py-1 text-[10px] font-bold text-slate-400 border-b border-slate-800">اختر مظهر المنظومة:</div>
                   {[
                     { id: 'amethyst', label: 'الياقوت النيون 💎', color: 'text-cyan-400' },
@@ -604,7 +604,7 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
 
             {/* Notifications Badge */}
-            <div className="relative" ref={notifMenuRef}>
+            <div className={`relative ${showNotifications ? 'z-50' : 'z-20'}`} ref={notifMenuRef}>
               <button
                 type="button"
                 onClick={() => setShowNotifications(!showNotifications)}
@@ -616,7 +616,7 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
 
               {showNotifications && (
-                <div className="absolute left-0 mt-2 w-84 bg-slate-900/95 border border-slate-800 rounded-2xl shadow-2xl p-3 z-50 text-xs space-y-2 backdrop-blur-xl">
+                <div className="absolute left-0 top-full mt-2 w-80 sm:w-84 max-w-[calc(100vw-2rem)] bg-slate-900/98 border border-slate-800 rounded-2xl shadow-2xl p-3 z-50 text-xs space-y-2 backdrop-blur-xl">
                   <div className="flex justify-between items-center border-b border-slate-800 pb-2">
                     <span className="font-bold text-white flex items-center gap-2">
                       <i className="fa-regular fa-bell text-indigo-400"></i>
@@ -744,10 +744,12 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
 
             {/* Profile Card */}
-            <div className="relative" ref={userMenuRef}>
-              <div
+            <div className={`relative ${showUserDropdown ? 'z-50' : 'z-20'}`} ref={userMenuRef}>
+              <button
+                type="button"
                 onClick={() => setShowUserDropdown(!showUserDropdown)}
-                className="flex items-center gap-1.5 bg-slate-900/80 border border-slate-800 hover:border-slate-700 p-1 px-1.5 rounded-xl cursor-pointer transition select-none"
+                className="flex items-center gap-1.5 bg-slate-900/80 border border-slate-800 hover:border-slate-700 p-1 px-1.5 rounded-xl cursor-pointer transition select-none text-right active:scale-95"
+                title="تبديل المستخدم أو تسجيل الخروج"
               >
                 <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-indigo-500 to-blue-600 text-white font-extrabold text-[11px] flex items-center justify-center shrink-0">
                   {currentUser.avatar || currentUser.name.charAt(0) || 'أ'}
@@ -756,11 +758,11 @@ export const Header: React.FC<HeaderProps> = ({
                   <span className="text-xs font-bold text-white leading-tight truncate max-w-[85px]">{currentUser.name || 'أحمد العتيبي'}</span>
                   <span className="text-[8px] text-indigo-400 font-bold leading-tight uppercase">{currentUser.role || 'Admin'}</span>
                 </div>
-                <i className="fa-solid fa-chevron-down text-[8px] text-slate-500 px-0.5"></i>
-              </div>
+                <i className={`fa-solid fa-chevron-down text-[8px] text-slate-500 px-0.5 transition-transform duration-150 ${showUserDropdown ? 'rotate-180 text-cyan-400' : ''}`}></i>
+              </button>
 
               {showUserDropdown && (
-                <div className="absolute left-0 mt-2 w-64 bg-slate-900/95 border border-slate-800 rounded-2xl shadow-2xl p-2 z-50 text-xs space-y-1 backdrop-blur-xl">
+                <div className="absolute left-0 top-full mt-2 w-64 max-w-[calc(100vw-2rem)] bg-slate-900/98 border border-slate-800 rounded-2xl shadow-2xl p-2 z-50 text-xs space-y-1 backdrop-blur-xl">
                   <div className="px-3 py-1.5 text-[11px] font-bold text-slate-400 border-b border-slate-800 flex items-center justify-between">
                     <span>تبديل حساب المستخدم:</span>
                     <i className="fa-solid fa-lock text-slate-400 text-xs"></i>
