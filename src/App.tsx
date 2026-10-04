@@ -103,11 +103,13 @@ export default function App() {
 
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     try {
-      const savedAuth = localStorage.getItem(STORAGE_KEY + '_IS_AUTHENTICATED');
-      if (savedAuth !== null) return savedAuth === 'true';
+      // Clear any legacy localStorage to ensure any fresh link opens on login screen
+      localStorage.removeItem(STORAGE_KEY + '_IS_AUTHENTICATED');
+      const sessionAuth = sessionStorage.getItem(STORAGE_KEY + '_IS_AUTHENTICATED');
+      if (sessionAuth === 'true') return true;
     } catch {}
-    // Default to true so ANY team member opening the shared link enters directly without login!
-    return true;
+    // Default to false: Any team member opening the link must log in with username and password!
+    return false;
   });
 
   const [currentUser, setCurrentUser] = useState<AppUser>(() => {
@@ -2861,11 +2863,12 @@ export default function App() {
     if (user.role !== 'Admin') {
       setCurrentTab('issues');
     } else {
-      setCurrentTab('dashboard');
+      setCurrentTab('home');
     }
     setIsAuthenticated(true);
     try {
-      localStorage.setItem(STORAGE_KEY + '_IS_AUTHENTICATED', 'true');
+      sessionStorage.setItem(STORAGE_KEY + '_IS_AUTHENTICATED', 'true');
+      sessionStorage.setItem(STORAGE_KEY + '_CURRENT_USER_ID', user.id);
       localStorage.setItem(STORAGE_KEY + '_CURRENT_USER_ID', user.id);
     } catch (e) {
       console.error(e);
@@ -2876,6 +2879,8 @@ export default function App() {
   const handleLogout = () => {
     setIsAuthenticated(false);
     try {
+      sessionStorage.removeItem(STORAGE_KEY + '_IS_AUTHENTICATED');
+      sessionStorage.removeItem(STORAGE_KEY + '_CURRENT_USER_ID');
       localStorage.removeItem(STORAGE_KEY + '_IS_AUTHENTICATED');
     } catch (e) {
       console.error(e);

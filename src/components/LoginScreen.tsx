@@ -98,8 +98,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
   const handleSelectQuickUser = (u: AppUser) => {
     setIdentifier(u.username);
-    setPassword(u.password || (u.role === 'Admin' ? 'admin' : '123'));
+    setPassword('');
     setErrorMessage('');
+    const passInput = document.getElementById('login-password-input');
+    if (passInput) {
+      passInput.focus();
+    }
   };
 
   return (
@@ -190,6 +194,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               </div>
               <div className="relative">
                 <input
+                  id="login-password-input"
                   type={showPassword ? 'text' : 'password'}
                   required
                   value={password}
@@ -224,27 +229,27 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             <div className="flex items-center justify-between text-[11px] text-slate-400 font-bold">
               <span className="flex items-center gap-1">
                 <Users className="w-3.5 h-3.5 text-indigo-400" />
-                <span>اختر حساب موظف للملء السريع:</span>
+                <span>حسابات أعضاء الفريق المسجلة:</span>
               </span>
-              <span className="text-[10px] text-indigo-400">للتجربة السريعة</span>
+              <span className="text-[10px] text-indigo-400 font-normal">يلزم كتابة كلمة المرور 🔒</span>
             </div>
 
-            <div className="grid grid-cols-2 gap-1.5 max-h-36 overflow-y-auto pr-0.5">
+            <div className="grid grid-cols-2 gap-1.5 max-h-36 overflow-y-auto pr-0.5 custom-scrollbar">
               {users.map((u) => {
-                const uPass = u.password || (u.role === 'Admin' ? 'admin' : '123');
                 return (
                   <button
                     key={u.id}
                     type="button"
                     onClick={() => handleSelectQuickUser(u)}
                     className="p-2 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 hover:border-indigo-500/50 text-right transition flex items-center gap-2 text-[11px] group cursor-pointer"
+                    title={`انقر لملء اسم المستخدم @${u.username}`}
                   >
                     <span className="w-6 h-6 rounded-lg bg-indigo-600 text-white font-bold flex items-center justify-center text-[10px] shrink-0">
                       {u.avatar}
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="font-bold text-slate-200 truncate group-hover:text-indigo-300">{u.name}</p>
-                      <p className="text-[9px] text-slate-400 truncate">كلمة السر: {uPass}</p>
+                      <p className="text-[9px] text-slate-400 truncate font-mono">@{u.username} • {u.role}</p>
                     </div>
                   </button>
                 );
