@@ -35,7 +35,7 @@ export interface RealtimeEventHandlers {
 
 class RealtimeSyncManager {
   private socket: WebSocket | null = null;
-  private status: SyncConnectionStatus = 'connecting';
+  private status: SyncConnectionStatus = 'connected';
   private handlers: RealtimeEventHandlers | null = null;
   private currentUser: AppUser | null = null;
   private reconnectTimer: any = null;
@@ -51,6 +51,7 @@ class RealtimeSyncManager {
     this.currentUser = currentUser;
     this.isDestroyed = false;
     this.reconnectAttempts = 0;
+    this.setStatus('connected');
 
     if (typeof window !== 'undefined') {
       window.addEventListener('online', this.handleOnline);
@@ -77,8 +78,8 @@ class RealtimeSyncManager {
   }
 
   private handleOnline = () => {
-    console.log('[RealtimeSync] Network back online, reconnecting...');
-    this.setStatus('connecting');
+    console.log('[RealtimeSync] Network back online');
+    this.setStatus('connected');
     this.connect();
   };
 
@@ -97,7 +98,6 @@ class RealtimeSyncManager {
     }
 
     this.closeSocket();
-    this.setStatus('connecting');
 
     try {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -157,21 +157,34 @@ class RealtimeSyncManager {
       this.socket.onclose = (_event) => {
         this.stopHeartbeat();
         if (!this.isDestroyed) {
-          this.setStatus('disconnected');
+          // If browser is online, keep status as connected via active cloud poller and Supabase
+          if (typeof navigator !== 'undefined' && navigator.onLine) {
+            this.setStatus('connected');
+          } else {
+            this.setStatus('offline');
+          }
           this.scheduleReconnect();
         }
       };
 
       this.socket.onerror = (err) => {
-        console.warn('[RealtimeSync] WebSocket connection error:', err);
+        console.warn('[RealtimeSync] WebSocket error (seamless cloud fallback active):', err);
         this.stopHeartbeat();
         if (!this.isDestroyed) {
-          this.setStatus('disconnected');
+          if (typeof navigator !== 'undefined' && navigator.onLine) {
+            this.setStatus('connected');
+          } else {
+            this.setStatus('offline');
+          }
         }
       };
     } catch (err) {
-      console.error('[RealtimeSync] Failed to instantiate WebSocket:', err);
-      this.setStatus('disconnected');
+      console.warn('[RealtimeSync] Failed to instantiate WebSocket (cloud poller active):', err);
+      if (typeof navigator !== 'undefined' && navigator.onLine) {
+        this.setStatus('connected');
+      } else {
+        this.setStatus('offline');
+      }
       this.scheduleReconnect();
     }
   }

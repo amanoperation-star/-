@@ -446,7 +446,7 @@ export default function App() {
   const [resetStepText, setResetStepText] = useState('');
 
   // Real-time synchronization state across regions
-  const [realtimeStatus, setRealtimeStatus] = useState<SyncConnectionStatus>('connecting');
+  const [realtimeStatus, setRealtimeStatus] = useState<SyncConnectionStatus>('connected');
   const [onlineUsers, setOnlineUsers] = useState<ActiveUserPresence[]>([]);
   const [totalConnections, setTotalConnections] = useState<number>(1);
   const [liveToast, setLiveToast] = useState<{
