@@ -182,17 +182,16 @@ const SYSTEM_SECTIONS: SectionDefinition[] = [
   },
   {
     id: 'analytics',
-    title: 'التحليلات والرسوم البيانية',
-    shortTitle: 'التحليلات والتقارير',
-    subtitle: 'الرسوم البيانية وتوزيع أحمال العمل',
+    title: 'تقارير الأداء',
+    shortTitle: 'تقارير الأداء',
+    subtitle: 'لوحة تحكم تحليلية للمشاكل المسجلة باستخدام مكتبة Recharts',
     category: 'monitoring',
     categoryLabel: 'المتابعة والحوكمة والـ SLA',
     icon: BarChart3,
     color: 'sky',
     activeBg: 'bg-sky-600 text-white shadow-md shadow-sky-600/30 ring-2 ring-sky-400/30',
     iconColor: 'text-sky-500 dark:text-sky-400',
-    adminOnly: true,
-    description: 'تقارير إحصائية معمقة ورسوم بيانية لتوزيع المشاكل حسب الأقسام، الفنيين، والمدد الزمنية.',
+    description: 'تقارير إحصائية معمقة ورسوم بيانية لتوزيع المشاكل حسب الأقسام، الفنيين، والمدد الزمنية باستخدام Recharts.',
     features: ['مخططات بيانية ديناميكية', 'مقارنة إنتاجية الفنيين', 'تحليل فئات وتوزيع الأعطال']
   },
   {
@@ -400,20 +399,20 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <>
       {/* ==================== NEXT-GEN FLOATING DOCK HEADER ==================== */}
-      <header className="w-full max-w-[1700px] mx-auto p-2 sm:p-4 sticky top-0 z-40 select-none">
-        <div className="floating-nav rounded-2xl px-4 py-3 flex items-center justify-between gap-4 flex-wrap xl:flex-nowrap">
+      <header className="w-full max-w-[1700px] mx-auto p-1.5 sm:p-2.5 sticky top-0 z-40 select-none">
+        <div className="floating-nav rounded-2xl px-3 py-2 flex items-center justify-between gap-2 flex-nowrap overflow-x-auto custom-scrollbar">
 
           {/* RIGHT SIDE: BRAND & PRIMARY ACTIONS */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {/* Mobile Sidebar Hamburger Trigger */}
             {onOpenMobileSidebar && (
               <button
                 type="button"
                 onClick={onOpenMobileSidebar}
-                className="lg:hidden p-2 rounded-xl bg-slate-800/60 hover:bg-slate-800 text-slate-200 border border-slate-700/60 transition cursor-pointer"
+                className="lg:hidden p-1.5 rounded-lg bg-slate-800/60 hover:bg-slate-800 text-slate-200 border border-slate-700/60 transition cursor-pointer"
                 title="فتح القائمة الجانبية"
               >
-                <i className="fa-solid fa-bars text-sm"></i>
+                <i className="fa-solid fa-bars text-xs"></i>
               </button>
             )}
 
@@ -422,7 +421,7 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 type="button"
                 onClick={onToggleSidebarCollapse}
-                className="hidden lg:flex p-2 rounded-xl bg-slate-800/60 hover:bg-slate-800 text-slate-200 border border-slate-700/60 transition cursor-pointer"
+                className="hidden lg:flex p-1.5 rounded-lg bg-slate-800/60 hover:bg-slate-800 text-slate-200 border border-slate-700/60 transition cursor-pointer"
                 title={isSidebarCollapsed ? 'توسيع القائمة الجانبية' : 'طي القائمة الجانبية'}
               >
                 <i className={`fa-solid fa-angles-right text-xs transition-transform ${isSidebarCollapsed ? 'rotate-180 text-indigo-400' : 'text-slate-400'}`}></i>
@@ -433,9 +432,9 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               type="button"
               onClick={onOpenNewTicketModal}
-              className="action-btn-glow flex items-center gap-2.5 text-white font-black text-xs lg:text-sm px-5 py-2.5 rounded-xl cursor-pointer active:scale-95"
+              className="action-btn-glow flex items-center gap-1.5 text-white font-bold text-xs px-3 py-1.5 rounded-xl cursor-pointer active:scale-95 whitespace-nowrap"
             >
-              <i className="fa-solid fa-plus text-sm"></i>
+              <i className="fa-solid fa-plus text-xs"></i>
               <span>تذكرة جديدة</span>
             </button>
 
@@ -443,22 +442,68 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               type="button"
               onClick={handleSyncClick}
-              className="flex items-center gap-2 bg-slate-800/60 hover:bg-slate-800 text-slate-200 border border-slate-700/60 px-4 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer active:scale-95"
+              className="flex items-center gap-1.5 bg-slate-800/60 hover:bg-slate-800 text-slate-200 border border-slate-700/60 px-2.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer active:scale-95 whitespace-nowrap"
               title="جلب ومزامنة بيانات السحابة"
             >
               <i className={`fa-solid fa-arrows-rotate text-cyan-400 text-xs ${isSyncing ? 'fa-spin' : ''}`}></i>
               <span className="hidden sm:inline">جلب البيانات</span>
             </button>
 
-            <div className="h-6 w-[1px] bg-slate-800 hidden md:block"></div>
+            {/* Top Navigation Tabs: الرئيسية & سجل المشاكل & تقارير الأداء (Recharts) */}
+            <div className="flex items-center gap-0.5 bg-slate-900/80 border border-slate-800 p-0.5 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setCurrentTab('home')}
+                className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold transition cursor-pointer whitespace-nowrap ${
+                  currentTab === 'home'
+                    ? 'bg-slate-700 text-white shadow-xs'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
+                }`}
+                title="الصفحة الرئيسية وشاشة الترحيب"
+              >
+                <i className="fa-solid fa-house text-[11px] text-indigo-400"></i>
+                <span className="hidden sm:inline">الرئيسية</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCurrentTab('issues')}
+                className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold transition cursor-pointer whitespace-nowrap ${
+                  currentTab === 'issues'
+                    ? 'bg-blue-600 text-white shadow-xs shadow-blue-600/30'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
+                }`}
+                title="الانتقال إلى سجل المشاكل والبلاغات"
+              >
+                <i className="fa-solid fa-list-check text-[11px] text-cyan-400"></i>
+                <span className="hidden sm:inline">سجل المشاكل</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCurrentTab('analytics')}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer relative active:scale-95 whitespace-nowrap ${
+                  currentTab === 'analytics'
+                    ? 'bg-gradient-to-r from-sky-500 to-indigo-600 text-white shadow-[0_0_12px_rgba(14,165,233,0.4)] border border-sky-400/40'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800/80'
+                }`}
+                title="لوحة تحكم تحليلية للمشاكل المسجلة باستخدام مكتبة Recharts"
+              >
+                <i className={`fa-solid fa-chart-pie text-[11px] ${currentTab === 'analytics' ? 'text-white' : 'text-cyan-400'}`}></i>
+                <span className="font-bold">تقارير الأداء</span>
+                {currentTab === 'analytics' && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-300 shadow-[0_0_6px_#22d3ee]"></span>
+                )}
+              </button>
+            </div>
 
             {/* Live Cloud Status Pill */}
             <div
               onClick={onTriggerDemoToast}
-              className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 cursor-pointer select-none"
+              className="hidden xl:flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 cursor-pointer select-none whitespace-nowrap"
               title="السحابة متصلة ومزامنة تلقائياً (انقر لتجربة التنبيه)"
             >
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
               <span>السحابة متصلة</span>
             </div>
 
@@ -467,63 +512,63 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 type="button"
                 onClick={() => setCurrentTab('sla')}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/20 transition cursor-pointer"
+                className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/20 transition cursor-pointer whitespace-nowrap"
                 title="تذاكر متأخرة عن موعد الـ SLA"
               >
-                <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping"></span>
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping"></span>
                 <span>{breachedCount} متأخرة</span>
               </button>
             )}
           </div>
 
           {/* CENTER: SMART COMMAND / SEARCH BAR */}
-          <div className="flex-1 max-w-md hidden lg:block">
+          <div className="flex-1 min-w-[200px] max-w-xl mx-1">
             <div
               onClick={() => setIsSearchOpen(true)}
-              className="command-search rounded-xl px-3.5 py-2 flex items-center justify-between gap-3 text-slate-400 text-xs cursor-pointer"
+              className="command-search rounded-xl px-3 py-1.5 flex items-center justify-between gap-2 text-slate-400 text-xs cursor-pointer w-full whitespace-nowrap"
             >
-              <div className="flex items-center gap-2.5">
-                <i className="fa-solid fa-magnifying-glass text-indigo-400"></i>
-                <span>ابحث عن تذكرة، عميل، أو أمر سريع...</span>
+              <div className="flex items-center gap-2 min-w-0 overflow-hidden">
+                <i className="fa-solid fa-magnifying-glass text-indigo-400 text-xs shrink-0"></i>
+                <span className="truncate text-slate-300 text-xs">ابحث عن تذكرة، عميل، أو أمر سريع...</span>
               </div>
-              <kbd className="bg-slate-800 border border-slate-700 text-slate-300 px-2 py-0.5 rounded text-[10px] font-mono">CTRL + K</kbd>
+              <kbd className="bg-slate-800 border border-slate-700 text-slate-300 px-1.5 py-0.5 rounded text-[9px] font-mono shrink-0">CTRL + K</kbd>
             </div>
           </div>
 
           {/* LEFT SIDE: CONTROLS & USER PROFILE */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {/* Theme & Mode Selector Group */}
             <div className="relative" ref={skinMenuRef}>
-              <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-1 flex items-center gap-1">
+              <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-0.5 flex items-center gap-0.5">
                 {/* Theme Dropdown */}
                 <button
                   type="button"
                   onClick={() => setShowSkinDropdown(!showSkinDropdown)}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800 transition cursor-pointer whitespace-nowrap"
                 >
-                  <i className="fa-solid fa-gem text-cyan-400 text-xs"></i>
-                  <span>
-                    {appSkin === 'amethyst' && 'الياقوت النيون'}
+                  <i className="fa-solid fa-gem text-cyan-400 text-[11px]"></i>
+                  <span className="hidden sm:inline">
+                    {appSkin === 'amethyst' && 'الياقوت'}
                     {appSkin === 'standard' && 'الكلاسيكي'}
                     {appSkin === 'cyberpunk' && 'السايبربانك'}
-                    {appSkin === 'ocean' && 'المحيط الهادئ'}
+                    {appSkin === 'ocean' && 'المحيط'}
                   </span>
-                  <i className="fa-solid fa-chevron-down text-[9px] text-slate-500"></i>
+                  <i className="fa-solid fa-chevron-down text-[8px] text-slate-500"></i>
                 </button>
 
-                <div className="h-4 w-[1px] bg-slate-800"></div>
+                <div className="h-3.5 w-[1px] bg-slate-800"></div>
 
                 {/* Day Mode Toggle */}
                 <button
                   type="button"
                   onClick={onToggleTheme}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                  className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
                     theme === 'dark' ? 'text-amber-400 hover:bg-amber-400/10' : 'text-indigo-400 hover:bg-indigo-400/10'
                   }`}
                   title={theme === 'dark' ? 'التحويل إلى الوضع النهاري' : 'التحويل إلى الوضع الليلي'}
                 >
-                  <i className={`fa-solid ${theme === 'dark' ? 'fa-sun' : 'fa-moon'}`}></i>
-                  <span className="hidden sm:inline">{theme === 'dark' ? 'النهاري' : 'الليلي'}</span>
+                  <i className={`fa-solid ${theme === 'dark' ? 'fa-sun text-[11px]' : 'fa-moon text-[11px]'}`}></i>
+                  <span className="hidden md:inline">{theme === 'dark' ? 'النهاري' : 'الليلي'}</span>
                 </button>
               </div>
 
@@ -563,11 +608,11 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 type="button"
                 onClick={() => setShowNotifications(!showNotifications)}
-                className="w-10 h-10 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-300 hover:text-white flex items-center justify-center transition relative cursor-pointer active:scale-95"
+                className="w-8 h-8 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-300 hover:text-white flex items-center justify-center transition relative cursor-pointer active:scale-95"
                 title="الإشعارات والتنبيهات"
               >
-                <i className="fa-regular fa-bell text-sm"></i>
-                <span className="absolute top-2.5 left-2.5 w-2 h-2 rounded-full bg-cyan-400"></span>
+                <i className="fa-regular fa-bell text-xs"></i>
+                <span className="absolute top-2 left-2 w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_6px_#22d3ee]"></span>
               </button>
 
               {showNotifications && (
@@ -702,16 +747,16 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="relative" ref={userMenuRef}>
               <div
                 onClick={() => setShowUserDropdown(!showUserDropdown)}
-                className="flex items-center gap-2.5 bg-slate-900/80 border border-slate-800 hover:border-slate-700 p-1.5 rounded-xl cursor-pointer transition select-none"
+                className="flex items-center gap-1.5 bg-slate-900/80 border border-slate-800 hover:border-slate-700 p-1 px-1.5 rounded-xl cursor-pointer transition select-none"
               >
-                <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-indigo-500 to-blue-600 text-white font-extrabold text-xs flex items-center justify-center">
+                <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-indigo-500 to-blue-600 text-white font-extrabold text-[11px] flex items-center justify-center shrink-0">
                   {currentUser.avatar || currentUser.name.charAt(0) || 'أ'}
                 </div>
-                <div className="hidden sm:flex flex-col text-right pl-1">
-                  <span className="text-xs font-bold text-white leading-tight">{currentUser.name || 'أحمد العتيبي'}</span>
-                  <span className="text-[9px] text-indigo-400 font-bold leading-tight uppercase">{currentUser.role || 'Admin'}</span>
+                <div className="hidden sm:flex flex-col text-right pl-0.5">
+                  <span className="text-xs font-bold text-white leading-tight truncate max-w-[85px]">{currentUser.name || 'أحمد العتيبي'}</span>
+                  <span className="text-[8px] text-indigo-400 font-bold leading-tight uppercase">{currentUser.role || 'Admin'}</span>
                 </div>
-                <i className="fa-solid fa-chevron-down text-[9px] text-slate-500 px-1"></i>
+                <i className="fa-solid fa-chevron-down text-[8px] text-slate-500 px-0.5"></i>
               </div>
 
               {showUserDropdown && (
