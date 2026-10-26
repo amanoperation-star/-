@@ -11,6 +11,7 @@ const __dirname = path.dirname(__filename);
 const PORT = process.env.PORT || 3000;
 const DATA_DIR = path.resolve(__dirname, 'data');
 const DB_FILE = path.join(DATA_DIR, 'app_database.json');
+const DB_BACKUP_FILE = path.join(DATA_DIR, 'app_database.json.bak');
 
 // Ensure data directory exists
 if (!fs.existsSync(DATA_DIR)) {
@@ -110,64 +111,155 @@ const DEFAULT_EXTERNAL_VENDORS = [
   },
 ];
 
-// Load initial database from file if exists
-const loadDatabase = () => {
+// Safe JSON parser helper
+const safeParseJson = (content: string) => {
   try {
-    if (fs.existsSync(DB_FILE)) {
-      const raw = fs.readFileSync(DB_FILE, 'utf-8');
-      const parsed = JSON.parse(raw);
-      state = { ...state, ...parsed };
-      if (parsed.isSeeded !== undefined) {
-        state.isSeeded = parsed.isSeeded;
-      } else if (Array.isArray(state.issues) && state.issues.length > 0) {
-        state.isSeeded = true;
-      }
-      if (!Array.isArray(state.externalVendors) || state.externalVendors.length === 0) {
-        state.externalVendors = DEFAULT_EXTERNAL_VENDORS;
-      }
-      if (!state.slaSettings) {
-        state.slaSettings = DEFAULT_SLA_SETTINGS;
-      }
-      if (parsed.supabaseConfig && parsed.supabaseConfig.url && parsed.supabaseConfig.url.includes('supabase.co')) {
-        state.supabaseConfig = parsed.supabaseConfig;
-      } else {
-        state.supabaseConfig = DEFAULT_SUPABASE_CONFIG;
-      }
-      if (!Array.isArray(state.notifications)) {
-        state.notifications = [];
-      }
-      console.log(`[Database] Loaded ${state.issues?.length || 0} tickets, ${state.externalVendors?.length || 0} external vendors, ${state.notifications?.length || 0} notifications, Supabase: ${state.supabaseConfig ? 'configured' : 'none'} from disk.`);
-    } else {
-      state.externalVendors = DEFAULT_EXTERNAL_VENDORS;
-      state.slaSettings = DEFAULT_SLA_SETTINGS;
-      state.notifications = [];
-    }
-  } catch (err) {
-    console.error('[Database] Failed to read database file:', err);
-    if (!Array.isArray(state.externalVendors) || state.externalVendors.length === 0) {
-      state.externalVendors = DEFAULT_EXTERNAL_VENDORS;
-    }
-    if (!state.slaSettings) {
-      state.slaSettings = DEFAULT_SLA_SETTINGS;
-    }
-    if (!Array.isArray(state.notifications)) {
-      state.notifications = [];
-    }
+    return JSON.parse(content);
+  } catch {
+    return null;
   }
 };
 
-// Debounced save to disk to avoid disk thrashing
+// Atomic save helper
+const performAtomicSave = (dataToSave = state) => {
+  // Safety guard: never overwrite with empty users if we previously had users in the backup
+  if ((!dataToSave.users || dataToSave.users.length === 0) && fs.existsSync(DB_BACKUP_FILE)) {
+    try {
+      const checkRaw = fs.readFileSync(DB_BACKUP_FILE, 'utf-8');
+      const checkParsed = safeParseJson(checkRaw);
+      if (checkParsed && Array.isArray(checkParsed.users) && checkParsed.users.length > 0) {
+        console.warn('[Database] Guard prevented saving empty users over existing data.');
+        return;
+      }
+    } catch {}
+  }
+
+  try {
+    const jsonStr = JSON.stringify(dataToSave, null, 2);
+    const tempFile = path.join(DATA_DIR, `app_database.tmp.${Date.now()}.${Math.random().toString(36).substring(2, 7)}`);
+    fs.writeFileSync(tempFile, jsonStr, 'utf-8');
+
+    // Verify temp file is valid JSON before renaming
+    const testParse = safeParseJson(fs.readFileSync(tempFile, 'utf-8'));
+    if (!testParse) {
+      console.error('[Database] Atomic save aborted: temporary file validation failed.');
+      try { fs.unlinkSync(tempFile); } catch {}
+      return;
+    }
+
+    // Keep backup synced with the last known good file
+    if (fs.existsSync(DB_FILE)) {
+      try {
+        fs.copyFileSync(DB_FILE, DB_BACKUP_FILE);
+      } catch {}
+    }
+
+    // POSIX Atomic rename
+    fs.renameSync(tempFile, DB_FILE);
+  } catch (err) {
+    console.error('[Database] Failed to atomic save database file:', err);
+  }
+};
+
+// Load initial database from file with self-healing and backup fallback
+const loadDatabase = () => {
+  let loaded = false;
+  let parsed: any = null;
+
+  // 1. Try primary database file
+  if (fs.existsSync(DB_FILE)) {
+    try {
+      const raw = fs.readFileSync(DB_FILE, 'utf-8');
+      parsed = safeParseJson(raw);
+      if (parsed && typeof parsed === 'object') {
+        loaded = true;
+      } else {
+        console.warn('[Database] Primary database file is corrupted or not valid JSON. Checking backup...');
+      }
+    } catch (err) {
+      console.warn('[Database] Could not read primary DB file:', err);
+    }
+  }
+
+  // 2. If primary failed or was invalid, try backup file
+  if (!loaded && fs.existsSync(DB_BACKUP_FILE)) {
+    try {
+      const backupRaw = fs.readFileSync(DB_BACKUP_FILE, 'utf-8');
+      const backupParsed = safeParseJson(backupRaw);
+      if (backupParsed && typeof backupParsed === 'object') {
+        parsed = backupParsed;
+        loaded = true;
+        console.log('✅ [Database] Successfully recovered all data from backup file (app_database.json.bak)!');
+        performAtomicSave(parsed);
+      }
+    } catch (bErr) {
+      console.warn('[Database] Could not read backup DB file:', bErr);
+    }
+  }
+
+  // 3. Populate state
+  if (loaded && parsed) {
+    state = { ...state, ...parsed };
+    if (parsed.isSeeded !== undefined) {
+      state.isSeeded = parsed.isSeeded;
+    } else if (Array.isArray(state.issues) && state.issues.length > 0) {
+      state.isSeeded = true;
+    }
+    // Sync backup
+    try {
+      fs.copyFileSync(DB_FILE, DB_BACKUP_FILE);
+    } catch {}
+  } else {
+    console.log('[Database] Initializing fresh state defaults.');
+  }
+
+  if (!Array.isArray(state.externalVendors) || state.externalVendors.length === 0) {
+    state.externalVendors = DEFAULT_EXTERNAL_VENDORS;
+  }
+  if (!state.slaSettings) {
+    state.slaSettings = DEFAULT_SLA_SETTINGS;
+  }
+  if (!Array.isArray(state.notifications)) {
+    state.notifications = [];
+  }
+  if (state.supabaseConfig && state.supabaseConfig.url && state.supabaseConfig.url.includes('supabase.co')) {
+    // preserve supabase config
+  } else {
+    state.supabaseConfig = DEFAULT_SUPABASE_CONFIG;
+  }
+
+  console.log(`[Database] Loaded ${state.issues?.length || 0} tickets, ${state.users?.length || 0} users, ${state.externalVendors?.length || 0} external vendors, ${state.notifications?.length || 0} notifications, Supabase: ${state.supabaseConfig ? 'configured' : 'none'} from disk.`);
+};
+
+// Debounced save to disk using atomic rename
 let saveTimeout: NodeJS.Timeout | null = null;
 const saveDatabase = () => {
   if (saveTimeout) clearTimeout(saveTimeout);
   saveTimeout = setTimeout(() => {
-    try {
-      fs.writeFileSync(DB_FILE, JSON.stringify(state, null, 2), 'utf-8');
-    } catch (err) {
-      console.error('[Database] Failed to save database file:', err);
-    }
-  }, 300);
+    performAtomicSave();
+  }, 250);
 };
+
+// Immediate flush on shutdown
+const flushDatabaseSync = () => {
+  if (saveTimeout) {
+    clearTimeout(saveTimeout);
+    saveTimeout = null;
+  }
+  performAtomicSave();
+};
+
+process.on('SIGINT', () => {
+  flushDatabaseSync();
+  process.exit(0);
+});
+process.on('SIGTERM', () => {
+  flushDatabaseSync();
+  process.exit(0);
+});
+process.on('beforeExit', () => {
+  flushDatabaseSync();
+});
 
 loadDatabase();
 
@@ -735,6 +827,34 @@ app.delete('/api/notifications/:id', (req, res) => {
     });
   }
   res.json({ status: 'ok', remaining: state.notifications?.length || 0 });
+});
+
+// API: Broadcast Instant Cloud Alert to all connected devices & team members
+app.post('/api/team-alert', (req, res) => {
+  const { alert, actor } = req.body || {};
+  const alertPayload = {
+    id: alert?.id || `alert-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    title: alert?.title || 'تنبيه سحابي فوري ⚡',
+    desc: alert?.desc || 'إشعار فوري من خادم المنظومة السحابي',
+    ticketId: alert?.ticketId,
+    type: alert?.type || 'info',
+    time: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+    author: actor || 'فريق العمل',
+    timestamp: Date.now(),
+  };
+
+  if (!state.notifications) state.notifications = [];
+  state.notifications = [alertPayload, ...state.notifications.filter((n: any) => n.id !== alertPayload.id)].slice(0, 50);
+  saveDatabase();
+
+  broadcast({
+    type: 'team:alert_received',
+    alert: alertPayload,
+    actor: actor || 'عضو في الفريق',
+    timestamp: Date.now(),
+  });
+
+  res.json({ status: 'ok', alert: alertPayload });
 });
 
 // API: Initialize or seed server state if empty
@@ -1407,6 +1527,19 @@ const server = http.createServer(app);
 // WebSocket Server on /ws
 const wss = new WebSocketServer({ noServer: true });
 
+// Dev server fallback WebSocket server to gracefully handle Vite HMR/module-runner websocket connections without errors
+const viteHmrWss = new WebSocketServer({ noServer: true });
+viteHmrWss.on('connection', (ws) => {
+  ws.on('message', (msg) => {
+    try {
+      const data = JSON.parse(msg.toString());
+      if (data.type === 'ping') {
+        ws.send(JSON.stringify({ type: 'pong' }));
+      }
+    } catch {}
+  });
+});
+
 server.on('upgrade', (request, socket, head) => {
   try {
     const host = request.headers.host || 'localhost';
@@ -1415,9 +1548,17 @@ server.on('upgrade', (request, socket, head) => {
       wss.handleUpgrade(request, socket, head, (ws) => {
         wss.emit('connection', ws, request);
       });
+    } else {
+      // Gracefully handle Vite client / HMR module runner websocket upgrade requests
+      viteHmrWss.handleUpgrade(request, socket, head, (ws) => {
+        viteHmrWss.emit('connection', ws, request);
+      });
     }
   } catch (err) {
     console.error('[WS Upgrade Error]', err);
+    try {
+      socket.destroy();
+    } catch {}
   }
 });
 
@@ -1720,7 +1861,78 @@ wss.on('connection', (ws, request) => {
         }
 
         case 'ping': {
-          ws.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }));
+          ws.send(JSON.stringify({
+            type: 'pong',
+            timestamp: Date.now(),
+            clientTimestamp: data.clientTimestamp || data.timestamp,
+          }));
+          break;
+        }
+
+        case 'team:alert': {
+          const { alert, actor } = data;
+          const alertPayload = {
+            id: alert?.id || `alert-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+            title: alert?.title || 'تنبيه سحابي فوري ⚡',
+            desc: alert?.desc || 'إشعار فوري من أحد أعضاء الفريق',
+            ticketId: alert?.ticketId,
+            type: alert?.type || 'info',
+            time: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+            author: actor || clientInfo.name || 'عضو في الفريق',
+            timestamp: Date.now(),
+          };
+
+          if (!state.notifications) state.notifications = [];
+          state.notifications = [alertPayload, ...state.notifications.filter((n: any) => n.id !== alertPayload.id)].slice(0, 50);
+          saveDatabase();
+
+          broadcast({
+            type: 'team:alert_received',
+            alert: alertPayload,
+            actor: actor || clientInfo.name || 'عضو في الفريق',
+            timestamp: Date.now(),
+          });
+          break;
+        }
+
+        case 'system:resync_request': {
+          ws.send(
+            JSON.stringify({
+              type: 'state:synced',
+              state,
+              activeUsers: getActiveUsersList(),
+              totalConnections: connectedClients.size,
+              collisions: getCollisionsMap(),
+            })
+          );
+          break;
+        }
+
+        case 'external_vendors:update': {
+          const { externalVendors, action, vendor } = data;
+          if (Array.isArray(externalVendors)) {
+            state.externalVendors = externalVendors;
+            saveDatabase();
+            broadcast({
+              type: 'external_vendors:updated',
+              externalVendors: state.externalVendors,
+              action,
+              vendor,
+            }, ws);
+          }
+          break;
+        }
+
+        case 'sla_settings:update': {
+          const { slaSettings } = data;
+          if (slaSettings) {
+            state.slaSettings = slaSettings;
+            saveDatabase();
+            broadcast({
+              type: 'sla_settings:updated',
+              slaSettings: state.slaSettings,
+            }, ws);
+          }
           break;
         }
 

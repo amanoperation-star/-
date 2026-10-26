@@ -458,6 +458,54 @@ export default function App() {
     location?: string;
   } | null>(null);
   const [isToastPaused, setIsToastPaused] = useState(false);
+  const [latencyMs, setLatencyMs] = useState<number>(() => realtimeSync.getLatencyMs() || 14);
+  const [recentLivePackets, setRecentLivePackets] = useState<Array<{
+    id: string;
+    type: string;
+    title: string;
+    desc: string;
+    actor: string;
+    timestamp: number;
+  }>>([]);
+  const [hasRecentArrival, setHasRecentArrival] = useState(false);
+  const recentArrivalTimerRef = useRef<any>(null);
+
+  const triggerArrivalPulse = () => {
+    setHasRecentArrival(true);
+    if (recentArrivalTimerRef.current) clearTimeout(recentArrivalTimerRef.current);
+    recentArrivalTimerRef.current = setTimeout(() => {
+      setHasRecentArrival(false);
+    }, 2500);
+  };
+
+  const handleSendTeamAlert = (alert: { title: string; desc: string; type?: 'info' | 'warning' | 'danger' | 'success'; ticketId?: string }) => {
+    realtimeSync.broadcastTeamAlert(alert, currentUser.name);
+    realtimeHub.broadcast('team:alert', { alert }, currentUser.name);
+    addNotification(alert.title, alert.desc, alert.ticketId, alert.type || 'info', false);
+    setLiveToast({
+      id: `toast-${Date.now()}`,
+      title: alert.title,
+      desc: alert.desc,
+      ticketId: alert.ticketId || (issues[0]?.id || 'INC-1001'),
+      author: currentUser.name,
+      location: currentUser.department || 'الفرع المتصل',
+    });
+    triggerArrivalPulse();
+    setRecentLivePackets((prev) => [
+      {
+        id: `pkt-${Date.now()}`,
+        type: 'alert',
+        title: alert.title,
+        desc: alert.desc,
+        actor: currentUser.name,
+        timestamp: Date.now(),
+      },
+      ...prev.slice(0, 24),
+    ]);
+    if (!soundSettings.muted) {
+      playNotificationChime(soundSettings.volume || 0.8, soundSettings.customNotificationUrl);
+    }
+  };
 
   // Auto-dismiss live toast after 25 seconds, paused when hovered so user has ample time to interact
   useEffect(() => {
@@ -1284,6 +1332,42 @@ export default function App() {
           break;
         }
 
+        case 'team:alert': {
+          const alertData = payload.data?.alert;
+          if (alertData) {
+            triggerArrivalPulse();
+            setLiveToast({
+              id: `toast-${Date.now()}`,
+              title: alertData.title || 'تنبيه سحابي فوري ⚡',
+              desc: alertData.desc || '',
+              ticketId: alertData.ticketId || (issues[0]?.id || 'INC-1001'),
+              author: payload.senderName || 'عضو في الفريق',
+            });
+            addNotification(
+              alertData.title || 'تنبيه سحابي فوري ⚡',
+              alertData.desc || '',
+              alertData.ticketId,
+              alertData.type || 'info',
+              false
+            );
+            setRecentLivePackets((prev) => [
+              {
+                id: `pkt-${Date.now()}`,
+                type: 'alert',
+                title: alertData.title || 'تنبيه سحابي فوري ⚡',
+                desc: alertData.desc || '',
+                actor: payload.senderName || 'عضو في الفريق',
+                timestamp: Date.now(),
+              },
+              ...prev.slice(0, 24),
+            ]);
+            if (!soundSettingsRef.current.muted) {
+              playNotificationChime(soundSettingsRef.current.volume || 0.8, soundSettingsRef.current.customNotificationUrl);
+            }
+          }
+          break;
+        }
+
         default:
           break;
       }
@@ -1605,6 +1689,33 @@ export default function App() {
         onPresenceUpdated: (usersList: ActiveUserPresence[], total: number) => {
           setOnlineUsers(usersList);
           setTotalConnections(total);
+        },
+
+        onLatencyUpdated: (ms: number) => {
+          setLatencyMs(ms);
+        },
+
+        onTeamAlertReceived: (alert: any, actor: string) => {
+          triggerArrivalPulse();
+          setLiveToast({
+            id: `toast-${Date.now()}`,
+            title: alert.title || 'تنبيه سحابي فوري ⚡',
+            desc: alert.desc || '',
+            ticketId: alert.ticketId || (issues[0]?.id || 'INC-1001'),
+            author: actor || 'عضو في الفريق',
+          });
+          addNotification(alert.title || 'تنبيه سحابي فوري ⚡', alert.desc || '', alert.ticketId, alert.type || 'info', false);
+          if (!soundSettingsRef.current.muted) {
+            playNotificationChime(soundSettingsRef.current.volume || 0.8, soundSettingsRef.current.customNotificationUrl);
+          }
+        },
+
+        onLiveEventPacket: (packet: any) => {
+          triggerArrivalPulse();
+          setRecentLivePackets((prev) => [
+            { id: `pkt-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`, ...packet },
+            ...prev.slice(0, 24),
+          ]);
         },
 
         onStatusChanged: (status: SyncConnectionStatus) => {
@@ -4036,8 +4147,12 @@ export default function App() {
             realtimeStatus={realtimeStatus}
             onlineUsers={onlineUsers}
             totalConnections={totalConnections}
-            onRefreshRealtime={() => realtimeSync.fetchServerState()}
+            onRefreshRealtime={() => realtimeSync.requestImmediateResync()}
             onTriggerDemoToast={handleTriggerDemoToast}
+            latencyMs={latencyMs}
+            recentPackets={recentLivePackets}
+            hasRecentArrival={hasRecentArrival}
+            onSendTeamAlert={handleSendTeamAlert}
             onOpenMobileSidebar={() => {
               setIsMobileSidebarOpen(true);
               setIsSidebarVisible(true);

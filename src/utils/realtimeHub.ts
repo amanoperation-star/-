@@ -15,6 +15,7 @@ export type TeamRealtimeEventType =
   | 'cab:deleted'
   | 'notifications:clear_all'
   | 'notification:clear_single'
+  | 'team:alert'
   | 'team:ping';
 
 export interface TeamRealtimePayload {
@@ -172,6 +173,11 @@ class TeamRealtimeHub {
       case 'notification:clear_single':
         if (data.id) {
           realtimeSync.broadcastClearSingleNotification(data.id, senderName);
+        }
+        break;
+      case 'team:alert':
+        if (data.alert) {
+          realtimeSync.broadcastTeamAlert(data.alert, senderName);
         }
         break;
       default:

@@ -53,6 +53,7 @@ import {
 import { AppUser, NotificationItem, SoundSettings, GeneralSettings, Issue } from '../types';
 import { ActiveUserPresence, SyncConnectionStatus } from '../utils/realtimeSync';
 import { hasPermission } from '../utils/permissions';
+import { CloudAlertHub, LiveEventPacket } from './CloudAlertHub';
 
 interface HeaderProps {
   currentTab: 'home' | 'dashboard' | 'issues' | 'sla' | 'customer' | 'admin' | 'cab' | 'analytics';
@@ -90,6 +91,10 @@ interface HeaderProps {
   isSidebarCollapsed?: boolean;
   hideSecondaryNav?: boolean;
   onOpenSectionsHubModal?: () => void;
+  latencyMs?: number;
+  recentPackets?: LiveEventPacket[];
+  hasRecentArrival?: boolean;
+  onSendTeamAlert?: (alert: { title: string; desc: string; type?: 'info' | 'warning' | 'danger' | 'success'; ticketId?: string }) => void;
 }
 
 interface SectionDefinition {
@@ -247,6 +252,10 @@ export const Header: React.FC<HeaderProps> = ({
   isSidebarCollapsed = false,
   hideSecondaryNav = false,
   onOpenSectionsHubModal,
+  latencyMs = 14,
+  recentPackets = [],
+  hasRecentArrival = false,
+  onSendTeamAlert,
 }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
@@ -603,16 +612,44 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </div>
 
+            {/* Instant Cloud Alert Icon & Live Radar Hub */}
+            <CloudAlertHub
+              status={realtimeStatus}
+              latencyMs={latencyMs}
+              totalConnections={totalConnections}
+              onlineUsers={onlineUsers}
+              recentPackets={recentPackets}
+              hasRecentArrival={hasRecentArrival}
+              onSendTeamAlert={(alert) => {
+                if (onSendTeamAlert) onSendTeamAlert(alert);
+              }}
+              onForceResync={() => {
+                if (onRefreshRealtime) onRefreshRealtime();
+              }}
+              onSelectTicket={onSelectTicket}
+              volume={soundSettings.volume}
+              customChimeUrl={soundSettings.customNotificationUrl}
+              isMuted={soundSettings.muted}
+            />
+
             {/* Notifications Badge */}
             <div className={`relative ${showNotifications ? 'z-50' : 'z-20'}`} ref={notifMenuRef}>
               <button
                 type="button"
                 onClick={() => setShowNotifications(!showNotifications)}
-                className="w-8 h-8 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-300 hover:text-white flex items-center justify-center transition relative cursor-pointer active:scale-95"
-                title="الإشعارات والتنبيهات"
+                className={`h-8 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-300 hover:text-white flex items-center justify-center transition relative cursor-pointer active:scale-95 ${
+                  notifications.length > 0 ? 'px-2.5 gap-1.5' : 'w-8'
+                }`}
+                title="الإشعارات والتنبيهات المباشرة"
               >
-                <i className="fa-regular fa-bell text-xs"></i>
-                <span className="absolute top-2 left-2 w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_6px_#22d3ee]"></span>
+                <i className={`fa-regular fa-bell text-xs ${notifications.length > 0 ? 'text-cyan-300' : ''}`}></i>
+                {notifications.length > 0 ? (
+                  <span className="bg-gradient-to-r from-cyan-500 to-indigo-600 text-white text-[10px] font-black px-1.5 py-0.2 rounded-full shadow-[0_0_8px_#22d3ee]">
+                    {notifications.length > 99 ? '99+' : notifications.length}
+                  </span>
+                ) : (
+                  <span className="absolute top-2 left-2 w-1.5 h-1.5 rounded-full bg-slate-600"></span>
+                )}
               </button>
 
               {showNotifications && (

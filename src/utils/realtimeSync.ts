@@ -24,6 +24,9 @@ export interface RealtimeEventHandlers {
   onNotificationsCleared?: (actor: string) => void;
   onNotificationClearedSingle?: (id: string, actor: string) => void;
   onNotificationAdded?: (notification: any) => void;
+  onTeamAlertReceived?: (alert: any, actor: string) => void;
+  onLatencyUpdated?: (latencyMs: number) => void;
+  onLiveEventPacket?: (packet: { type: string; title: string; desc: string; actor: string; timestamp: number }) => void;
   onStateSynced: (fullState: any) => void;
   onPresenceUpdated: (users: ActiveUserPresence[], totalConnections: number) => void;
   onStatusChanged: (status: SyncConnectionStatus) => void;
@@ -45,6 +48,8 @@ class RealtimeSyncManager {
   private messageQueue: string[] = [];
   private isDestroyed = false;
   private lastPongTime = Date.now();
+  private lastPingSentTime = Date.now();
+  private latencyMs = 14;
 
   public init(handlers: RealtimeEventHandlers, currentUser: AppUser) {
     this.handlers = handlers;
@@ -193,9 +198,15 @@ class RealtimeSyncManager {
     if (!data || !data.type) return;
 
     switch (data.type) {
-      case 'pong':
+      case 'pong': {
         this.lastPongTime = Date.now();
+        const sentTime = data.clientTimestamp || this.lastPingSentTime;
+        if (sentTime) {
+          this.latencyMs = Math.max(1, Math.min(Date.now() - sentTime, 999));
+          this.handlers?.onLatencyUpdated?.(this.latencyMs);
+        }
         break;
+      }
 
       case 'init':
         if (Array.isArray(data.activeUsers)) {
@@ -221,59 +232,168 @@ class RealtimeSyncManager {
         }
         break;
 
+      case 'team:alert_received':
+        if (data.alert) {
+          this.handlers?.onTeamAlertReceived?.(data.alert, data.actor || 'عضو في الفريق');
+          this.handlers?.onLiveEventPacket?.({
+            type: 'alert',
+            title: data.alert.title || 'تنبيه سحابي فوري ⚡',
+            desc: data.alert.desc || '',
+            actor: data.actor || 'عضو في الفريق',
+            timestamp: Date.now(),
+          });
+        }
+        break;
+
       case 'ticket:created':
         if (data.issue) {
           this.handlers?.onTicketCreated(data.issue, data.author || 'عضو في الفريق', data.location);
+          this.handlers?.onLiveEventPacket?.({
+            type: 'ticket:create',
+            title: `تذكرة جديدة [${data.issue.id}] 🚀`,
+            desc: `للعميل: ${data.issue.client || 'عميل'} • الأولوية: ${data.issue.priority}`,
+            actor: data.author || 'عضو في الفريق',
+            timestamp: Date.now(),
+          });
         }
         break;
 
       case 'ticket:updated':
         if (data.issue) {
           this.handlers?.onTicketUpdated(data.issue, data.actor || 'عضو في الفريق', data.changeType, data.details);
+          this.handlers?.onLiveEventPacket?.({
+            type: 'ticket:update',
+            title: `تحديث تذكرة [${data.issue.id}] 🔄`,
+            desc: data.details || data.changeType || data.issue.status,
+            actor: data.actor || 'عضو في الفريق',
+            timestamp: Date.now(),
+          });
         }
         break;
 
       case 'ticket:comment_added':
         if (data.issueId && data.comment) {
           this.handlers?.onTicketCommentAdded(data.issueId, data.comment, data.actor || 'عضو في الفريق');
+          this.handlers?.onLiveEventPacket?.({
+            type: 'ticket:comment',
+            title: `تعليق جديد [${data.issueId}] 💬`,
+            desc: data.comment.text ? data.comment.text.substring(0, 50) : 'ملاحظة',
+            actor: data.actor || 'عضو في الفريق',
+            timestamp: Date.now(),
+          });
         }
         break;
 
       case 'ticket:deleted':
         if (data.issueId) {
           this.handlers?.onTicketDeleted(data.issueId, data.actor || 'مدير النظام');
+          this.handlers?.onLiveEventPacket?.({
+            type: 'ticket:delete',
+            title: `حذف تذكرة [${data.issueId}] 🗑️`,
+            desc: 'تم حذف التذكرة من الخادم',
+            actor: data.actor || 'مدير النظام',
+            timestamp: Date.now(),
+          });
         }
         break;
 
       case 'ticket:bulk_deleted':
         if (Array.isArray(data.issueIds)) {
           this.handlers?.onTicketBulkDeleted?.(data.issueIds, data.actor || 'مدير النظام');
+          this.handlers?.onLiveEventPacket?.({
+            type: 'ticket:bulk_delete',
+            title: `حذف جماعي [${data.issueIds.length} تذكرة] 🗑️`,
+            desc: 'تم حذف التذاكر نهائياً',
+            actor: data.actor || 'مدير النظام',
+            timestamp: Date.now(),
+          });
         }
         break;
 
       case 'tickets:cleared':
         this.handlers?.onTicketsCleared?.(data.actor || 'مدير النظام');
+        this.handlers?.onLiveEventPacket?.({
+          type: 'tickets:clear',
+          title: 'تفريغ كافة التذاكر 🗑️',
+          desc: 'تم مسح جميع التذاكر من المنظومة',
+          actor: data.actor || 'مدير النظام',
+          timestamp: Date.now(),
+        });
         break;
 
       case 'system:reset_production':
         this.handlers?.onSystemResetProduction?.(data.actor || 'مدير النظام');
+        this.handlers?.onLiveEventPacket?.({
+          type: 'system:reset',
+          title: 'تهيئة الإنتاج الفعلي 🚀',
+          desc: 'تمت تهيئة المنظومة لبيانات المصنع',
+          actor: data.actor || 'مدير النظام',
+          timestamp: Date.now(),
+        });
         break;
 
       case 'cab:created':
         if (data.activity) {
           this.handlers?.onCabCreated?.(data.activity, data.author || 'عضو في الفريق');
+          this.handlers?.onLiveEventPacket?.({
+            type: 'cab:create',
+            title: `نشاط CAB جديد [${data.activity.id}] 📋`,
+            desc: data.activity.activityName || 'نشاط تغيير',
+            actor: data.author || 'عضو في الفريق',
+            timestamp: Date.now(),
+          });
         }
         break;
 
       case 'cab:updated':
         if (data.activity) {
           this.handlers?.onCabUpdated?.(data.activity, data.author || 'عضو في الفريق', data.details);
+          this.handlers?.onLiveEventPacket?.({
+            type: 'cab:update',
+            title: `تحديث نشاط CAB [${data.activity.id}] 🔄`,
+            desc: data.details || data.activity.status,
+            actor: data.author || 'عضو في الفريق',
+            timestamp: Date.now(),
+          });
         }
         break;
 
       case 'cab:deleted':
         if (data.activityId) {
           this.handlers?.onCabDeleted?.(data.activityId, data.author || 'مدير النظام');
+          this.handlers?.onLiveEventPacket?.({
+            type: 'cab:delete',
+            title: `حذف نشاط CAB [${data.activityId}] 🗑️`,
+            desc: 'تم حذف النشاط من المنظومة',
+            actor: data.author || 'مدير النظام',
+            timestamp: Date.now(),
+          });
+        }
+        break;
+
+      case 'external_vendors:updated':
+        if (Array.isArray(data.externalVendors)) {
+          this.handlers?.onExternalVendorsUpdated?.(data.externalVendors);
+          this.handlers?.onLiveEventPacket?.({
+            type: 'vendors:update',
+            title: 'تحديث سجل الموردين الخارجيين 🏢',
+            desc: 'تم تحديث قائمة الموردين والشركاء',
+            actor: data.actor || 'عضو في الفريق',
+            timestamp: Date.now(),
+          });
+        }
+        break;
+
+      case 'sla_settings:updated':
+        if (data.slaSettings) {
+          this.handlers?.onSlaSettingsUpdated?.(data.slaSettings);
+          this.handlers?.onLiveEventPacket?.({
+            type: 'sla:update',
+            title: 'تحديث قواعد اتفاقيات SLA ⏱️',
+            desc: 'تم تحديث إعدادات اتفاقيات مستوى الخدمة',
+            actor: data.actor || 'عضو في الفريق',
+            timestamp: Date.now(),
+          });
         }
         break;
 
@@ -314,15 +434,16 @@ class RealtimeSyncManager {
     this.stopHeartbeat();
     this.heartbeatTimer = setInterval(() => {
       if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-        // Send Ping
-        this.send({ type: 'ping' });
+        // Send Ping with client timestamp for latency tracking
+        this.lastPingSentTime = Date.now();
+        this.send({ type: 'ping', clientTimestamp: this.lastPingSentTime });
         // Check if pong was missed for more than 40s
         if (Date.now() - this.lastPongTime > 40000) {
           console.warn('[RealtimeSync] Ping timeout, reconnecting...');
           this.connect();
         }
       }
-    }, 20000);
+    }, 15000);
   }
 
   private stopHeartbeat() {
@@ -522,6 +643,30 @@ class RealtimeSyncManager {
         body: JSON.stringify({ notification, actor }),
       });
     } catch {}
+  }
+
+  public async broadcastTeamAlert(alert: { title: string; desc: string; type?: string; ticketId?: string }, actor: string) {
+    this.send({
+      type: 'team:alert',
+      alert,
+      actor,
+    });
+    try {
+      await fetch('/api/team-alert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ alert, actor }),
+      });
+    } catch {}
+  }
+
+  public getLatencyMs(): number {
+    return this.latencyMs;
+  }
+
+  public requestImmediateResync() {
+    this.send({ type: 'system:resync_request' });
+    this.fetchServerState();
   }
 
   public async broadcastSupabaseConfig(config: any) {

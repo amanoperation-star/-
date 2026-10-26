@@ -15,6 +15,44 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+        <script>
+      // Suppress Vite client WebSocket / HMR errors per AI Studio environment constraints
+      (function() {
+        window.addEventListener("unhandledrejection", function(event) {
+          const reason = event.reason;
+          const msg = (reason && (reason.stack || reason.message || String(reason))) || "";
+          if (
+            msg.includes("@vite/client") ||
+            msg.includes("createWebSocketModuleRunnerTransport") ||
+            msg.includes("WebSocket closed without opened") ||
+            msg.includes("WebSocket") ||
+            msg.includes("vite")
+          ) {
+            event.stopImmediatePropagation();
+            event.preventDefault();
+            return false;
+          }
+        }, true);
+
+        window.addEventListener("error", function(event) {
+          const msg = event.message || "";
+          const src = event.filename || "";
+          const stack = (event.error && event.error.stack) || "";
+          if (
+            src.includes("@vite/client") ||
+            msg.includes("createWebSocketModuleRunnerTransport") ||
+            msg.includes("WebSocket closed without opened") ||
+            msg.includes("WebSocket") ||
+            stack.includes("@vite/client") ||
+            stack.includes("createWebSocketModuleRunnerTransport")
+          ) {
+            event.stopImmediatePropagation();
+            event.preventDefault();
+            return true;
+          }
+        }, true);
+      })();
+    </script>
     <script>
       (function() {
         try {
