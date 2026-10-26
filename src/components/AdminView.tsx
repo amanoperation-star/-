@@ -66,6 +66,8 @@ import { AttachmentCenterTab } from './AttachmentCenterTab';
 import { AdminAnalyticsDashboard } from './AdminAnalyticsDashboard';
 import { CloudSyncImportModal } from './CloudSyncImportModal';
 import { TableEditorTab } from './TableEditorTab';
+import { UserLoginHistoryModal } from './UserLoginHistoryModal';
+import { EmployeeLoginHistoryTab } from './EmployeeLoginHistoryTab';
 
 interface AdminViewProps {
   users: AppUser[];
@@ -102,7 +104,7 @@ interface AdminViewProps {
   onUpdateGeneralSettings?: (settings: GeneralSettings) => void;
   onRestoreBackup?: (backup: SystemBackupData, mode: 'overwrite' | 'merge') => void;
   onResetSystemToDefault?: () => void;
-  initialTab?: 'general' | 'backup' | 'users' | 'tags' | 'audio' | 'reports' | 'categories' | 'canned' | 'supabase' | 'csat' | 'audit' | 'vendors' | 'sla_page' | 'attachments' | 'analytics' | 'table_editor';
+  initialTab?: 'general' | 'backup' | 'users' | 'login_history' | 'tags' | 'audio' | 'reports' | 'categories' | 'canned' | 'supabase' | 'csat' | 'audit' | 'vendors' | 'sla_page' | 'attachments' | 'analytics' | 'table_editor';
   realtimeStatus?: SyncConnectionStatus;
   onlineUsers?: ActiveUserPresence[];
   totalConnections?: number;
@@ -164,9 +166,11 @@ export const AdminView: React.FC<AdminViewProps> = ({
   cabActivities = [],
   onImportCloudData,
 }) => {
-  const [adminTab, setAdminTab] = useState<'general' | 'backup' | 'users' | 'tags' | 'audio' | 'reports' | 'categories' | 'canned' | 'supabase' | 'csat' | 'audit' | 'vendors' | 'sla_page' | 'attachments' | 'analytics' | 'table_editor'>(
+  const [adminTab, setAdminTab] = useState<'general' | 'backup' | 'users' | 'login_history' | 'tags' | 'audio' | 'reports' | 'categories' | 'canned' | 'supabase' | 'csat' | 'audit' | 'vendors' | 'sla_page' | 'attachments' | 'analytics' | 'table_editor'>(
     initialTab || 'general'
   );
+
+  const [selectedLoginHistoryUserId, setSelectedLoginHistoryUserId] = useState<string>('ALL');
 
   const [isCloudImportModalOpen, setIsCloudImportModalOpen] = useState(false);
 
@@ -236,6 +240,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
     }
     setShowVendorModal(false);
   };
+
+  // User Login History Oversight Modal State
+  const [loginHistoryUser, setLoginHistoryUser] = useState<AppUser | null>(null);
 
   // New Tag State
   const [newTagInput, setNewTagInput] = useState('');
@@ -445,6 +452,14 @@ export const AdminView: React.FC<AdminViewProps> = ({
           icon: Users,
           badge: `${users.length} موظف`,
           badgeColor: 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300',
+        },
+        {
+          id: 'login_history',
+          label: 'سجل دخول وحضور الموظفين 🕒',
+          desc: 'مراقبة أوقات الدخول والخروج ومدة جلسات كل موظف',
+          icon: Clock,
+          badge: `${onlineUsers.length} متصل 🟢`,
+          badgeColor: 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300',
         },
         {
           id: 'vendors',
@@ -920,15 +935,29 @@ export const AdminView: React.FC<AdminViewProps> = ({
       {/* 1. USERS TAB */}
       {adminTab === 'users' && (
         <div className="space-y-4">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-wrap justify-between items-center gap-2">
             <h3 className="font-bold text-slate-900 dark:text-white text-sm">حسابات الموظفين والمشرفين المسجلة</h3>
-            <button
-              onClick={() => setShowAddUserModal(true)}
-              className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition shadow flex items-center gap-1.5"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>إنشاء حساب موظف جديد</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedLoginHistoryUserId('ALL');
+                  setAdminTab('login_history');
+                }}
+                className="px-3.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 rounded-xl text-xs font-bold transition border border-emerald-200 dark:border-emerald-800 flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                title="الانتقال إلى تبويب سجل حضور ودخول فريق العمل"
+              >
+                <Clock className="w-3.5 h-3.5 text-emerald-500" />
+                <span>تبويب سجل الدخول والرقابة 🕒</span>
+              </button>
+              <button
+                onClick={() => setShowAddUserModal(true)}
+                className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition shadow flex items-center gap-1.5 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>إنشاء حساب موظف جديد</span>
+              </button>
+            </div>
           </div>
 
           <div className="bg-white dark:bg-slate-800/90 rounded-3xl border border-slate-200 dark:border-slate-700/80 shadow-sm overflow-hidden">
@@ -941,6 +970,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   <th className="p-3.5">البريد الإلكتروني</th>
                   <th className="p-3.5">القسم</th>
                   <th className="p-3.5">الدور والصلاحيات</th>
+                  <th className="p-3.5 text-center">سجل الدخول والرقابة ⏱️</th>
                   <th className="p-3.5 text-center">إجراء</th>
                 </tr>
               </thead>
@@ -1015,6 +1045,20 @@ export const AdminView: React.FC<AdminViewProps> = ({
                       </div>
                     </td>
                     <td className="p-3.5 text-center">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedLoginHistoryUserId(u.id);
+                          setAdminTab('login_history');
+                        }}
+                        className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 rounded-xl text-[11px] font-bold border border-emerald-200 dark:border-emerald-800 transition flex items-center justify-center gap-1.5 mx-auto cursor-pointer shadow-2xs"
+                        title="استعراض سجل أوقات الدخول والخروج في التبويب المخصص"
+                      >
+                        <Clock className="w-3.5 h-3.5 text-emerald-500" />
+                        <span>سجل الدخول 🕒</span>
+                      </button>
+                    </td>
+                    <td className="p-3.5 text-center">
                       {users.length > 1 && (
                         <button
                           onClick={() => {
@@ -1035,6 +1079,16 @@ export const AdminView: React.FC<AdminViewProps> = ({
             </table>
           </div>
         </div>
+      )}
+
+      {/* 1.5 EMPLOYEE LOGIN & ATTENDANCE OVERSIGHT TAB */}
+      {adminTab === 'login_history' && (
+        <EmployeeLoginHistoryTab
+          users={users}
+          auditLogs={auditLogs}
+          onlineUsers={onlineUsers}
+          initialSelectedUserId={selectedLoginHistoryUserId}
+        />
       )}
 
       {/* 2. EXTERNAL VENDORS & PARTNERS DIRECTORY TAB */}
@@ -2959,6 +3013,16 @@ create policy "Allow all on system_cloud_store" on system_cloud_store for all us
           }
         }}
       />
+
+      {/* Employee Login & Attendance Oversight Modal */}
+      {loginHistoryUser && (
+        <UserLoginHistoryModal
+          user={loginHistoryUser}
+          auditLogs={auditLogs}
+          onlineUsers={onlineUsers}
+          onClose={() => setLoginHistoryUser(null)}
+        />
+      )}
     </div>
   );
 };

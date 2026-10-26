@@ -328,7 +328,7 @@ export default function App() {
 
   // Tab & Navigation: Default to 'home' (الصفحة الرئيسية) with the welcome banner!
   const [currentTab, setCurrentTab] = useState<'home' | 'dashboard' | 'issues' | 'sla' | 'customer' | 'admin' | 'cab' | 'analytics'>('home');
-  const [adminSubTab, setAdminSubTab] = useState<'general' | 'backup' | 'users' | 'tags' | 'audio' | 'reports' | 'categories' | 'canned' | 'supabase' | 'csat' | 'audit'>('general');
+  const [adminSubTab, setAdminSubTab] = useState<'general' | 'backup' | 'users' | 'login_history' | 'tags' | 'audio' | 'reports' | 'categories' | 'canned' | 'supabase' | 'csat' | 'audit'>('general');
   const [initialFilterStatus, setInitialFilterStatus] = useState<string>('Open');
   const [isGlobalCloudImportModalOpen, setIsGlobalCloudImportModalOpen] = useState(false);
 

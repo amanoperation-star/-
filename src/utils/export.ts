@@ -49,6 +49,34 @@ export function exportTicketsToCSV(issues: Issue[], filename?: string) {
   document.body.removeChild(link);
 }
 
+export function exportCustomObjectsToCSV(data: Record<string, any>[], filename: string) {
+  if (data.length === 0) {
+    alert('لا توجد بيانات لتصديرها!');
+    return;
+  }
+
+  const headers = Object.keys(data[0]);
+  let csvContent = '\uFEFF'; // UTF-8 BOM
+  csvContent += headers.map((h) => `"${h.replace(/"/g, '""')}"`).join(',') + '\n';
+
+  data.forEach((rowObj) => {
+    const row = headers.map((h) => {
+      const val = rowObj[h] != null ? String(rowObj[h]) : '';
+      return `"${val.replace(/"/g, '""')}"`;
+    });
+    csvContent += row.join(',') + '\n';
+  });
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
 export function exportTicketsToJSON(issues: Issue[]) {
   const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(issues, null, 2));
   const link = document.createElement('a');
